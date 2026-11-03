@@ -55,6 +55,9 @@ local ACCOUNT_BIND_TYPES = { [7] = true, [8] = true, [9] = true }
 
 -- itemID -> link, for each item requested and not yet seen loaded.
 local waiting = {}
+-- itemID -> time of the first request; never cleared, so the 10 s owned-data
+-- deadline in Scoring is fixed from the first request in the session.
+local requestedAt = {}
 -- itemID -> true, for the items whose data event arrived in the current batch.
 local arrived = {}
 local scheduled = false
@@ -259,6 +262,7 @@ local function FillItem(facts, link)
         C_Item.GetItemInfo(link)
     if name == nil then
         waiting[itemID] = link
+        requestedAt[itemID] = requestedAt[itemID] or GetTime()
         facts.pending = true
         return
     end
@@ -427,6 +431,13 @@ end
 -- @param callback function
 function ItemFacts.OnLoaded(callback)
     callbacks[#callbacks + 1] = callback
+end
+
+--- Time of the first item-data request in this session, if any.
+-- @param itemID number
+-- @treturn number|nil
+function ItemFacts.RequestedAt(itemID)
+    return requestedAt[itemID]
 end
 
 -- Reads the items whose event arrived. One debug line says how many loaded.

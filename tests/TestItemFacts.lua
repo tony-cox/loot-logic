@@ -39,6 +39,18 @@ local function CountLines(text)
 end
 
 return {
+    ["Facts: the first item-data request time is kept by later requests"] = function()
+        Boot()
+        local itemID = 97101
+        h.Equal(ItemFacts.RequestedAt(itemID), nil, "not requested")
+        h.Stub.SetItemPending(itemID, { itemID = itemID, link = "item:" .. itemID })
+        local first = GetTime()
+        ItemFacts.FromLink("item:" .. itemID)
+        h.Equal(ItemFacts.RequestedAt(itemID), first, "first request time")
+        h.Stub.Advance(5)
+        ItemFacts.FromLink("item:" .. itemID)
+        h.Equal(ItemFacts.RequestedAt(itemID), first, "later request does not move it")
+    end,
     ["Facts: every fact of a gear piece in a bag slot"] = function()
         local item = Place("robe", 0, 1, { quality = 3, bound = false })
         h.Stub.SetTooltipLines(item.link, { "Test Robe", "Binds when equipped" })

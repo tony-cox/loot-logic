@@ -54,6 +54,23 @@ local function Compare(item, key, loadout)
 end
 
 return {
+    ["owned item data waits once across levels and refreshes on late arrival"] = function()
+        Boot()
+        local owned = Item({ stats = { ITEM_MOD_AGILITY_SHORT = 20 } })
+        h.Stub.SetItemPending(owned.itemID, owned)
+        local candidate = Item({ stats = { ITEM_MOD_AGILITY_SHORT = 10 } })
+        LootLogicDB.characters.druid.bags = { gear = { owned.link } }
+        h.Equal(Compare(candidate).pending, true, "initially pending")
+        h.Stub.Advance(9)
+        h.Equal(Compare(candidate).pending, true, "still pending")
+        h.Stub.Advance(1)
+        h.Equal(Compare(candidate).baseline, 0, "omitted after deadline")
+        local generation = ns.Generations.Get("gearOthers")
+        h.Stub.LoadItem(owned.itemID)
+        h.Stub.Advance(ns.ItemFacts.BATCH_SECONDS)
+        h.Equal(ns.Generations.Get("gearOthers"), generation + 1, "late load invalidates")
+        h.Equal(Compare(candidate).baseline, 40, "loaded piece included")
+    end,
     ["unavailable saved specs stay unchanged and supply no score or comparison"] = function()
         Boot()
         local entry = LootLogicDB.characters.druid
@@ -500,6 +517,8 @@ return {
     ["upgrade percentage boundary empty baseline and fallback disabled"] = function()
         Boot()
         h.Equal(Scoring.IsUpgrade(101, 100, 1), true, "at threshold")
+        h.Equal(Scoring.IsUpgrade(6.6, 6, 10), true, "fractional threshold")
+        h.Equal(Scoring.IsUpgrade(6.599, 6, 10), false, "below fractional threshold")
         h.Equal(Scoring.IsUpgrade(102, 100, 1), true, "above threshold")
         h.Equal(Scoring.IsUpgrade(100.5, 100, 1), false, "below threshold")
         h.Equal(Scoring.IsUpgrade(100, 100, 0), false, "must improve")
