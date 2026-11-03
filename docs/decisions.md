@@ -183,6 +183,13 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 | D158 | spec 7.2, 8.2 and 8.5; independent stage 10 review finding 3 | What happens when a saved loadout names a spec with no weights in this build? | **Treat it as no spec.** The owner accepted excluding it from scoring and applying the current character's existing `nospec` gear protection, including when other loadouts are scored. Preserve the saved spec. Other characters with no scored loadout receive no upgrade advice; link-only results still check other characters. Applied to spec 7.2, 8.2 and 8.5, technical findings 8, and UX 3.8. This does not authorize silently ignoring malformed shipped percent weights, which remain a programming error. | 2026-11-04 |
 | D159 | spec 7.2 step 1d; review 20 (M0 stage 12) | Does a want by here let a tradable profession tool pass step 1d? | **Yes.** A tradable tool passes to step 4 when a want by here or any eligible character matches it, so a tool only here wants gets `wantedhere`. A soulbound tool still always stays. Applied to spec 7.2 step 1d. | 2026-11-04 |
 
+### Stage 11 scoring review decisions
+
+| # | Raised in | Question | Answer | Date |
+|---|---|---|---|---|
+| D160 | spec 8.4; Copilot comment 4460440756 on PR 16 | What does an owned ring or trinket that scores below 0 do to the baseline? | **It counts as 0.** A negative weaker piece is treated as an empty slot: the baseline is 0, no baseline piece is named, and any positive candidate is an upgrade with an infinite gain. A candidate that scores 0 or less is never an upgrade. Applied to spec 8.4 (rings and trinkets). | 2026-11-04 |
+| D161 | spec 8.4; Copilot comment 4460440845 on PR 16 | May a unique-equipped weapon be an upgrade for one hand while its twin stays in the other? | **No.** The candidate is not an upgrade for that hand. A different partner that would make a better pair is not searched for: the twin already owned could take that place, so nothing is lost in practice. Applied to spec 8.4 (pairs). Comparing every pair and two-hander as a whole setup is a possible later addition (spec 23). | 2026-11-04 |
+
 ### Spec questions
 
 Answered 2026-10-28; the spec reflects them.
