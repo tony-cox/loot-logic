@@ -61,6 +61,11 @@ Read-only review. Format: number, severity, NEW or LATENT, files and lines, conf
 
 Mode: <full | changes: target>
 Mechanical checks: <result>
+Branch: <current branch>
+Commit: <full current HEAD id; review range endpoints belong in Mode above>
+Scope: <files or sections covered>
+Input artifacts: <handoff, plan and findings paths, or none>
+Uncommitted changes: <relevant files and whether they are in scope, or none>
 ```
 
 Append each finding, and a `Progress:` line after each stage, right after you establish it, so a cut-off loses nothing. Finding format:

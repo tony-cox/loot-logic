@@ -51,6 +51,10 @@ Read-only review. Format: number, category, severity, file and line, the questio
 
 Scope: <milestone | sections | full>
 In scope: <spec, technical-findings and ux sections>
+Branch: <current branch>
+Commit: <full current HEAD id>
+Input artifacts: <handoff, plan and findings paths, or none>
+Uncommitted changes: <relevant files and whether they are in scope, or none>
 ```
 
 In step 3, append a section listing each live check the scope relies on, one line each:
