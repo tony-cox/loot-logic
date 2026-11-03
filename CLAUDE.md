@@ -42,3 +42,10 @@ The outcomes are in `docs/spec.md` section 1 (summary of decisions) and section 
 
 - Before any commit that could leave the docs, or the code and the spec, out of sync, ask the user whether to run the `consistency` agent first (`changes` mode suits a single commit). Commit only after they answer.
 - The `buildability` agent checks whether a spec scope (a milestone or a section) can be built without guessing. Run it on request or before starting a milestone, not before every commit.
+
+## Build agents
+
+- `planner` turns a named stage of the spec into an ordered plan in `.work/` (read-only; lists questions for the owner instead of deciding them).
+- `implementer` writes the code and offline tests for one plan stage, runs the tools, and stops on anything the docs leave open. It does not commit unless told to.
+- `code-reviewer` reviews a diff, range or PR against the spec, style guide and rules, and logs findings to `.work/` (read-only).
+- Typical order: `buildability` on the milestone, `planner`, then `implementer` and `code-reviewer` per stage, then, before the commit, ask whether to run `consistency` (see Consistency check).
