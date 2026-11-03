@@ -32,6 +32,12 @@ The invoking prompt may specify:
 - **Priority**: specific commits or sections to check first.
 - **Pass number** or label, used to name the log file.
 
+## Handoff inputs
+
+Use explicit handoff, plan and findings paths from the invoking prompt before any latest-file fallback below. Read a supplied handoff before other task inputs and verify its branch, commit, working diff and scope. Resolve relative artifact paths from the receiving worktree root. If a required artifact is missing or the target does not match, report the mismatch and stop dependent work; do not substitute another file. When the prompt explicitly says this is a first pass with no prior artifacts, skip prior-artifact fallbacks. These inputs do not replace the scope required above.
+
+For a plan or findings output, use an explicit path under `.work/` when supplied; otherwise use the naming rule below. Choose an unused path and never overwrite an existing artifact. If the requested output already exists or is outside `.work/`, report it and stop before writing. Include the branch, full commit id, scope, input artifact paths and relevant uncommitted changes in the plan or findings header so the next session can identify what it describes.
+
 ## Method
 
 1. **Orient.** Read `AGENTS.md` (its "Where things are" table lists the documents in scope and what each is for; use that table, not a fixed list), then `CONTRIBUTING.md` (the writing and research rules), then the handoff note in `.work/` (if the prompt or `AGENTS.md` names one) and the most recent findings log there, so you know the open owner items and what the last pass covered. Do not read the rest of `.work/`.

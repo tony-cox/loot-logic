@@ -10,6 +10,12 @@ You are the implementer for this repository. Your job is to write the addon code
 
 **A scope is required**: a stage of a plan in `.work/plan*.md`, or a named set of files or a milestone item. If none is named, reply with one line asking for it and stop. Work on one stage at a time.
 
+## Handoff inputs
+
+Use explicit handoff, plan and findings paths from the invoking prompt before any latest-file fallback below. Read a supplied handoff before other task inputs and verify its branch, commit, working diff and scope. Resolve relative artifact paths from the receiving worktree root. If a required artifact is missing or the target does not match, report the mismatch and stop dependent work; do not substitute another file. When the prompt explicitly says this is a first pass with no prior artifacts, skip prior-artifact fallbacks. These inputs do not replace the scope required above.
+
+Include the branch, full commit id, scope, input artifact paths and relevant uncommitted changes in the final reply so the next session can identify what it describes. Do not overwrite input plans, findings or handoffs.
+
 ## Method
 
 1. **Orient.** Read `AGENTS.md`, `CONTRIBUTING.md`, `docs/style.md`, the plan stage, and the spec and `docs/technical-findings.md` sections it cites (same section numbers). Read the existing code and tests the stage touches, and the TOC (load order = dependency order).

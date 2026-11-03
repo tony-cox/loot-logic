@@ -17,7 +17,7 @@ This file is read by every coding tool used on the repo (Codex reads it directly
 | `docs/decisions.md` | Decision log: open and answered decisions with dates. The place for product decisions and their history |
 | `docs/style.md` | Lua style guide and tooling (StyLua, luacheck) for the addon code; draft apart from the accepted points |
 | `CONTRIBUTING.md` | Rules for writing docs and comments, and for researching and using other addons' code |
-| `agents/` | The build agents: one source per agent in `agents/src/`, and `agents/build.py`, which generates the Claude Code and Codex agent files from them |
+| `agents/` | The build agents: one source per agent in `agents/src/`, and `agents/build.py`, which generates the Claude Code and Codex agent files from them. Also `agents/handoff-template.md` (session handoff) and `agents/SMOKE-TEST.md` (dual-tool setup check) |
 
 ## Writing docs and code comments
 
@@ -40,7 +40,7 @@ The outcomes are in `docs/spec.md` section 1 (summary of decisions) and section 
 ## Git and pull requests
 
 - Never merge a PR, push to `master`, or rewrite history on `master`. Every write to `master` is made by a human.
-- End each commit message and PR description with the attribution lines your tool is configured to add, naming the model that did the work.
+- End each commit message and PR description with `Assisted-by: <tool> (<model name>)`, for example `Assisted-by: Codex (GPT-6)`. Use `Claude Code` or `Codex` as the tool and the actual model reported by the session; never guess a model name. If the session does not expose it, write `model not exposed`. Include one line per tool and model that contributed to the change. Keep any additional configured attribution above these lines.
 - Request a Copilot review on every PR straight after opening it: `gh pr edit {number} --add-reviewer @copilot` (`gh pr create` has no option for it). Copilot does not appear in the reviewer list afterwards; a "Running Copilot Code Review" workflow run starting shows the request worked.
 - Sign off every comment posted through the owner's account (a PR comment, a review reply, an issue comment) with a line naming the model, such as "Posted by <model name> on behalf of the account owner", so it is clear the owner did not write it.
 
@@ -74,6 +74,20 @@ To use an agent in Codex, ask for it by name (for example "spawn the code-review
 - `.work/` is ignored by git and holds the plans and logs. Agents number their files by "the next unused number", so give each tool its own checkout or worktree, or run one agent at a time, to avoid two agents choosing the same number.
 - One branch per stage still applies. Say in the branch or PR which tool built it; a review by the other tool is welcome and uses the same `code-reviewer` definition, so the findings are comparable.
 
+### Handoff between sessions or worktrees
+
+The sending session prepares a handoff using `agents/handoff-template.md`. Include the branch, full commit id, exact scope and next action, plan path and stage, relevant findings paths, pending owner decisions, and validation results. Identify any uncommitted changes separately: a commit id alone does not include them.
+
+Ignored `.work/` files do not travel with a branch. Copy the named plan, findings and handoff into the receiving worktree before starting dependent work. Preserve their contents, use unused destination names, and record the destination paths in the handoff. Do not overwrite another session's artifacts. Transfer any required uncommitted changes explicitly and verify the receiving diff before using them.
+
+The receiving session checks the branch, commit and working diff against the handoff and opens the exact named artifacts. Explicit paths take precedence over choosing the latest file. If a required artifact is absent, or the target differs from the handoff, report the mismatch before doing dependent work. A first planning or review pass may have no prior artifact; record that explicitly. Do not infer that missing findings mean a review passed.
+
+Keep the plan and logs in `.work/`. When preparing the PR, include the stage, review conclusions, unresolved findings, pending decisions and validation results so another checkout can recover the durable status. Handoffs report owner decisions with links to `docs/decisions.md`; they do not create decisions.
+
+### Checking dual support
+
+Follow `agents/SMOKE-TEST.md` when validating agent setup in either tool. Record the tool version, checked commit and working diff, and distinguish generated-file checks from successful agent launches. Repeat runtime checks after changing agent discovery or tool-specific configuration.
+
 ## Build workflow
 
 Per milestone (M0, M1, M2):
@@ -92,4 +106,4 @@ Then for each stage, in plan order:
 
 A stage that relies on a live check (technical findings 18) passes offline against the documented fallback, and its PR says which checks are still pending. The live client is available from 2026-11-05.
 
-When the owner asks "what's next", find the position from the latest plan in `.work/`, the open and merged PRs and the branches, and answer with the next step above.
+When the owner asks "what's next", use any supplied handoff and named plan first; otherwise find the position from the latest plan in `.work/`, the open and merged PRs and the branches. Verify that the artifacts describe the current branch and answer with the next step above. If the plan is missing from this worktree, report that rather than assume the stage is complete.

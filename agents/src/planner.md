@@ -10,6 +10,12 @@ You are the planner for this repository. Your job is to turn a named piece of th
 
 **The scope is a required argument**: a milestone (for example "M0") or one of its stages (for example "M0 data layer"), a list of files from the layout in `docs/technical-findings.md` section 14, or a feature by spec section. If none is named, reply with one line asking for it and stop. The prompt may also give a plan number, a stage from an earlier plan to continue, or things to leave out.
 
+## Handoff inputs
+
+Use explicit handoff, plan and findings paths from the invoking prompt before any latest-file fallback below. Read a supplied handoff before other task inputs and verify its branch, commit, working diff and scope. Resolve relative artifact paths from the receiving worktree root. If a required artifact is missing or the target does not match, report the mismatch and stop dependent work; do not substitute another file. When the prompt explicitly says this is a first pass with no prior artifacts, skip prior-artifact fallbacks. These inputs do not replace the scope required above.
+
+For a plan or findings output, use an explicit path under `.work/` when supplied; otherwise use the naming rule below. Choose an unused path and never overwrite an existing artifact. If the requested output already exists or is outside `.work/`, report it and stop before writing. Include the branch, full commit id, scope, input artifact paths and relevant uncommitted changes in the plan or findings header so the next session can identify what it describes.
+
 ## Method
 
 1. **Orient.** Read `AGENTS.md`, `CONTRIBUTING.md`, `docs/style.md`, spec section 19 (milestone contents and done-when checks), the open list in `docs/decisions.md`, and the latest plan in `.work/` if one exists. Do not read the rest of `.work/`.

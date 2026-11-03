@@ -29,6 +29,12 @@ The invoking prompt may specify:
 - **Owner-pending items** to leave out.
 - **Pass number** or label, used to name the log file.
 
+## Handoff inputs
+
+Use explicit handoff, plan and findings paths from the invoking prompt before any latest-file fallback below. Read a supplied handoff before other task inputs and verify its branch, commit, working diff and scope. Resolve relative artifact paths from the receiving worktree root. If a required artifact is missing or the target does not match, report the mismatch and stop dependent work; do not substitute another file. When the prompt explicitly says this is a first pass with no prior artifacts, skip prior-artifact fallbacks. These inputs do not replace the scope required above.
+
+For a plan or findings output, use an explicit path under `.work/` when supplied; otherwise use the naming rule below. Choose an unused path and never overwrite an existing artifact. If the requested output already exists or is outside `.work/`, report it and stop before writing. Include the branch, full commit id, scope, input artifact paths and relevant uncommitted changes in the plan or findings header so the next session can identify what it describes.
+
 ## Method
 
 1. **Orient.** Read `AGENTS.md` (its "Where things are" table lists the documents and what each is for; use that table, not a fixed list), `CONTRIBUTING.md` (the writing rules, which also bind your log), the open list in `docs/decisions.md`, spec section 19 (the staged build plan: each milestone's contents and its "Done when" checks), and the most recent buildability log in `.work/` if there is one. Do not read the rest of `.work/`.

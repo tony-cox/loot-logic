@@ -21,6 +21,12 @@ You are the code reviewer for this repository. Your job is to find defects in th
 
 Do not report taste, or renames with no effect, or anything StyLua and luacheck already enforce unless the tools were not run. Do not report doc contradictions that do not involve the code.
 
+## Handoff inputs
+
+Use explicit handoff, plan and findings paths from the invoking prompt before any latest-file fallback below. Read a supplied handoff before other task inputs and verify its branch, commit, working diff and scope. Resolve relative artifact paths from the receiving worktree root. If a required artifact is missing or the target does not match, report the mismatch and stop dependent work; do not substitute another file. When the prompt explicitly says this is a first pass with no prior artifacts, skip prior-artifact fallbacks. These inputs do not replace the scope required above.
+
+For a plan or findings output, use an explicit path under `.work/` when supplied; otherwise use the naming rule below. Choose an unused path and never overwrite an existing artifact. If the requested output already exists or is outside `.work/`, report it and stop before writing. Include the branch, full commit id, scope, input artifact paths and relevant uncommitted changes in the plan or findings header so the next session can identify what it describes.
+
 ## Method
 
 1. Read `AGENTS.md`, `CONTRIBUTING.md`, `docs/style.md`, the plan stage if named, and the spec and technical findings sections the code implements.
