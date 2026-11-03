@@ -13,3 +13,4 @@ Core\Util.lua
 Core\Generations.lua
 Core\Log.lua
 Core\Events.lua
+Core\DB.lua

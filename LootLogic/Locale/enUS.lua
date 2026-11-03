@@ -20,6 +20,10 @@ L.debugPrefix = "LootLogic debug:"
 -- The engine error chat line, without the prefix (docs/ux.md 6).
 L.errorEngine = "error on an item, see /ll status."
 
+-- The saved-data notices, without the prefix (technical findings 14).
+L.dataNewer = "saved data is newer than this version and is left unchanged."
+L.dataNotUpgraded = "saved data could not be upgraded and is left unchanged."
+
 -- Money parts (technical findings 14, Locale table).
 L.moneyGold = "%dg"
 L.moneySilver = "%ds"

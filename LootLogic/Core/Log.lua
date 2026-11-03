@@ -23,7 +23,16 @@ local FALLBACK_MAX_LOG = 300
 Log.errorCount = 0
 
 local errors = {}
+local debugLocked = false
 local engineLinePrinted = false
+
+--- Locks debug off (true) or lifts the lock (false). Core/DB.lua locks it when
+--- the session becomes read-only, so nothing is written to the saved data, and
+--- lifts it at the start of each load.
+-- @param locked boolean
+function Log.LockDebug(locked)
+    debugLocked = locked
+end
 
 --- Prints one "LootLogic:" line to the chat frame with print, which writes to
 --- the default chat frame (from memory; live check L63 covers the chat output).
@@ -39,11 +48,15 @@ function Log.Errors()
     return errors
 end
 
---- True when debug lines are written: LootLogicDB has a debug table with
+--- True when debug lines are written: Log.LockDebug has not locked it (a
+--- read-only session), LootLogicDB has a debug table with
 --- enabled true, and its saved schema is not newer than the code's (spec 6:
 --- then the saved data stays unchanged for the session).
 -- @treturn boolean
 function Log.IsDebugOn()
+    if debugLocked then
+        return false
+    end
     local db = LootLogicDB
     if type(db) ~= "table" or type(db.debug) ~= "table" then
         return false
@@ -88,7 +101,7 @@ end
 
 --- Records an error in the Errors list (no chat line) and writes the debug line
 --- "error: <area>: <message>".
--- @param area string "engine", "provider:<id>", "events" or "prices"
+-- @param area string "engine", "provider:<id>", "events", "prices" or "db"
 -- @param message string
 function Log.Error(area, message)
     message = tostring(message)
