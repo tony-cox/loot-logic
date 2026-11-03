@@ -31,3 +31,4 @@ Prices\Vendor.lua
 Engine\Cache.lua
 Engine\Stats.lua
 Engine\ItemFacts.lua
+Engine\Scoring.lua
