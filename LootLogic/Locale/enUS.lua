@@ -76,3 +76,11 @@ L.mailInboundAdded = "MAIL_SEND_SUCCESS: inbound entry added for %s: %s x%d"
 L.mailFailed = "MAIL_FAILED: capture dropped"
 L.mailClearedSeen = "inbound entry cleared, seen in the inbox: item %s x%s"
 L.mailClearedOld = "inbound entry cleared, older than 30 days: item %s x%s"
+
+-- Debug log lines of Engine/ (technical findings 15, Debug log): the price
+-- notice (provider id, results made stale), an unknown ITEM_MOD_* key, and the
+-- item-data batch (the one line that replaces the per-event lines).
+L.pricesStale = "%s: new data, %d cached results made stale"
+L.statsUnknownKey = "unknown stat key %s, ignored"
+L.itemsLoadedOne = "1 item loaded"
+L.itemsLoadedMany = "%d items loaded"

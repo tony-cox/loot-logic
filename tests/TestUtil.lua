@@ -117,6 +117,24 @@ return {
         h.Equal(count, 2, "two runs")
     end,
 
+    ["format pattern: a placeholder is a number wildcard, a percent sign is literal"] = function()
+        local pattern = Util.FormatPattern("Raises hit by %s%% (%d+).")
+        h.Equal(pattern, "^Raises hit by [%d%.,]+%% %([%d%.,]+%+%)%.$", "the pattern")
+        h.True(string.find("Raises hit by 1.5% (20+).", pattern), "matches with numbers")
+        h.Nil(string.find("Raises hit by lots% (20+).", pattern), "a word is not a number")
+        h.Nil(string.find("Equip: Raises hit by 1.5% (20+).", pattern), "anchored at the start")
+    end,
+
+    ["format pattern: numbered and precision placeholders are wildcards"] = function()
+        h.True(string.find("by 12 and 3.50", Util.FormatPattern("by %1$d and %2$.2f")), "numbered")
+    end,
+
+    ["format pattern: with capture a placeholder captures any text"] = function()
+        local pattern = Util.FormatPattern("Classes: %s", true)
+        h.Equal(pattern, "^Classes: (.+)$", "the pattern")
+        h.Equal(string.match("Classes: Warrior, Paladin", pattern), "Warrior, Paladin", "text")
+    end,
+
     ["money: parts, no padding, zero parts dropped"] = function()
         h.Equal(Util.FormatMoney(0), "0c", "zero")
         h.Equal(Util.FormatMoney(35), "35c", "copper only")
