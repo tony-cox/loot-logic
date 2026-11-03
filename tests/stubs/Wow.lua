@@ -20,7 +20,8 @@ Setters of h.Stub (keep this list in step with the code below):
   SetEquipmentSets(list)  the Equipment Manager sets of the current character;
                           each { id, name, items = { [slot] = itemID },
                           places = { [slot] = { where = "worn" | "bag" |
-                          "bank", slot, bag } or a plain number } }
+                          "bank", slot, bag } or a plain number }, noLocations =
+                          true makes GetItemLocations give nil }
   SetWornLink(slot, link) the link GetInventoryItemLink("player", slot) gives
   SetBagLink(bag, slot, link)
                           the link C_Container.GetContainerItemLink gives
@@ -464,6 +465,7 @@ function Stub.SetEquipmentSets(list)
             name = set.name,
             items = set.items or {},
             locations = locations,
+            noLocations = set.noLocations,
         }
     end
 end
@@ -493,7 +495,11 @@ C_EquipmentSet = {
         return FindSet(setID).items
     end,
     GetItemLocations = function(setID)
-        return FindSet(setID).locations
+        local set = FindSet(setID)
+        if set.noLocations then
+            return nil
+        end
+        return set.locations
     end,
 }
 

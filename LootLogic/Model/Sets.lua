@@ -237,7 +237,7 @@ local function ReadEquipmentSets()
     for _, setID in ipairs(C_EquipmentSet.GetEquipmentSetIDs()) do
         local name = C_EquipmentSet.GetEquipmentSetInfo(setID)
         local itemIDs = C_EquipmentSet.GetItemIDs(setID)
-        local locations = C_EquipmentSet.GetItemLocations(setID)
+        local locations = C_EquipmentSet.GetItemLocations(setID) or {}
         local items = {}
         for _, slot in ipairs(SortedKeys(itemIDs)) do
             local itemID = itemIDs[slot]

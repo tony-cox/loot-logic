@@ -101,6 +101,18 @@ return {
         )
     end,
 
+    ["Equipment Manager: a set with no locations is imported with suffix 0"] = function()
+        h.Stub.SetEquipmentSets({
+            { id = 1, name = "Cat", items = { [1] = 100 }, noLocations = true },
+        })
+        local here = Login()
+        h.DeepEqual(
+            here.importedSets["equipmentset:Cat"].items,
+            { { id = 100, suffix = 0 } },
+            "items"
+        )
+    end,
+
     ["Equipment Manager: a refresh bumps loadouts once and replaces the sets"] = function()
         ScriptCatSet()
         local here = Login()
