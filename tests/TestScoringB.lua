@@ -719,4 +719,113 @@ return {
         h.Equal(result.baseline, 20, "weaker ring")
         h.Equal(result.upgrade, true, "beats weaker ring")
     end,
+    ["a negative second ring or trinket never lowers the baseline below zero"] = function()
+        local entry = Boot()
+        ns.WeightTables["DRUID:harm"] = { weights = { AGI = 2, STR = -1 }, percent = {} }
+        local loadout = { name = "Harm", spec = "DRUID:harm" }
+        entry.loadouts = { loadout }
+        local good = Item({ stats = { ITEM_MOD_AGILITY_SHORT = 20 } })
+        local harmful = Item({ stats = { ITEM_MOD_STRENGTH_SHORT = 5 } })
+        local candidate = Item({ stats = { ITEM_MOD_AGILITY_SHORT = 10 } })
+        entry.bags = { gear = { good.link, harmful.link } }
+        local result = ns.Scoring.Compare(candidate, "druid", { loadout = loadout })
+        h.Equal(result.baseline, 0, "harmful piece counts as an empty slot")
+        h.Equal(result.upgrade, true, "positive candidate is an upgrade")
+        h.Equal(result.gainPct, math.huge, "empty slot gain")
+    end,
+    ["surplus identical rings are not protected beyond the free slots"] = function()
+        local entry = Boot()
+        local here = "Zugar Soulsour-Region"
+        LootLogicDB.characters[here].class = "DRUID"
+        LootLogicDB.characters[here].loadouts = { entry.loadouts[2] }
+        local best = Item({ stats = { ITEM_MOD_AGILITY_SHORT = 20 } })
+        local twin = Item({ stats = { ITEM_MOD_AGILITY_SHORT = 10 } })
+        LootLogicDB.characters[here].bags = { gear = { best.link, twin.link, twin.link } }
+        h.Stub.SetBagSize(0, 6)
+        h.Stub.SetBagItem(0, 1, { itemID = best.itemID, link = best.link, count = 1 })
+        h.Stub.SetBagItem(0, 2, { itemID = twin.itemID, link = twin.link, count = 1 })
+        h.Stub.SetBagItem(0, 4, { itemID = twin.itemID, link = twin.link, count = 1 })
+        local first = ns.ItemFacts.FromSlot(0, 2)
+        local second = ns.ItemFacts.FromSlot(0, 4)
+        h.Equal(ns.Scoring.InUse(first, here).inUse, true, "first twin fills the second ring slot")
+        h.Equal(ns.Scoring.InUse(second, here).inUse, false, "surplus twin is not protected")
+    end,
+    ["the worn loadout is named when it is among several winners"] = function()
+        local entry = Boot()
+        entry.loadouts = {
+            { name = "Cat", spec = "DRUID:cat" },
+            { name = "Restoration", spec = "DRUID:restoration", armor = "any", worn = true },
+        }
+        local chest = Item({
+            equipLoc = "INVTYPE_CHEST",
+            subclassID = 2,
+            stats = { ITEM_MOD_AGILITY_SHORT = 10, ITEM_MOD_INTELLECT_SHORT = 10 },
+        })
+        entry.bags = { gear = { chest.link } }
+        local result = ns.Scoring.InUse(chest, "druid")
+        h.Equal(result.inUse, true, "wins")
+        h.Equal(result.loadout.spec, "DRUID:restoration", "worn loadout named over the first")
+    end,
+    ["a unique one-hand weapon is not an upgrade next to its own twin"] = function()
+        local entry = Boot()
+        entry.class = "ROGUE"
+        entry.proficiency.spells[674] = true
+        local here = "Zugar Soulsour-Region"
+        LootLogicDB.characters[here].class = "ROGUE"
+        LootLogicDB.characters[here].proficiency = { spells = { [674] = true, [9077] = true } }
+        LootLogicDB.characters[here].loadouts = { entry.loadouts[2] }
+        local twin = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPON",
+            unique = true,
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10 },
+        })
+        local off = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONOFFHAND",
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 5 },
+        })
+        LootLogicDB.characters[here].gear = { slots = { [16] = twin.link } }
+        LootLogicDB.characters[here].bags = { gear = { off.link, twin.link } }
+        h.Stub.SetBagSize(0, 4)
+        h.Stub.SetBagItem(0, 1, { itemID = off.itemID, link = off.link, count = 1 })
+        h.Stub.SetBagItem(0, 2, { itemID = twin.itemID, link = twin.link, count = 1 })
+        local copy = ns.ItemFacts.FromSlot(0, 2)
+        local result = ns.Scoring.Compare(copy, here, { loadout = entry.loadouts[2] })
+        h.Equal(result.upgrade, false, "second copy cannot join the worn twin")
+    end,
+    ["a piece whose stats become readable after the leave-out is scored again"] = function()
+        local entry = Boot()
+        entry.loadouts = { entry.loadouts[2] }
+        local late = Item({
+            equipLoc = "INVTYPE_CHEST",
+            subclassID = 2,
+            stats = { ITEM_MOD_AGILITY_SHORT = 20 },
+        })
+        local candidate = Item({
+            equipLoc = "INVTYPE_CHEST",
+            subclassID = 2,
+            stats = { ITEM_MOD_AGILITY_SHORT = 10 },
+        })
+        entry.bags = { gear = { late.link } }
+        local original = ns.Stats.Get
+        local readable = false
+        ns.Stats.Get = function(link)
+            if link == late.link and not readable then
+                return nil
+            end
+            return original(link)
+        end
+        local options = { loadout = entry.loadouts[1] }
+        h.Equal(ns.Scoring.Compare(candidate, "druid", options).pending, true, "waits")
+        h.Stub.Advance(10)
+        h.Equal(ns.Scoring.Compare(candidate, "druid", options).baseline, 0, "left out")
+        h.Equal(ns.Scoring.InUse(late, "druid").inUse, false, "not protected while unreadable")
+        readable = true
+        h.Equal(ns.Scoring.Compare(candidate, "druid", options).baseline, 40, "baseline recovers")
+        h.Equal(ns.Scoring.InUse(late, "druid").inUse, true, "protection recovers")
+        ns.Stats.Get = original
+    end,
 }
