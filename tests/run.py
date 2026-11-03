@@ -90,10 +90,9 @@ def main(argv):
             _, cases = build_runtime(test_file)
             names = sorted(str(key) for key in cases.keys())
         except (LuaError, OSError, ValueError) as error:
-            # The case names are unknown, so the filter can only match the file part.
-            if pattern == "" or pattern in stem or pattern.startswith(stem + ": "):
-                print("FAIL %s: loading: %s" % (stem, error))
-                failed += 1
+            # The case names are unknown, so the filter cannot hide the failure.
+            print("FAIL %s: loading: %s" % (stem, error))
+            failed += 1
             continue
         for name in names:
             label = "%s: %s" % (stem, name)

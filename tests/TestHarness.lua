@@ -252,4 +252,19 @@ return {
         h.True(1, "true passes")
         h.Nil(nil, "nil passes")
     end,
+
+    ["DeepEqual compares stored fields and ignores metatable fallbacks"] = function()
+        local fallback = setmetatable({}, {
+            __index = function(_, key)
+                return key
+            end,
+        })
+        Raises(function()
+            h.DeepEqual(fallback, { noSuchKey = "noSuchKey" }, "fallback")
+        end)
+        Raises(function()
+            h.DeepEqual({ noSuchKey = "noSuchKey" }, fallback, "fallback reversed")
+        end)
+        h.DeepEqual(fallback, {}, "both hold nothing")
+    end,
 }
