@@ -74,7 +74,7 @@ return {
         h.Equal(type(textTable), "string", "message is text")
     end,
 
-    ["pcall wrapper: an error object with a failing tostring still returns false and text"] = function()
+    ["pcall wrapper: an error object whose tostring fails still gives false and text"] = function()
         local ok, text = Util.Pcall(function()
             error(
                 setmetatable({}, {

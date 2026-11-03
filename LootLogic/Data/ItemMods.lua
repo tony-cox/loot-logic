@@ -40,7 +40,7 @@ local ItemMods = {
     ITEM_MOD_BONUS_ARMOR_SHORT = "BONUSARMOR",
     -- No row for feral attack power (a druid-only key), spell power by school
     -- or resistances: unknown keys are ignored and logged, and L4 finds the
-    -- names (D153).
+    -- names.
     -- Base armour is the key note of L4; the Blizzard name for it in the stats
     -- table is from memory.
     RESISTANCE0_NAME = "ARMOR",

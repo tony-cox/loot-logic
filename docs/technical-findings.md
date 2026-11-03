@@ -59,7 +59,7 @@ Confidence labels are as in the spec: **confirmed**, **source-read**, **from mem
 
 ## 6. Data model
 
-- **Character key:** `first .. " " .. last .. "-" .. GetRealmName()`. If the second `UnitName` value is missing or contains "-" (non-Forever behaviour), the first name alone is used (Forever Ledger's rule). `GetRealmName()` is expected to return the region (unverified, L3).
+- **Character key:** `first .. " " .. last .. "-" .. GetRealmName()`. A character always has a first and a last name in Forever, so there is no one-name case; if `UnitName` gives no name, no roster entry is made. `race` is the second return of `UnitRace` (the token, such as "NightElf"; from memory, unverified, L3). Display-name overrides are compared exactly, because the client forces title case on names. `GetRealmName()` is expected to return the region (unverified, L3).
 - **Eligibility:** `UnitFactionGroup` and `GetRealmName` give the faction and the region compared for a destination. This is the rule Forever Ledger uses for "could mail you items" (source-read; L3). The call that reveals a character's ruleset is not known (L53), so LootLogic cannot hide characters on another ruleset: mail to one is refused by the game.
 - **Migrations** run at `ADDON_LOADED`. The proficiency snapshot is the `IsPlayerSpell` result for each proficiency spell.
 - **Stats** are re-read through `GetItemStats`.
@@ -612,7 +612,7 @@ TypeExamples = {
   - `C_Item`: GetItemInfo, GetItemInfoInstant, GetItemStats, GetDetailedItemLevelInfo, IsBound, IsBoundToAccountUntilEquip, DoesItemExist.
   - `C_Container`: GetContainerNumSlots, GetContainerItemInfo, GetContainerItemQuestInfo.
   - `Enum.BagIndex`: with CharacterBankTab_1..9.
-  - Unit functions: UnitName (two values), UnitClass, UnitLevel, UnitFactionGroup.
+  - Unit functions: UnitName (two values), UnitClass, UnitRace, UnitLevel, UnitFactionGroup, GetBuildInfo.
   - GetRealmName, IsPlayerSpell, C_EquipmentSet, C_TooltipInfo (scripted lines), TooltipDataProcessor, C_Timer (After and NewTimer on the manual clock), `date` and `time` (UTC, manual clock), event dispatch.
   - M0's tests of the price rules register their own fake provider in the test with `Prices.Register({ id, label, IsAvailable, GetPrice, OnUpdate, HasData, honoursLastScan })`; the Auctionator and AHDB fakes below are used from M1 and M2, with their files.
   - Fakes for `Auctionator.API.v1`, `AuctionDB`, BetterBags (through a LibStub/AceAddon stub with a Categories module), `BagBrother.Rules`, `ArkInventoryRules`, and `Outfitter` with `gOutfitter_GlobalSettings`.
@@ -655,7 +655,7 @@ Pass rules: each automatic check has a pass rule (its Expected column read as a 
 |---|---|---|---|---|---|
 | L1 | `C_EquipmentSet` and the Equipment Manager work | `/run print(C_EquipmentSet and C_EquipmentSet.GetNumEquipmentSets())`, then save a set in the character pane, with a random-suffix item in it; then `/dump C_EquipmentSet.GetItemIDs(<setID>)` and `/dump C_EquipmentSet.GetItemLocations(<setID>)` with that item worn, in the bags and in the bank | A number; the set saves; item IDs with no suffix, and locations that give the worn slot and the bag slot | Drop the Equipment Manager import; if a call gives the suffix, read it from that call | manual |
 | L2 | `UnitName` returns first and last | `/run print(UnitName("player"))` | `Zugar Soulsour` (two values) **Confirmed (team, beta play, 2026-10-31): names are two words.** | Key by first name plus a disambiguator | auto |
-| L3 | Region name and faction for eligibility | `/run print(GetRealmName(), UnitFactionGroup("player"))` | The same region string on all four characters; compare characters on different rulesets | Rework eligibility | manual |
+| L3 | Region name and faction for eligibility | `/run print(GetRealmName(), UnitFactionGroup("player"), select(2, UnitRace("player")))` | The same region string on all four characters, compare characters on different rulesets; the race token is the English name without spaces (such as "NightElf") | Rework eligibility | manual |
 | L4 | `GetItemStats` keys on Forever gear | `/dump C_Item.GetItemStats(GetInventoryItemLink("player",5))` on a hit or crit item; then `/dump C_Item.GetItemStats(<link>)` for a spell power item, a healing item, an expertise item and a spell piercing item | `ITEM_MOD_*_RATING_SHORT` keys; note the key for base armour, the keys a spell power item and a healing item return (one spell power key, or separate damage and healing keys), and the keys for expertise and spell piercing; also an item with spell power of one school (shadow, fire, nature) and an item with a resistance, for their keys (M0 has no row for school power, resistances or feral attack power until they are found) | Add tooltip parsing | auto |
 | L5 | `C_PlayerInfo.CanUseItem` | `/run print(C_PlayerInfo and C_PlayerInfo.CanUseItem and C_PlayerInfo.CanUseItem(2589))` | Function exists, returns a boolean | Proficiency spells only | auto |
 | L6 | Proficiency via `IsPlayerSpell` | `/run for _,id in ipairs({9078,9077,8737,750,9116,674,198,199,227,1180}) do print(id, IsPlayerSpell(id)) end` | true and false matching the class | `IsSpellKnown`, `C_SpellBook.IsSpellKnown`, or tooltip red lines | auto |

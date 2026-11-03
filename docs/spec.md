@@ -236,7 +236,7 @@ LootLogicDB = {
             region = "<region>",
             faction = "Horde",
             class = "DRUID",
-            race = "Tauren",
+            race = "Tauren",   -- the client's race token (unverified; L3)
             level = 23,
             -- nil: true; false: no gear upgrades routed to it (step 3b); its
             -- wants still apply (bank alts).
@@ -362,7 +362,7 @@ LootLogicDB = {
 ```
 
 **Notes:**
-- **Character key:** first name, a space, last name, a hyphen and the region ("Chamoomile Rejuvenade-<region>"). If the game gives only one name, the first name alone is used. How the parts are read: technical findings 6.
+- **Character key:** first name, a space, last name, a hyphen and the region ("Chamoomile Rejuvenade-<region>"). A character always has a first and a last name, so the key has no one-name form. How the parts are read: technical findings 6.
 - **Item keys:** an item instance is `itemID:suffixID` (suffix 0 when none). An imported-set member whose roll is not known when it is imported is stored with suffix 0, and in step 1c it matches every roll of its item ID. Imported-set and loadout items store the two parts as `id` and `suffix`.
 - **Migrations:** `migrations[n]` upgrades schema n-1 to n, in order (M2 raises `schema` to 2: `migrations[2]`, written and tested in M2 with the tables it assigns, turns `tooltipNoWant` off and applies the spec changes of section 8.2; M0 builds the framework with schema 1 and no migration), and defaults are deep-filled afterwards without overwriting. Deep-fill merges tables key by key; a list (`providerOrder`, `order`) is one value, kept whole when saved; a saved value of a different type from its default is replaced by the default; keys the code does not know are kept. If the saved schema is newer than the code, LootLogic leaves `LootLogicDB` unchanged for the session (no snapshots, no `lastSeen`, and commands that change data refuse), classifies from what is stored, and says so once, with the chat line "LootLogic: saved data is newer than this version and is left unchanged." (technical findings 14). A migration that fails is treated the same way, with the line "LootLogic: saved data could not be upgraded and is left unchanged."
 - **Display name:** the one name used for a character everywhere (bag sections, Wants buttons, Characters tab, tooltips, slash commands).
