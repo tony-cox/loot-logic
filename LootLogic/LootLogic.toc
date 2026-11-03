@@ -9,3 +9,7 @@
 
 Locale\enUS.lua
 Core\Init.lua
+Core\Util.lua
+Core\Generations.lua
+Core\Log.lua
+Core\Events.lua

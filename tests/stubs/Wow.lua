@@ -9,6 +9,7 @@ Setters of h.Stub (keep this list in step with the code below):
                           (default 0, UTC)
   SetAddOnMetadata(addon, field, value)
                           value C_AddOns.GetAddOnMetadata returns for an addon
+  MakeSecret()            a new token that issecretvalue reports as true
   FireEvent(event, ...)   fire an event on every frame registered for it
   ChatLines()             list of the chat lines printed so far
   ClearChat()             forget the captured chat lines
@@ -287,6 +288,22 @@ end
 function Stub.SetAddOnMetadata(addon, field, value)
     metadata[addon] = metadata[addon] or {}
     metadata[addon][field] = value
+end
+
+-- Secret values. The client's issecretvalue is a global function (source-read,
+-- technical findings 7.5; live check L25); the stub marks opaque tokens.
+local secrets = {}
+
+function issecretvalue(value)
+    return secrets[value] or false
+end
+
+--- Returns a new opaque token that issecretvalue reports as true.
+-- @treturn table
+function Stub.MakeSecret()
+    local token = {}
+    secrets[token] = true
+    return token
 end
 
 --- Fires an event on every frame registered for it.
