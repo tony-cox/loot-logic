@@ -22,9 +22,10 @@ SRC = ROOT / "agents" / "src"
 CLAUDE_OUT = ROOT / ".claude" / "agents"
 CODEX_OUT = ROOT / ".codex" / "agents"
 
-# access value -> Claude Code tool allowlist. Codex has no per-agent tool list
-# and its agent files cannot set a sandbox, so there the access rule is carried
-# by the instructions alone (see the Constraints section of each source).
+# access value -> Claude Code tool allowlist. This limits which tools exist, not
+# which paths they write: Write and Bash can still touch any file, so log-only
+# is held by each source's Constraints section. Codex has no per-agent tool list
+# and its agent files cannot set a sandbox, so it relies on the instructions too.
 CLAUDE_TOOLS = {
     "log-only": "Read, Grep, Glob, Bash, Write",
     "edit": "Read, Grep, Glob, Bash, Write, Edit",

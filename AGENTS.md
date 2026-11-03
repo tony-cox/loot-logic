@@ -65,7 +65,7 @@ Source frontmatter: `name` (the file name), `description` (one line), and `acces
 - `log-only`: reads the project and writes only its plan or findings log under `.work/`.
 - `edit`: also edits code and tests.
 
-Claude Code enforces `access` with a tool allowlist. Codex agent files cannot set a sandbox, so there the rule rests on each agent's Constraints section; run the read-only agents from a session whose sandbox you trust.
+Neither tool enforces `access` by path. In Claude Code, `log-only` agents get a tool allowlist without `Edit`, but `Write` and `Bash` can still write anywhere in the project, so the rule that they touch only `.work/` rests on each agent's Constraints section. Codex agent files cannot set a sandbox at all, so the same holds there. Treat `log-only` as a rule the agent follows, not a guarantee: check `git status` after running one, and run it from a session whose permissions you trust.
 
 To use an agent in Codex, ask for it by name (for example "spawn the code-reviewer agent on the working diff"); Codex starts a subagent only when asked. Write the agent's instructions for both tools: name actions ("read", "search", "write the log"), not one tool's functions.
 
