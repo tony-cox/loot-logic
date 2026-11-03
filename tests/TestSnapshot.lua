@@ -507,7 +507,9 @@ return {
         h.Stub.SetBagSize(6, 1)
         Put(6, 1, RING, 1)
         h.Stub.OpenBank()
-        h.True(Contains(LastLog(), "snapshot: bank: 1 gear links, 1 item IDs"), LastLog())
+        -- Classify writes its own bank line after this one.
+        text = table.concat(LootLogicDB.debug.log, "\n")
+        h.True(Contains(text, "snapshot: bank: 1 gear links, 1 item IDs"), text)
         h.Stub.SetInbox({ { items = { { link = Link(SWORD), count = 1 } } } })
         h.Stub.FireEvent("MAIL_SHOW")
         h.True(Contains(LastLog(), "snapshot: inbox: 1 gear links, 1 item IDs"), LastLog())

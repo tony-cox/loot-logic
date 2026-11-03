@@ -28,6 +28,7 @@ local function Boot()
             class = class,
             faction = faction or here.faction,
             region = here.region,
+            loadouts = {},
         }
     end
     Add(PRIEST, "Boneset", "Hallowine", "PRIEST")
@@ -295,11 +296,11 @@ return {
         Expect(Classified(), "none", "wantedhere", "here wants")
     end,
 
-    ["Classify: soulbound gear with no value passes 1e (until stage 13)"] = function()
+    ["Classify: soulbound gear with no value passes 1e and step 3 leaves it to step 6"] = function()
         Boot()
-        -- Interim: step 3 is not built yet, so gear leaves 1e and the later
-        -- steps decide. Stage 13 rewrites this test.
-        Bag({ sellPrice = 0, classID = 4, subclassID = 1, equipLoc = "INVTYPE_CHEST" }, {
+        -- Plate that the warlock cannot wear: no step 3 verdict, so the later
+        -- steps decide, and a soulbound piece with no value gets novalue.
+        Bag({ sellPrice = 0, classID = 4, subclassID = 4, equipLoc = "INVTYPE_CHEST" }, {
             bound = true,
         })
         local result = Classified()
@@ -427,11 +428,11 @@ return {
         Expect(Classified(), "vendor", "vendorbound", "soulbound")
     end,
 
-    ["Classify: a gear piece reaches the wants until step 3 is built"] = function()
+    ["Classify: a gear piece that step 3 leaves alone reaches the wants (3d)"] = function()
         Boot()
-        -- Interim: stage 13 inserts step 3 and rewrites this test.
         Want(PRIEST, { ["4:*"] = {} })
-        Bag({ classID = 4, subclassID = 1, equipLoc = "INVTYPE_CHEST" })
+        -- Plate: no loadout here or on the roster can use it.
+        Bag({ classID = 4, subclassID = 4, equipLoc = "INVTYPE_CHEST" })
         Expect(Classified(), "char:" .. PRIEST, "wanted", "gear wanted")
     end,
 

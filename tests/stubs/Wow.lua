@@ -48,6 +48,11 @@ Setters of h.Stub (keep this list in step with the code below):
                           to empty it; also the link GetContainerItemLink gives
   SetBagIndex(name, value)
                           change a member of Enum.BagIndex
+  SetCombat(on)           whether InCombatLockdown reports combat (boolean;
+                          default false)
+  SetProfileStep(ms)      milliseconds added to debugprofilestop at every call
+                          (default 0), so a test can make a pass take time
+  AdvanceProfile(ms)      add milliseconds to debugprofilestop once
   OpenBank()              fire BANKFRAME_OPENED
   CloseBank()             fire BANKFRAME_CLOSED
   SetItemInstant(itemID, fields)
@@ -646,6 +651,40 @@ Enum = { BagIndex = bagIndex }
 
 function Stub.SetBagIndex(name, value)
     bagIndex[name] = value
+end
+
+-- InCombatLockdown and debugprofilestop. The profile clock is a counter in
+-- milliseconds that moves only when a test moves it (confidence: from memory;
+-- debugprofilestop gives milliseconds as a number).
+local inCombat = false
+local profileMs = 0
+local profileStep = 0
+
+function InCombatLockdown()
+    return inCombat
+end
+
+function debugprofilestop()
+    profileMs = profileMs + profileStep
+    return profileMs
+end
+
+--- Sets whether InCombatLockdown reports combat.
+-- @param on boolean
+function Stub.SetCombat(on)
+    inCombat = on
+end
+
+--- Sets the milliseconds debugprofilestop adds at every call.
+-- @param ms number
+function Stub.SetProfileStep(ms)
+    profileStep = ms
+end
+
+--- Adds milliseconds to the profile clock once.
+-- @param ms number
+function Stub.AdvanceProfile(ms)
+    profileMs = profileMs + ms
 end
 
 --- Fires BANKFRAME_OPENED.

@@ -84,3 +84,6 @@ L.pricesStale = "%s: new data, %d cached results made stale"
 L.statsUnknownKey = "unknown stat key %s, ignored"
 L.itemsLoadedOne = "1 item loaded"
 L.itemsLoadedMany = "%d items loaded"
+
+-- The debug "classify" line of one full pass: items classified, milliseconds.
+L.classifyPass = "%s: %d items in %.1f ms"
