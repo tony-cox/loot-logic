@@ -239,6 +239,25 @@ return {
         h.Equal(LootLogicDB.schema, 3, "schema")
     end,
 
+    ["a negative or fractional saved schema is treated as 0 and still loads"] = function()
+        local calls = {}
+        DB.migrations[1] = function()
+            calls[#calls + 1] = 1
+        end
+        DB.migrations[2] = function()
+            calls[#calls + 1] = 2
+        end
+        ns.Init.schemaVersion = 2
+        for _, damaged in ipairs({ -1e20, -1, 0.5, 1.5 }) do
+            calls = {}
+            LootLogicDB = { schema = damaged }
+            Load()
+            h.DeepEqual(calls, { 1, 2 }, "calls for " .. tostring(damaged))
+            h.Equal(LootLogicDB.schema, 2, "schema for " .. tostring(damaged))
+            h.Equal(DB.IsReadOnly(), false, "read-only for " .. tostring(damaged))
+        end
+    end,
+
     ["a migration sees the data before the defaults are filled"] = function()
         local sawSettings = "unset"
         DB.migrations[2] = function(db)

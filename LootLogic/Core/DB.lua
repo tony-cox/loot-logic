@@ -185,7 +185,8 @@ function DB.Load()
         EnterReadOnly(L.dataNewer)
         return
     end
-    if type(saved) ~= "number" then
+    -- A damaged schema (not a number, negative, fractional, NaN) counts as none.
+    if type(saved) ~= "number" or saved < 0 or saved ~= math.floor(saved) then
         saved = 0
     end
     for number = saved + 1, target do
