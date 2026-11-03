@@ -11,7 +11,7 @@ A shared, standalone WoW: Forever addon for people who play alts. It sorts every
 - vendor/AH (unwanted items where the choice of vendor or auction house is the player's call: no usable price)
 - no category (everything else stays where it is, and the tooltip says why: quest items, set pieces, gear the character may wear later, and so on)
 
-A character can have several loadouts (a name plus a spec, such as Bear and Cat for a druid). Gear kept as the best piece for a loadout that is not currently worn gets no category: it stays in the bags, and its tooltip says why, so it is never offered for sale. A better piece for a loadout that is not worn takes its place, and the older piece is judged like any other item.
+A character can have several loadouts (a name plus a spec, such as Bear and Cat for a druid). Gear kept as the best piece for a loadout that is not currently worn gets no category: it stays in the bags, and its tooltip says why, so it is never offered for sale. A better piece for a loadout that is not worn becomes a winner at the levels where it is best. The older piece stays while it wins at any level in the look-ahead window for any scored loadout; otherwise it is judged like any other item.
 
 ## High level scope
 

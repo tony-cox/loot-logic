@@ -54,6 +54,11 @@ Setters of h.Stub (keep this list in step with the code below):
                           what C_Item.GetItemInfoInstant gives: equipLoc,
                           classID, subclassID
   SetKnownSpells(list)    the spell IDs IsPlayerSpell reports as known
+  SetCanUseItem(itemID, answer)
+                          script the live usability answer (boolean)
+  SetCanUseAPI(enabled)   enable or remove the optional live usability API
+                          (boolean)
+  CanUseItemCalls()       item IDs passed to the live usability API
   SetItem(itemID, fields) an item the client knows: name, link, quality,
                           itemLevel, reqLevel, sellPrice, bindType, equipLoc,
                           classID, subclassID, stack, stats (a table of
@@ -1007,6 +1012,41 @@ end
 
 function Stub.OutfitterHandlerCount(event)
     return #(outfitterHandlers[event] or {})
+end
+
+-- The optional current-character usability API (from memory; live check L5).
+local canUseAnswers = {}
+local canUseCalls = {}
+C_PlayerInfo = {
+    CanUseItem = function(itemID)
+        canUseCalls[#canUseCalls + 1] = itemID
+        return canUseAnswers[itemID] ~= false
+    end,
+}
+
+--- Scripts the live usability answer for one item.
+-- @param itemID number
+-- @param answer boolean
+function Stub.SetCanUseItem(itemID, answer)
+    canUseAnswers[itemID] = answer
+end
+
+--- The item IDs passed to the live usability API.
+-- @treturn table
+function Stub.CanUseItemCalls()
+    return canUseCalls
+end
+
+local canUseItem = C_PlayerInfo.CanUseItem
+
+--- Enables or removes the optional live usability API (L5).
+-- @param enabled boolean
+function Stub.SetCanUseAPI(enabled)
+    if enabled then
+        C_PlayerInfo.CanUseItem = canUseItem
+    else
+        C_PlayerInfo.CanUseItem = nil
+    end
 end
 
 return Stub
