@@ -47,5 +47,25 @@ The outcomes are in `docs/spec.md` section 1 (summary of decisions) and section 
 
 - `planner` turns a named stage of the spec into an ordered plan in `.work/` (read-only; lists questions for the owner instead of deciding them).
 - `implementer` writes the code and offline tests for one plan stage, runs the tools, and stops on anything the docs leave open. It does not commit unless told to.
-- `code-reviewer` reviews a diff, range or PR against the spec, style guide and rules, and logs findings to `.work/` (read-only).
-- Typical order: `buildability` on the milestone, `planner`, then `implementer` and `code-reviewer` per stage, then, before the commit, ask whether to run `consistency` (see Consistency check).
+- `code-reviewer` reviews a diff, range or PR against the spec, style guide and rules, including code comments, and logs findings to `.work/` (read-only).
+- `buildability` and `consistency` are as above.
+
+## Build workflow
+
+Per milestone (M0, M1, M2):
+
+1. **Buildability.** Run `buildability` on the milestone, once, before planning it. M0 passed at pass 07; run it for M1 after M0 is complete and merged, and for M2 after M1. Do not run it per stage (the planner's questions cover a stage). Gaps become decisions for the owner and are folded into the docs first.
+2. **Plan.** Run `planner` once for the whole milestone, so the stage boundaries are consistent. Questions for the owner are answered (decisions workflow) before the stage that needs them.
+
+Then for each stage, in plan order:
+
+3. **Branch.** One branch and one PR per stage. Cut the branch from the previous stage's branch (stacked), so work does not wait for merges. After the owner merges a stage, rebase the next stage onto `master`.
+4. **Implement.** Run `implementer` on the stage. Tests are only for the milestone's own files.
+5. **Review loop.** Run `code-reviewer` on the stage; `implementer` fixes the findings; repeat. Stop when no blocker or major finding is left (minors are logged and may stay). A contested finding, or one that exposes a gap in the docs, goes to the owner as a decision; it is not settled in code. If the review shows the plan was wrong, rerun `planner` for the remaining stages.
+6. **Consistency.** Ask the owner whether to run `consistency` (see Consistency check). It mostly checks that comments and code still match the spec.
+7. **Commit and push**, open the PR (with the Copilot review requested), and weigh Copilot's comments as suggestions. The owner merges.
+8. **Next stage.** Repeat from 3.
+
+A stage that relies on a live check (technical findings 18) passes offline against the documented fallback, and its PR says which checks are still pending. The live client is available from 2026-11-05.
+
+When the owner asks "what's next", find the position from the latest plan in `.work/`, the open and merged PRs and the branches, and answer with the next step above.
