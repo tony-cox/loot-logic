@@ -85,6 +85,11 @@ files["tests/TestVendor.lua"] = {
     globals = { "AuctionDB" },
 }
 
+-- The classification test that covers an unsellable item sets the same global.
+files["tests/TestClassifyA.lua"] = {
+    globals = { "AuctionDB" },
+}
+
 -- The stub defines the client names, so it may assign them.
 files["tests/stubs/Wow.lua"] = {
     globals = {
