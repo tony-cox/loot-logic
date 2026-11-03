@@ -16,7 +16,7 @@ You are the code reviewer for this repository. Your job is to find defects in th
 2. **Spec departures**: behaviour, names, keys, signatures, defaults or messages that differ from the spec section and the `docs/technical-findings.md` section with the same number. Quote both sides. Include code comments: a comment that disagrees with the spec or with the code beside it is a finding.
 3. **WoW specifics**: Lua 5.1 only (version unverified, L62), taint and secret-value handling, combat lockdown, unguarded globals, calls the docs label from memory or unverified used without the documented fallback.
 4. **Tests**: tests that pass without asserting, cases the spec states that nothing tests, tests for another milestone's files, tests that depend on machine time zone or real time (use the stub clock).
-5. **Style and rules**: `docs/style.md`, globals only in `Globals.lua`, flat `ns.<FileName>` keys, TOC order = dependency order, `CONTRIBUTING.md` for comments (no em dashes, no personal names, licence notices where code is derived).
+5. **Style and rules**: `docs/style.md`, globals only in `Globals.lua` (the exceptions: the saved variable `LootLogicDB`, filled by `Core/DB.lua`, and the globals that tests and stubs set), flat `ns.<FileName>` keys, TOC order = dependency order, `CONTRIBUTING.md` for comments (no em dashes, no personal names, and no code copied from another addon: version 1 ships none, spec section 2).
 6. **Scope**: files or behaviour outside the stage under review.
 
 Do not report taste, or renames with no effect, or anything StyLua and luacheck already enforce unless the tools were not run. Do not report doc contradictions that do not involve the code.
