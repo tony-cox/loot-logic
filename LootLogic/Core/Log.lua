@@ -78,6 +78,9 @@ function Log.Debug(area, text)
     if type(maxLog) ~= "number" then
         maxLog = FALLBACK_MAX_LOG
     end
+    if maxLog < 0 then
+        maxLog = 0
+    end
     while #log > maxLog do
         table.remove(log, 1)
     end

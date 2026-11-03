@@ -190,4 +190,10 @@ return {
             "[00:00:00] a: line 5",
         }, "last three lines")
     end,
+
+    ["debug: a negative maxLog keeps no lines and does not hang"] = function()
+        DebugOn(-1)
+        Log.Debug("a", "line")
+        h.DeepEqual(LootLogicDB.debug.log, {}, "nothing kept")
+    end,
 }

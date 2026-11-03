@@ -100,7 +100,11 @@ local function PcallResult(ok, ...)
     if ok then
         return true, ...
     end
-    return false, tostring((...))
+    local converted, text = pcall(tostring, (...))
+    if converted then
+        return false, text
+    end
+    return false, "(error object could not be converted to text)"
 end
 
 --- Calls fn under pcall. Returns true and what fn returned, or false and the
