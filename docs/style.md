@@ -38,7 +38,7 @@ The rules for the addon's Lua code. They follow the usual conventions for readab
 ## 4. Formatting
 
 - Indent with four spaces. No tabs.
-- Keep lines under 100 columns and comment lines under 80.
+- Keep lines to 100 columns at most and comment lines to 80 at most.
 - Use LF line endings. No trailing whitespace; end each file with one newline.
 - One statement per line. No semicolons.
 - One blank line between functions and between logical groups, none at the start or end of a block.
