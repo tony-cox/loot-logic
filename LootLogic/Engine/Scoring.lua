@@ -1,6 +1,5 @@
 --[[
-Scores, usability and single-slot comparisons (spec 8.1 to 8.5 and 8.7).
-Weapon pairs, two-slot baselines and in-use protection are built separately.
+Scores, usability, owned-piece comparisons and protection (spec 8.1 to 8.7).
 ]]
 
 local _, ns = ...
@@ -25,6 +24,50 @@ local ARMOR_SPELLS = { 9078, 9077, 8737, 750 }
 local RELIC_CLASSES = { [7] = "PALADIN", [8] = "DRUID", [9] = "SHAMAN" }
 local normalized = {}
 local baselines = {}
+local weaponPools = {}
+local weaponSets = setmetatable({}, { __mode = "k" })
+local protections = {}
+local waitingOwned = {}
+local occurrences = {}
+
+-- The item-data event and timer are unverified in game (L28 and L63).
+-- ItemFacts requests each item once; this deadline is shared by all levels.
+local function AwaitOwned(item, key)
+    local waiting = waitingOwned[item.itemID]
+    if not waiting then
+        waiting =
+            { deadline = (ItemFacts.RequestedAt(item.itemID) or GetTime()) + 10, characters = {} }
+        waitingOwned[item.itemID] = waiting
+        C_Timer.After(math.max(0, waiting.deadline - GetTime()), function()
+            if waitingOwned[item.itemID] == waiting then
+                for generation in pairs(waiting.characters) do
+                    Generations.Bump(generation)
+                end
+            end
+        end)
+    end
+    local generation = Roster.IsHere(key) and "gearHere" or "gearOthers"
+    waiting.characters[generation] = true
+    return GetTime() < waiting.deadline
+end
+
+ItemFacts.OnLoaded(function(ids)
+    local bump = {}
+    for _, id in ipairs(ids) do
+        local waiting = waitingOwned[id]
+        if waiting then
+            if GetTime() >= waiting.deadline then
+                for generation in pairs(waiting.characters) do
+                    bump[generation] = true
+                end
+            end
+            waitingOwned[id] = nil
+        end
+    end
+    for generation in pairs(bump) do
+        Generations.Bump(generation)
+    end
+end)
 
 local function Weights(spec)
     local source = WeightTables[spec]
@@ -244,8 +287,11 @@ end
 
 local function Owned(entry)
     local pieces = {}
-    for _, link in pairs((entry.gear or {}).slots or {}) do
-        AddOwned(pieces, link, "worn", true)
+    local slots = (entry.gear or {}).slots or {}
+    for slot = 1, 19 do
+        if slots[slot] then
+            AddOwned(pieces, slots[slot], "worn", true)
+        end
     end
     for _, where in ipairs({ "bags", "bank", "inbox" }) do
         for _, link in ipairs((entry[where] or {}).gear or {}) do
@@ -255,7 +301,65 @@ local function Owned(entry)
     for _, item in ipairs(entry.inbound or {}) do
         AddOwned(pieces, item.link, "inbound", false)
     end
+    local counts = {}
+    for _, piece in ipairs(pieces) do
+        local id = piece.where .. "|" .. piece.link
+        counts[id] = (counts[id] or 0) + 1
+        piece.occurrence = counts[id]
+    end
     return pieces
+end
+
+-- Snapshot links preserve container scan order. Map a live candidate's slot
+-- to its occurrence among equal links in that snapshot (L7 and L14).
+local function CandidateIdentity(item, options)
+    if not item then
+        return nil
+    end
+    local where = options and options.fromInbound and "inbound"
+        or options and options.fromInbox and "inbox"
+        or "bags"
+    local occurrence = 1
+    if item.bag and item.slot then
+        local first = Slots.bags.first
+        if item.bag >= Slots.bankTabs.first then
+            where, first = "bank", Slots.bankTabs.first
+        end
+        local cacheKey = table.concat({ item.bag, item.slot, item.link }, "|")
+        local cached = occurrences[cacheKey]
+        local stamp = Generations.Get("gearHere")
+        if cached and cached.stamp == stamp then
+            return { link = item.link, where = where, occurrence = cached.occurrence }
+        end
+        occurrence = 0
+        for bag = first, item.bag do
+            local last = C_Container.GetContainerNumSlots(bag) or 0
+            if bag == item.bag then
+                last = item.slot
+            end
+            for slot = 1, last do
+                local info = C_Container.GetContainerItemInfo(bag, slot)
+                if
+                    info
+                    and not ns.Util.IsSecret(info.hyperlink)
+                    and info.hyperlink == item.link
+                then
+                    occurrence = occurrence + 1
+                end
+            end
+        end
+        occurrence = math.max(1, occurrence)
+        occurrences[cacheKey] = { stamp = stamp, occurrence = occurrence }
+    end
+    return { link = item.link, where = where, occurrence = occurrence }
+end
+
+local function IsCandidate(piece, identity)
+    return identity
+        and not piece.worn
+        and piece.link == identity.link
+        and piece.where == identity.where
+        and piece.occurrence == identity.occurrence
 end
 
 local function Stamp(key)
@@ -270,37 +374,72 @@ local function Stamp(key)
     }, ":")
 end
 
--- Equal scores fall to item level while itemLevelFallback is on (spec 8.4).
-local function Better(piece, other, field)
-    if piece[field] ~= other[field] then
-        return piece[field] > other[field]
-    end
-    return field == "score"
-        and DB.Data().settings.gear.itemLevelFallback
-        and piece.itemLevel > other.itemLevel
-end
-
 local function KeepBest(list, piece, field)
-    if #list == 0 or Better(piece, list[1], field) then
-        list[2] = list[1]
-        list[1] = piece
-    elseif #list == 1 or Better(piece, list[2], field) then
-        list[2] = piece
-    end
+    list[#list + 1] = piece
+    table.sort(list, function(a, b)
+        if a[field] ~= b[field] then
+            return a[field] > b[field]
+        end
+        if
+            field == "score"
+            and DB.Data().settings.gear.itemLevelFallback
+            and a.itemLevel ~= b.itemLevel
+        then
+            return a.itemLevel > b.itemLevel
+        end
+        return a.order < b.order
+    end)
 end
 
-local function SelectPiece(list, excludeLink)
-    local piece = list[1]
-    if piece and not piece.worn and piece.item.link == excludeLink then
-        return list[2]
+local function SelectPiece(list, excludeLink, count, identity, first)
+    local selected = {}
+    local excluded = false
+    for _, piece in ipairs(list) do
+        if
+            identity
+            and (
+                (first and not piece.worn and piece.link == identity.link)
+                or IsCandidate(piece, identity)
+            )
+        then
+            excluded = true
+        elseif
+            not identity
+            and not excluded
+            and not piece.worn
+            and piece.item.link == excludeLink
+        then
+            excluded = true
+        else
+            local selectedFirst = selected[1]
+            if
+                not selectedFirst
+                or not (piece.item.unique and piece.item.itemID == selectedFirst.item.itemID)
+            then
+                selected[#selected + 1] = piece
+                if #selected == count then
+                    return piece
+                end
+            end
+        end
     end
-    return piece
+    return nil
 end
 
 local function BuildBaseline(key, loadout, group, evaluatedLevel)
-    local result = { scores = {}, levels = {} }
-    for _, piece in ipairs(Owned(Roster.Entry(key))) do
+    local result = { scores = {}, levels = {}, first = {} }
+    local pending = false
+    for order, piece in ipairs(Owned(Roster.Entry(key))) do
+        piece.order = order
+        if not piece.worn and not result.first[piece.link] then
+            result.first[piece.link] = piece
+        end
         local item = ItemFacts.FromLink(piece.link)
+        if item.pending and (not item.equipLoc or Scoring.Group(item) == group) then
+            if item.secret or AwaitOwned(item, key) then
+                pending = true
+            end
+        end
         if not item.pending and Scoring.Group(item) == group then
             local usable = Scoring.CanUse(item, key, {
                 loadout = loadout,
@@ -308,7 +447,7 @@ local function BuildBaseline(key, loadout, group, evaluatedLevel)
                 evaluatedLevel = evaluatedLevel,
             })
             if usable == nil then
-                return nil
+                pending = true
             end
             if usable then
                 local score = Scoring.Score(item, loadout.spec, group)
@@ -316,30 +455,30 @@ local function BuildBaseline(key, loadout, group, evaluatedLevel)
                     piece.item = item
                     piece.score = score
                     piece.itemLevel = item.itemLevel
-                    if score > 0 then
-                        KeepBest(result.scores, piece, "score")
-                    end
+                    KeepBest(result.scores, piece, "score")
                     KeepBest(result.levels, piece, "itemLevel")
+                elseif AwaitOwned(item, key) then
+                    -- Loaded but unreadable stats (L4): left out after 10 s.
+                    pending = true
                 end
             end
         end
     end
+    if pending then
+        return nil
+    end
     return result
 end
 
---- Best owned single-slot baseline by score, plus the highest item level.
---- Exclusion identifies the candidate's unworn link for here. Duplicate copy
---- and pair selection are the next scoring stage's separate rules.
---- Stage 11.5 adds pending owned-data handling, its 10-second leave-out and
---- load-event invalidation (spec 8.4). Until then, owned pieces with pending
---- item facts or unavailable stats are omitted, and their arrival alone does
---- not invalidate this cache. Unreadable usability is already pending here.
+--- Best owned baseline by score, plus the highest item level. Rings and
+--- trinkets use the weaker of two; weapons use WeaponBaseline instead.
 -- @param key string character key
 -- @param loadout table scored loadout
 -- @param options table group, optional excludeLink and evaluatedLevel;
 --   evaluatedLevel defaults to current level for direct baseline callers
 -- @treturn table score, item, where, itemLevel, highestItem, highestWhere;
---   pending = true when an owned piece's usability is unreadable
+--   pending = true while an owned piece's usability is unreadable or its
+--     item data is still loading (within 10 s of its first request)
 function Scoring.Baseline(key, loadout, options)
     local evaluatedLevel = options.evaluatedLevel or CharacterLevel(key)
     local cacheKey = table.concat({
@@ -365,13 +504,34 @@ function Scoring.Baseline(key, loadout, options)
     if Roster.IsHere(key) then
         excludeLink = options.excludeLink
     end
-    local best = SelectPiece(cached.result.scores, excludeLink)
-    if best then
+    local identity = options.identity
+    if excludeLink and not identity then
+        identity = CandidateIdentity({ link = excludeLink })
+    end
+    local first = identity and IsCandidate(cached.result.first[identity.link] or {}, identity)
+    local count = Slots.slotCount[options.group] or 1
+    local best = SelectPiece(cached.result.scores, excludeLink, count, identity, first)
+    local top = SelectPiece(cached.result.scores, excludeLink, 1, identity, first)
+    local highest = SelectPiece(cached.result.levels, excludeLink, count, identity, first)
+    if
+        Roster.IsHere(key)
+        and options.candidate
+        and options.candidate.unique
+        and options.group == "finger"
+    then
+        for _, piece in ipairs(cached.result.levels) do
+            if piece.worn and piece.item.itemID == options.candidate.itemID then
+                best = piece.score > 0 and piece or nil
+                highest = piece
+                break
+            end
+        end
+    end
+    if best and (best.score > 0 or (count == 2 and top and top.score > 0)) then
         result.score = best.score
         result.item = best.item
         result.where = best.where
     end
-    local highest = SelectPiece(cached.result.levels, excludeLink)
     if highest then
         result.itemLevel = highest.itemLevel
         result.highestItem = highest.item
@@ -380,8 +540,470 @@ function Scoring.Baseline(key, loadout, options)
     return result
 end
 
--- Fractional scores can compute an exact boundary gain a hair low.
-local GAIN_TOLERANCE = 1e-9
+local function WeaponPool(key, loadout, level)
+    local cacheKey =
+        table.concat({ key, loadout.spec, tostring(Scoring.BestArmorOnly(loadout)), level }, "|")
+    local stamp = Stamp(key)
+    local cached = weaponPools[cacheKey]
+    if cached and cached.stamp == stamp then
+        return cached.pieces
+    end
+    local pieces = {}
+    local pending = false
+    for order, piece in ipairs(Owned(Roster.Entry(key))) do
+        piece.order = order
+        local item = ItemFacts.FromLink(piece.link)
+        local group = Scoring.Group(item)
+        local weapon = group == "mainHand" or group == "offHand" or group == "twoHand"
+        if item.pending and (weapon or not item.equipLoc) then
+            pending = item.secret or AwaitOwned(item, key) or pending
+        elseif weapon then
+            piece.item = item
+            piece.itemLevel = item.itemLevel
+            for _, hand in ipairs({ "mainHand", "offHand", "twoHand" }) do
+                if
+                    group == hand or (hand == "offHand" and Slots.alsoGroup[item.equipLoc] == hand)
+                then
+                    local usable = Scoring.CanUse(item, key, {
+                        loadout = loadout,
+                        worn = piece.worn,
+                        evaluatedLevel = level,
+                        hand = hand,
+                    })
+                    if usable == nil then
+                        pending = true
+                    elseif usable then
+                        piece[hand] = Scoring.Score(item, loadout.spec, hand)
+                        if piece[hand] == nil and AwaitOwned(item, key) then
+                            pending = true
+                        end
+                    end
+                end
+            end
+            pieces[#pieces + 1] = piece
+        end
+    end
+    if pending then
+        return nil
+    end
+    weaponPools[cacheKey] = { stamp = stamp, pieces = pieces }
+    return pieces
+end
+
+local function WeaponSets(pieces)
+    if weaponSets[pieces] then
+        return weaponSets[pieces]
+    end
+    local result =
+        { pair = {}, two = {}, highest = { mainHand = {}, offHand = {}, twoHand = {} }, first = {} }
+    local function Add(list, main, off, score, level)
+        if score > 0 then
+            list[#list + 1] =
+                { main = main, off = off, score = score, level = level, order = #list + 1 }
+        end
+    end
+    for _, piece in ipairs(pieces) do
+        if not piece.worn and not result.first[piece.link] then
+            result.first[piece.link] = piece
+        end
+        for _, hand in ipairs({ "mainHand", "offHand", "twoHand" }) do
+            if piece[hand] ~= nil then
+                result.highest[hand][#result.highest[hand] + 1] = piece
+            end
+        end
+        if piece.twoHand then
+            Add(result.two, piece, nil, piece.twoHand, piece.itemLevel)
+        end
+        if piece.mainHand then
+            Add(result.pair, piece, nil, piece.mainHand, piece.itemLevel)
+            for _, off in ipairs(pieces) do
+                if
+                    off ~= piece
+                    and off.offHand
+                    and not (piece.item.unique and piece.item.itemID == off.item.itemID)
+                then
+                    Add(
+                        result.pair,
+                        piece,
+                        off,
+                        piece.mainHand + off.offHand,
+                        math.max(piece.itemLevel, off.itemLevel)
+                    )
+                end
+            end
+        end
+        if piece.offHand then
+            Add(result.pair, nil, piece, piece.offHand, piece.itemLevel)
+        end
+    end
+    local fallback = DB.Data().settings.gear.itemLevelFallback
+    for _, list in ipairs({ result.pair, result.two }) do
+        table.sort(list, function(a, b)
+            if a.score ~= b.score then
+                return a.score > b.score
+            end
+            if fallback and a.level ~= b.level then
+                return a.level > b.level
+            end
+            return a.order < b.order
+        end)
+    end
+    for _, list in pairs(result.highest) do
+        table.sort(list, function(a, b)
+            if a.itemLevel ~= b.itemLevel then
+                return a.itemLevel > b.itemLevel
+            end
+            return a.order < b.order
+        end)
+    end
+    weaponSets[pieces] = result
+    return result
+end
+
+local function WeaponBaseline(key, loadout, level, excludeLink, identity)
+    local pieces = WeaponPool(key, loadout, level)
+    if not pieces then
+        return { pending = true }
+    end
+    local sets = WeaponSets(pieces)
+    if excludeLink and not identity then
+        identity = CandidateIdentity({ link = excludeLink })
+    end
+    local first = identity and IsCandidate(sets.first[identity.link] or {}, identity)
+    local function Allowed(piece)
+        return not piece
+            or not identity
+            or not (
+                (first and not piece.worn and piece.link == identity.link)
+                or IsCandidate(piece, identity)
+            )
+    end
+    local best = {
+        mainScore = 0,
+        offScore = 0,
+        pairScore = 0,
+        twoScore = 0,
+        pairLevel = 0,
+        twoLevel = 0,
+        highest = {},
+    }
+    for hand, list in pairs(sets.highest) do
+        for _, piece in ipairs(list) do
+            if Allowed(piece) then
+                best.highest[hand] = piece
+                break
+            end
+        end
+    end
+    for _, set in ipairs(sets.two) do
+        if Allowed(set.main) then
+            best.twoScore, best.twoLevel, best.two = set.score, set.level, set.main
+            break
+        end
+    end
+    for _, set in ipairs(sets.pair) do
+        if Allowed(set.main) and Allowed(set.off) then
+            best.main, best.off, best.pairScore, best.pairLevel =
+                set.main, set.off, set.score, set.level
+            best.mainScore = set.main and set.main.mainHand or 0
+            best.offScore = set.off and set.off.offHand or 0
+            break
+        end
+    end
+    return best
+end
+
+local function ProtectionAt(key, loadout, group, level)
+    local cacheKey = table.concat(
+        { key, loadout.spec, tostring(Scoring.BestArmorOnly(loadout)), group, level },
+        "|"
+    )
+    local stamp = Stamp(key)
+    local cached = protections[cacheKey]
+    if cached and cached.stamp == stamp then
+        return cached.winners, cached.near
+    end
+    local winners = {}
+    local near = {}
+    if group == "mainHand" or group == "offHand" or group == "twoHand" then
+        local pieces = WeaponPool(key, loadout, level)
+        if not pieces then
+            return nil
+        end
+        local best = 0
+        local bestLevel = 0
+        local sets = {}
+        local function AddSet(a, b, score, firstHand)
+            if score <= 0 then
+                return
+            end
+            for _, piece in ipairs(pieces) do
+                if piece ~= a and piece ~= b then
+                    if
+                        a
+                        and piece.link == a.link
+                        and piece.order < a.order
+                        and piece[firstHand]
+                    then
+                        return
+                    end
+                    if b and piece.link == b.link and piece.order < b.order and piece.offHand then
+                        return
+                    end
+                end
+            end
+            local itemLevel = math.max(a and a.itemLevel or 0, b and b.itemLevel or 0)
+            if
+                score > best
+                or (
+                    score == best
+                    and DB.Data().settings.gear.itemLevelFallback
+                    and itemLevel > bestLevel
+                )
+            then
+                best, bestLevel, sets = score, itemLevel, {}
+            end
+            if
+                score == best
+                and (not DB.Data().settings.gear.itemLevelFallback or itemLevel == bestLevel)
+            then
+                sets[#sets + 1] = { a, b }
+            end
+        end
+        for _, main in ipairs(pieces) do
+            if main.twoHand then
+                AddSet(main, nil, main.twoHand, "twoHand")
+            end
+            if main.mainHand then
+                AddSet(main, nil, main.mainHand, "mainHand")
+                for _, off in ipairs(pieces) do
+                    if
+                        off ~= main
+                        and off.offHand
+                        and not (main.item.unique and main.item.itemID == off.item.itemID)
+                    then
+                        if main.mainHand > 0 and off.offHand > 0 then
+                            AddSet(main, off, main.mainHand + off.offHand, "mainHand")
+                        end
+                    end
+                end
+            end
+            if main.offHand then
+                AddSet(main, nil, main.offHand, "offHand")
+            end
+        end
+        for _, set in ipairs(sets) do
+            for _, piece in ipairs(set) do
+                winners[piece] = true
+            end
+        end
+        if not loadout.worn then
+            local choices = WeaponSets(pieces)
+            local function WinsWithout(target, removed)
+                local highest, highestLevel, targetWins = 0, 0, false
+                for _, list in ipairs({ choices.two, choices.pair }) do
+                    for _, choice in ipairs(list) do
+                        if choice.main ~= removed and choice.off ~= removed then
+                            local includes = (
+                                choice.main == target
+                                and (target.twoHand or target.mainHand or 0) > 0
+                            )
+                                or (choice.off == target and target.offHand > 0)
+                            local levelTie = not DB.Data().settings.gear.itemLevelFallback
+                                or choice.level == highestLevel
+                            if
+                                choice.score > highest
+                                or (
+                                    choice.score == highest
+                                    and DB.Data().settings.gear.itemLevelFallback
+                                    and choice.level > highestLevel
+                                )
+                            then
+                                highest, highestLevel, targetWins =
+                                    choice.score, choice.level, includes
+                            elseif choice.score == highest and levelTie and includes then
+                                targetWins = true
+                            end
+                        end
+                    end
+                end
+                return targetWins
+            end
+            for _, piece in ipairs(pieces) do
+                if not winners[piece] then
+                    local identical = false
+                    for winner in pairs(winners) do
+                        if winner.link == piece.link then
+                            identical = true
+                        end
+                    end
+                    if not identical then
+                        for better in pairs(winners) do
+                            if WinsWithout(piece, better) then
+                                near[piece] = better
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    else
+        local result = Scoring.Baseline(key, loadout, { group = group, evaluatedLevel = level })
+        if result.pending then
+            return nil
+        end
+        local list = baselines[cacheKey].result.scores
+        local count = Slots.slotCount[group] or 1
+        local chosen = {}
+        local threshold
+        for _, piece in ipairs(list) do
+            local usable =
+                Scoring.CanUse(piece.item, key, { loadout = loadout, evaluatedLevel = level })
+            if usable and piece.score > 0 then
+                local duplicateUnique = false
+                for _, earlier in ipairs(chosen) do
+                    if piece.item.unique and earlier.item.itemID == piece.item.itemID then
+                        duplicateUnique = true
+                    end
+                end
+                if not duplicateUnique then
+                    if #chosen < count then
+                        chosen[#chosen + 1] = piece
+                        winners[piece] = true
+                        threshold = piece
+                    elseif
+                        piece.score == threshold.score
+                        and (
+                            not DB.Data().settings.gear.itemLevelFallback
+                            or piece.itemLevel == threshold.itemLevel
+                        )
+                    then
+                        local copies = 0
+                        for selected in pairs(winners) do
+                            if selected.link == piece.link then
+                                copies = copies + 1
+                            end
+                        end
+                        if copies < count then
+                            winners[piece] = true
+                        end
+                    end
+                end
+            end
+        end
+        if not loadout.worn then
+            local function IncludedWithout(target, removed)
+                local selected, cutoff, copies = {}, nil, {}
+                for _, piece in ipairs(list) do
+                    if
+                        piece ~= removed
+                        and piece.score > 0
+                        and Scoring.CanUse(
+                            piece.item,
+                            key,
+                            { loadout = loadout, evaluatedLevel = level }
+                        )
+                    then
+                        local duplicateUnique = false
+                        for _, earlier in ipairs(selected) do
+                            if piece.item.unique and earlier.item.itemID == piece.item.itemID then
+                                duplicateUnique = true
+                            end
+                        end
+                        local tied = cutoff
+                            and piece.score == cutoff.score
+                            and (
+                                not DB.Data().settings.gear.itemLevelFallback
+                                or piece.itemLevel == cutoff.itemLevel
+                            )
+                        if not duplicateUnique and (#selected < count or tied) then
+                            copies[piece.link] = (copies[piece.link] or 0) + 1
+                            if copies[piece.link] <= count then
+                                if piece == target then
+                                    return true
+                                end
+                                if #selected < count then
+                                    selected[#selected + 1] = piece
+                                    cutoff = piece
+                                end
+                            end
+                        end
+                    end
+                end
+                return false
+            end
+            for _, piece in ipairs(list) do
+                if not winners[piece] and piece.score > 0 then
+                    for better in pairs(winners) do
+                        local betterScore = better.score > piece.score
+                            or (
+                                DB.Data().settings.gear.itemLevelFallback
+                                and better.score == piece.score
+                                and better.itemLevel > piece.itemLevel
+                            )
+                        if
+                            better.link ~= piece.link
+                            and betterScore
+                            and IncludedWithout(piece, better)
+                        then
+                            local prior = near[piece]
+                            if
+                                not prior
+                                or better.score < prior.score
+                                or (better.score == prior.score and better.order < prior.order)
+                            then
+                                near[piece] = better
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    protections[cacheKey] = { stamp = stamp, winners = winners, near = near }
+    return winners, near
+end
+
+--- Protection at any level in here's look-ahead window under scored loadouts.
+-- @param item table candidate facts
+-- @param key string character key
+-- @param options table|nil fromInbox or fromInbound identifies a mail copy
+-- @treturn table pending or inUse, loadout and optional better-piece data
+function Scoring.InUse(item, key, options)
+    local group = Scoring.Group(item)
+    local start = CharacterLevel(key)
+    local identity = CandidateIdentity(item, options)
+    local better
+    local winningLoadout
+    for _, loadout in ipairs(Scoring.Comparisons(key)) do
+        for level = start, start + DB.Data().settings.gear.lookAheadLevels do
+            local winners, near = ProtectionAt(key, loadout, group, level)
+            if not winners then
+                return { pending = true }
+            end
+            for piece in pairs(winners) do
+                if IsCandidate(piece, identity) then
+                    winningLoadout = winningLoadout or loadout
+                end
+            end
+            if not better then
+                for piece, superior in pairs(near) do
+                    if IsCandidate(piece, identity) then
+                        better = {
+                            loadout = loadout,
+                            group = group,
+                            item = superior.item,
+                            where = superior.where,
+                        }
+                        break
+                    end
+                end
+            end
+        end
+    end
+    return { inUse = winningLoadout ~= nil, loadout = winningLoadout, better = better }
+end
 
 --- Upgrade verdict and percentage gain; an empty baseline gives infinite gain.
 -- @param candidate number score or fallback item level
@@ -394,15 +1016,90 @@ function Scoring.IsUpgrade(candidate, baseline, minimum)
         return candidate > 0, math.huge
     end
     local gain = (candidate - baseline) / baseline * 100
-    return candidate > baseline and gain >= minimum - GAIN_TOLERANCE, gain
+    -- Allow floating-point rounding at the inclusive percentage boundary.
+    local tolerance = 1e-12 * math.max(1, math.abs(minimum))
+    return candidate > baseline and gain + tolerance >= minimum, gain
 end
 
---- Compare a usable single-slot candidate under one loadout.
+local function CompareWeapon(item, options, hand, pool, train)
+    local candidate, weighted = Scoring.Score(item, options.loadout.spec, hand)
+    if candidate == nil then
+        return nil
+    end
+    local baseline, reference
+    local partner = 0
+    if hand == "twoHand" then
+        if
+            pool.twoScore > pool.pairScore
+            or (
+                pool.twoScore == pool.pairScore
+                and (
+                    not DB.Data().settings.gear.itemLevelFallback
+                    or pool.twoLevel >= pool.pairLevel
+                )
+            )
+        then
+            baseline, reference = pool.twoScore, pool.two
+        else
+            baseline = pool.pairScore
+            reference = pool.main or pool.off
+            if pool.main and pool.off and pool.off.itemLevel > pool.main.itemLevel then
+                reference = pool.off
+            end
+        end
+    elseif pool.twoScore > pool.pairScore then
+        baseline, reference = pool.twoScore, pool.two
+        if hand == "mainHand" then
+            partner = pool.offScore
+        else
+            partner = pool.mainScore
+        end
+    elseif hand == "mainHand" then
+        baseline, reference = pool.mainScore, pool.main
+    else
+        baseline, reference = pool.offScore, pool.off
+    end
+    local settings = DB.Data().settings.gear
+    local itemLevel = not weighted and settings.itemLevelFallback
+    if itemLevel then
+        if not reference then
+            reference = pool.highest[hand]
+            if hand == "twoHand" then
+                for _, other in ipairs({ "mainHand", "offHand" }) do
+                    local piece = pool.highest[other]
+                    if piece and (not reference or piece.itemLevel > reference.itemLevel) then
+                        reference = piece
+                    end
+                end
+            end
+        end
+        candidate = item.itemLevel
+        baseline = reference and reference.itemLevel or 0
+        partner = 0
+    end
+    local upgrade, gainPct =
+        Scoring.IsUpgrade(candidate + partner, baseline, settings.minUpgradePct)
+    return {
+        upgrade = upgrade,
+        gainPct = gainPct,
+        candidate = candidate + partner,
+        baseline = baseline,
+        baselineItem = reference and reference.item,
+        baselineWhere = reference and reference.where,
+        itemLevel = itemLevel and true or false,
+        loadout = options.loadout,
+        group = hand,
+        train = train,
+    }
+end
+
+--- Compare a usable candidate under one loadout.
 -- @param item table candidate facts
 -- @param key string character key
--- @param options table loadout and lookAhead
+-- @param options table loadout, lookAhead, optional fromInbox or fromInbound
 -- @treturn table|nil comparison, nil when unusable, unscored or not loaded;
---   pending = true when an owned piece's usability is unreadable
+--   pending = true while an owned piece's usability is unreadable or its
+--     item data is still loading (within 10 s of its first request)
 function Scoring.Compare(item, key, options)
     local loadout = options.loadout
     local spec = loadout.spec
@@ -414,18 +1111,61 @@ function Scoring.Compare(item, key, options)
         return nil
     end
     local group = Scoring.Group(item)
+    local evaluatedLevel = math.max(CharacterLevel(key), item.reqLevel)
+    if item.unique and not Roster.IsHere(key) then
+        for _, piece in ipairs(Owned(Roster.Entry(key))) do
+            local ownedID = ns.Util.ParseLink(piece.link)
+            if ownedID == item.itemID then
+                return nil
+            end
+        end
+    end
+    if group == "mainHand" or group == "offHand" or group == "twoHand" then
+        local excludeLink
+        if
+            Roster.IsHere(key) and (not item.linkOnly or options.fromInbox or options.fromInbound)
+        then
+            excludeLink = item.link
+        end
+        local pool = WeaponBaseline(
+            key,
+            loadout,
+            evaluatedLevel,
+            excludeLink,
+            excludeLink and CandidateIdentity(item, options)
+        )
+        if pool.pending then
+            return pool
+        end
+        local result = CompareWeapon(item, options, group, pool, train)
+        if Slots.alsoGroup[item.equipLoc] == "offHand" then
+            local usableOff, trainOff = Scoring.CanUse(item, key, {
+                loadout = loadout,
+                lookAhead = options.lookAhead,
+                hand = "offHand",
+            })
+            if usableOff then
+                local off = CompareWeapon(item, options, "offHand", pool, trainOff)
+                if off and (not result or off.gainPct > result.gainPct) then
+                    result = off
+                end
+            end
+        end
+        return result
+    end
     local candidate, weighted = Scoring.Score(item, loadout.spec, group)
     if not candidate then
         return nil
     end
     local excludeLink
-    if Roster.IsHere(key) and not item.linkOnly then
+    if Roster.IsHere(key) and (not item.linkOnly or options.fromInbox or options.fromInbound) then
         excludeLink = item.link
     end
-    local evaluatedLevel = math.max(CharacterLevel(key), item.reqLevel)
     local baseline = Scoring.Baseline(key, loadout, {
         group = group,
         excludeLink = excludeLink,
+        identity = excludeLink and CandidateIdentity(item, options),
+        candidate = item,
         evaluatedLevel = evaluatedLevel,
     })
     if baseline.pending then

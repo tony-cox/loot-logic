@@ -270,7 +270,7 @@ LootLogic/                       (the addon folder, in the project repository)
   Prices/Vendor.lua    the vendor price (Prices.GetVendorPrice); not a registered provider
   Engine/Cache.lua     per-result caches, keyed by the generations from Generations
   Engine/Stats.lua     GetItemStats -> canonical keys, cache
-  Engine/ItemFacts.lua facts from bag slot or link, pending handling, OnLoaded(callback) hook for batches of loaded items
+  Engine/ItemFacts.lua facts from bag slot or link, pending handling, OnLoaded(callback) hook for batches of loaded items, RequestedAt(itemID) first-request time that starts the 10 s owned-data wait
   Engine/Scoring.lua   usability, baselines per loadout spec and armour rule, upgrade test
   Engine/Classify.lua  the order in section 7.2
   Engine/Detail.lua    the detail lines for the Shift detail and /ll why (docs/ux.md)
