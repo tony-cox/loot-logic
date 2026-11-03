@@ -54,6 +54,266 @@ local function Compare(item, key, loadout)
 end
 
 return {
+    ["unavailable saved specs stay unchanged and supply no score or comparison"] = function()
+        Boot()
+        local entry = LootLogicDB.characters.druid
+        local missing = "DRUID:future"
+        entry.loadouts = { { name = "Future", spec = missing, worn = true } }
+        local calls = 0
+        local original = ns.Stats.Get
+        ns.Stats.Get = function(link)
+            calls = calls + 1
+            return original(link)
+        end
+        h.Nil(Scoring.Score({}, missing), "missing table has no score")
+        h.Nil(Compare({}, "druid", entry.loadouts[1]), "no advice")
+        h.Equal(calls, 0, "unsupported spec never reads stats")
+        h.Equal(#Scoring.Comparisons("druid"), 0, "unsupported-only character")
+        entry.loadouts[2] = { name = "Cat", spec = "DRUID:cat" }
+        entry.loadouts[3] = { name = "Unset" }
+        local comparisons = Scoring.Comparisons("druid")
+        h.Equal(#comparisons, 1, "mixed loadouts exclude unsupported and nil")
+        h.Equal(comparisons[1], entry.loadouts[2], "supported comparison")
+        h.DeepEqual(entry.loadouts, {
+            { name = "Future", spec = missing, worn = true },
+            { name = "Cat", spec = "DRUID:cat" },
+            { name = "Unset" },
+        }, "saved choices unchanged")
+        ns.Stats.Get = original
+    end,
+    ["above-level live denial is bypassed but a current-level denial still applies"] = function()
+        Boot()
+        h.Stub.SetKnownSpells({ 9077 })
+        local item = Item({ reqLevel = 63 })
+        local options = Options()
+        options.lookAhead = true
+        h.Stub.SetCanUseItem(item.itemID, false)
+        local calls = #h.Stub.CanUseItemCalls()
+        h.Equal(Scoring.CanUse(item, HERE, options), true, "future usable")
+        h.Equal(#h.Stub.CanUseItemCalls(), calls, "future never calls live API")
+        options.evaluatedLevel = 63
+        h.Equal(Scoring.CanUse(item, HERE, options), true, "owned future evaluation")
+        h.Equal(#h.Stub.CanUseItemCalls(), calls, "evaluation is not real level")
+        item.reqLevel = 60
+        h.Equal(Scoring.CanUse(item, HERE, options), false, "current denial")
+        h.Equal(#h.Stub.CanUseItemCalls(), calls + 1, "current calls API")
+        h.Stub.SetKnownSpells({})
+        local usable, train = Scoring.CanUse(item, HERE, options)
+        h.Equal(usable, true, "trainable overrides current denial")
+        h.DeepEqual(train, { 9077 }, "train leather")
+        h.Equal(#h.Stub.CanUseItemCalls(), calls + 1, "training bypasses API")
+    end,
+    ["single-slot progression uses candidate level for here and another character"] = function()
+        Boot()
+        h.Stub.SetPlayer({ level = 20 })
+        h.Stub.SetKnownSpells({ 9077 })
+        LootLogicDB.characters[HERE].level = 20
+        LootLogicDB.characters.druid.level = 20
+        local now = Item({ reqLevel = 10, stats = { ITEM_MOD_AGILITY_SHORT = 5 } })
+        local level21 = Item({ reqLevel = 21, stats = { ITEM_MOD_AGILITY_SHORT = 10 } })
+        local level22 = Item({ reqLevel = 22, stats = { ITEM_MOD_AGILITY_SHORT = 15 } })
+        local level23 = Item({ reqLevel = 23, stats = { ITEM_MOD_AGILITY_SHORT = 20 } })
+        local options = Options()
+        options.lookAhead = true
+        local earlier = Item({ reqLevel = 15, stats = { ITEM_MOD_AGILITY_SHORT = 6 } })
+        local inferior22 = Item({ reqLevel = 22, stats = { ITEM_MOD_AGILITY_SHORT = 12.5 } })
+        local inferior23 = Item({ reqLevel = 23, stats = { ITEM_MOD_AGILITY_SHORT = 14 } })
+        for _, key in ipairs({ HERE, "druid" }) do
+            local entry = LootLogicDB.characters[key]
+            entry.bags = { gear = { now.link, level22.link, level23.link } }
+            ns.Generations.Bump("gearHere")
+            ns.Generations.Bump("gearOthers")
+            local current = Scoring.Compare(earlier, key, options)
+            h.Equal(current.baseline, 10, "below-current candidate uses current level")
+            h.Equal(current.upgrade, true, "future pieces do not suppress usable-now upgrade")
+            local intermediate = Scoring.Compare(level21, key, options)
+            h.Equal(intermediate.baseline, 10, "level21 baseline")
+            h.Equal(intermediate.upgrade, true, "later winners do not suppress level21")
+            entry.bags.gear = { now.link, level21.link, level23.link }
+            ns.Generations.Bump("gearHere")
+            ns.Generations.Bump("gearOthers")
+            local nextUpgrade = Scoring.Compare(level22, key, options)
+            h.Equal(nextUpgrade.baseline, 20, "level22 baseline")
+            h.Equal(nextUpgrade.upgrade, true, "later winner does not suppress level22")
+            entry.bags.gear = { now.link, level21.link, level22.link, level23.link }
+            ns.Generations.Bump("gearHere")
+            ns.Generations.Bump("gearOthers")
+            h.Equal(Scoring.Compare(inferior22, key, options).baseline, 30, "same-level winner")
+            h.Equal(Scoring.Compare(inferior22, key, options).upgrade, false, "inferior level22")
+            h.Equal(Scoring.Compare(inferior23, key, options).baseline, 40, "later winner")
+            h.Equal(Scoring.Compare(inferior23, key, options).upgrade, false, "inferior level23")
+        end
+    end,
+    ["level-specific baselines cache separately and reuse the earlier evaluation"] = function()
+        Boot()
+        h.Stub.SetPlayer({ level = 20 })
+        LootLogicDB.characters.druid.level = 20
+        local earlier = Item({ reqLevel = 21, stats = { ITEM_MOD_AGILITY_SHORT = 10 } })
+        local later = Item({ reqLevel = 23, stats = { ITEM_MOD_AGILITY_SHORT = 20 } })
+        LootLogicDB.characters.druid.bags = { gear = { earlier.link, later.link } }
+        local original = ns.ItemFacts.FromLink
+        local calls = 0
+        ns.ItemFacts.FromLink = function(link)
+            calls = calls + 1
+            return original(link)
+        end
+        local loadout = fixture.characters.druid.loadouts[2]
+        local options = { group = "chest", evaluatedLevel = 21 }
+        h.Equal(Scoring.Baseline("druid", loadout, options).score, 20, "early level")
+        h.Equal(calls, 2, "early scan")
+        options.evaluatedLevel = 23
+        h.Equal(Scoring.Baseline("druid", loadout, options).score, 40, "later level")
+        h.Equal(calls, 4, "separate later scan")
+        options.evaluatedLevel = 21
+        h.Equal(Scoring.Baseline("druid", loadout, options).score, 20, "early cache retained")
+        h.Equal(calls, 4, "early cache reused")
+        ns.Generations.Bump("settings")
+        Scoring.Baseline("druid", loadout, options)
+        h.Equal(calls, 6, "settings refresh level-specific entry")
+        ns.ItemFacts.FromLink = original
+    end,
+    ["unreadable later-level usability does not block an earlier baseline"] = function()
+        Boot()
+        LootLogicDB.characters.druid.level = 20
+        local now = Item({ reqLevel = 20, stats = { ITEM_MOD_AGILITY_SHORT = 5 } })
+        local later = Item({
+            reqLevel = 23,
+            noTooltip = true,
+            stats = { ITEM_MOD_AGILITY_SHORT = 20 },
+        })
+        LootLogicDB.characters.druid.bags = { gear = { now.link, later.link } }
+        local loadout = fixture.characters.druid.loadouts[2]
+        local baseline =
+            Scoring.Baseline("druid", loadout, { group = "chest", evaluatedLevel = 21 })
+        h.Nil(baseline.pending, "later piece cannot affect earlier usability")
+        h.Equal(baseline.score, 10, "known earlier baseline")
+        h.Equal(
+            Scoring.Baseline("druid", loadout, { group = "chest", evaluatedLevel = 23 }).pending,
+            true,
+            "later usability needed at its level"
+        )
+    end,
+    ["item-level fallback excludes owned pieces above the evaluated level"] = function()
+        Boot()
+        h.Stub.SetPlayer({ level = 20 })
+        LootLogicDB.characters[HERE].level = 20
+        LootLogicDB.characters.druid.level = 20
+        local now = Item({ reqLevel = 10, itemLevel = 10 })
+        local same = Item({ reqLevel = 22, itemLevel = 30 })
+        local later = Item({ reqLevel = 23, itemLevel = 80 })
+        local candidate = Item({ reqLevel = 21, itemLevel = 20 })
+        local options = Options()
+        options.lookAhead = true
+        for _, key in ipairs({ HERE, "druid" }) do
+            LootLogicDB.characters[key].bags = { gear = { now.link, same.link, later.link } }
+            local result = Scoring.Compare(candidate, key, options)
+            h.Equal(result.itemLevel, true, "fallback used")
+            h.Equal(result.baseline, 10, "fallback filters future pieces")
+            h.Equal(result.upgrade, true, "intermediate fallback upgrade")
+            candidate.reqLevel = 22
+            result = Scoring.Compare(candidate, key, options)
+            h.Equal(result.baseline, 30, "same-level fallback alternative")
+            h.Equal(result.upgrade, false, "same-level stronger item suppresses")
+            candidate.reqLevel = 21
+        end
+    end,
+    ["owned armour and training use the later evaluation for every baseline piece"] = function()
+        Boot()
+        h.Stub.SetPlayer({ level = 38 })
+        h.Stub.SetKnownSpells({ 8737 })
+        local mail = Item({
+            subclassID = 3,
+            reqLevel = 30,
+            stats = { ITEM_MOD_STRENGTH_SHORT = 100 },
+        })
+        local plate = Item({
+            subclassID = 4,
+            reqLevel = 39,
+            stats = { ITEM_MOD_STRENGTH_SHORT = 5 },
+        })
+        local loadout = { spec = "DRUID:cat", armor = "best" }
+        for _, key in ipairs({ HERE, "paladin" }) do
+            local entry = LootLogicDB.characters[key]
+            entry.class = "PALADIN"
+            entry.level = 38
+            entry.proficiency = { spells = { [8737] = true } }
+            entry.bags = { gear = { mail.link, plate.link } }
+            local options = { group = "chest", evaluatedLevel = 39 }
+            h.Equal(Scoring.Baseline(key, loadout, options).score, 100, "mail at39")
+            options.evaluatedLevel = 40
+            h.Equal(Scoring.Baseline(key, loadout, options).score, 5, "plate trained at40")
+            local usable, train =
+                Scoring.CanUse(plate, key, { loadout = loadout, evaluatedLevel = 40 })
+            h.Equal(usable, true, "owned plate trainable at later evaluation")
+            h.DeepEqual(train, { 750 }, "train plate")
+            entry.gear = { slots = { [5] = mail.link } }
+            ns.Generations.Bump("gearHere")
+            ns.Generations.Bump("gearOthers")
+            h.Equal(Scoring.Baseline(key, loadout, options).score, 100, "worn mail exception")
+        end
+    end,
+    ["look-ahead required level raises the best wearable armour type"] = function()
+        Boot()
+        LootLogicDB.characters[HERE].class = "PALADIN"
+        LootLogicDB.characters[HERE].level = 38
+        LootLogicDB.characters.paladin.level = 38
+        LootLogicDB.characters.paladin.proficiency.spells = { [8737] = true }
+        h.Stub.SetPlayer({ level = 38 })
+        h.Stub.SetKnownSpells({ 8737 })
+        local item = Item({ subclassID = 3, reqLevel = 40 })
+        local options = Options(fixture.characters.paladin.loadouts[1])
+        options.lookAhead = true
+        for _, key in ipairs({ HERE, "paladin" }) do
+            h.Equal(Scoring.CanUse(item, key, options), false, "plate is best at required level")
+            options.loadout = { spec = "PALADIN:protection", armor = "any" }
+            h.Equal(Scoring.CanUse(item, key, options), true, "any armour allows future mail")
+            options.loadout = fixture.characters.paladin.loadouts[1]
+        end
+    end,
+    ["explicit off-hand judgment requires dual wield for a general one-hand weapon"] = function()
+        Boot()
+        local item = Item({ classID = 2, subclassID = 9, equipLoc = "INVTYPE_WEAPON" })
+        local options = Options()
+        for _, key in ipairs({ HERE, "druid" }) do
+            h.Equal(Scoring.CanUse(item, key, options), true, "main hand needs no dual wield")
+            options.hand = "offHand"
+            h.Equal(Scoring.CanUse(item, key, options), false, "off hand needs dual wield")
+            options.hand = nil
+        end
+        LootLogicDB.characters.druid.class = "ROGUE"
+        options.hand = "offHand"
+        local usable, train = Scoring.CanUse(item, "druid", options)
+        h.Equal(usable, true, "trainable dual wield")
+        h.DeepEqual(train, { 674 }, "explicit hand training flag")
+    end,
+    ["link-only comparison keeps the matching owned instance in the baseline"] = function()
+        local entry = Boot()
+        local item = Item({ stats = { ITEM_MOD_AGILITY_SHORT = 10 } })
+        entry.bags = { gear = { item.link } }
+        h.Equal(Compare(item, HERE).baseline, 0, "slot candidate excluded")
+        item.linkOnly = true
+        local result = Compare(item, HERE)
+        h.Equal(result.baseline, 20, "link-only candidate retains owned instance")
+        h.Equal(result.upgrade, false, "same item is not an upgrade")
+    end,
+    ["configured look-ahead window changes eligibility for here and another character"] = function()
+        Boot()
+        local item = Item({ reqLevel = 63 })
+        local options = Options()
+        options.lookAhead = true
+        for _, row in ipairs({
+            { levels = 0, usable = false },
+            { levels = 2, usable = false },
+            { levels = 3, usable = true },
+            { levels = 8, usable = true },
+        }) do
+            LootLogicDB.settings.gear.lookAheadLevels = row.levels
+            h.Equal(Scoring.CanUse(item, HERE, options), row.usable, "here configured window")
+            h.Equal(Scoring.CanUse(item, "druid", options), row.usable, "other configured window")
+        end
+        options.lookAhead = nil
+        h.Equal(Scoring.CanUse(item, HERE, options), false, "here now ignores window")
+    end,
     ["unreadable owned usability stays pending and retries without a generation bump"] = function()
         Boot()
         local owned = Item({ noTooltip = true, stats = { ITEM_MOD_AGILITY_SHORT = 20 } })

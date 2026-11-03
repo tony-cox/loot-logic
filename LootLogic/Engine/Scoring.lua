@@ -45,12 +45,12 @@ end
 
 --- The weighted score and whether any nonzero-weight stat is present.
 -- @param item table item facts with a link and equipLoc
--- @param spec string|nil spec id; nil is not scored
+-- @param spec string|nil spec id; nil or unavailable weights are not scored
 -- @param hand string|nil slot group when judging a weapon
--- @treturn number|nil score; nil for no spec or unloaded stats
+-- @treturn number|nil score; nil for unavailable spec weights or unloaded stats
 -- @treturn boolean|nil whether item level must not replace the score
 function Scoring.Score(item, spec, hand)
-    if not spec then
+    if not spec or not WeightTables[spec] then
         return nil
     end
     local stats = Stats.Get(item.link)
@@ -97,6 +97,13 @@ local function Knows(key, spell)
     return proficiency and proficiency.spells[spell] or false
 end
 
+local function CharacterLevel(key)
+    if Roster.IsHere(key) then
+        return UnitLevel("player")
+    end
+    return Roster.Entry(key).level
+end
+
 local function BestArmor(key, level)
     local class = Proficiency.classes[Roster.Entry(key).class]
     for rank = 4, 1, -1 do
@@ -138,11 +145,12 @@ end
 --- proficiency is the fallback. Trainable types override a negative answer.
 -- @param item table item facts
 -- @param key string character key
--- @param options table loadout, lookAhead, hand and worn (baseline only)
+-- @param options table loadout, lookAhead, hand and worn (baseline only);
+--   evaluatedLevel filters owned pieces at that level rather than a window
 -- @treturn boolean|nil nil while the item's usability facts are unreadable
 -- @treturn table list of training spell IDs
 function Scoring.CanUse(item, key, options)
-    if item.pending or item.tooltipUnread then
+    if item.pending then
         return nil, {}
     end
     local entry = Roster.Entry(key)
@@ -151,18 +159,23 @@ function Scoring.CanUse(item, key, options)
     if not group or (item.classRestriction and not item.classRestriction[entry.class]) then
         return false, train
     end
-    local level = entry.level
-    if Roster.IsHere(key) then
-        level = UnitLevel("player")
-    end
+    local level = CharacterLevel(key)
     local limit = level
-    if options.lookAhead or not Roster.IsHere(key) then
+    if options.evaluatedLevel then
+        limit = options.evaluatedLevel
+    elseif options.lookAhead or not Roster.IsHere(key) then
         limit = limit + DB.Data().settings.gear.lookAheadLevels
     end
     if item.reqLevel > limit then
         return false, train
     end
+    if item.tooltipUnread then
+        return nil, train
+    end
     local judgedLevel = math.max(level, item.reqLevel)
+    if options.evaluatedLevel then
+        judgedLevel = options.evaluatedLevel
+    end
     local class = Proficiency.classes[entry.class]
     local typeKey = item.classID .. ":" .. item.subclassID
     local spell = Proficiency.subclassSpell[typeKey]
@@ -195,7 +208,8 @@ function Scoring.CanUse(item, key, options)
             return false, train
         end
     end
-    if Roster.IsHere(key) and C_PlayerInfo and C_PlayerInfo.CanUseItem and #train == 0 then
+    local hasLiveAnswer = C_PlayerInfo and C_PlayerInfo.CanUseItem
+    if Roster.IsHere(key) and item.reqLevel <= level and hasLiveAnswer and #train == 0 then
         if not C_PlayerInfo.CanUseItem(item.itemID) then
             return false, train
         end
@@ -210,7 +224,7 @@ function Scoring.Comparisons(key)
     local result = {}
     local seen = {}
     for _, loadout in ipairs(Roster.Entry(key).loadouts) do
-        if loadout.spec then
+        if loadout.spec and WeightTables[loadout.spec] then
             local id = loadout.spec .. ":" .. tostring(Scoring.BestArmorOnly(loadout))
             local index = seen[id]
             if not index then
@@ -273,15 +287,19 @@ local function SelectPiece(list, excludeLink)
     return piece
 end
 
-local function BuildBaseline(key, loadout, group)
+local function BuildBaseline(key, loadout, group, evaluatedLevel)
     local result = { scores = {}, levels = {} }
     for _, piece in ipairs(Owned(Roster.Entry(key))) do
         local item = ItemFacts.FromLink(piece.link)
         if not item.pending and Scoring.Group(item) == group then
-            if item.tooltipUnread then
+            local usable = Scoring.CanUse(item, key, {
+                loadout = loadout,
+                worn = piece.worn,
+                evaluatedLevel = evaluatedLevel,
+            })
+            if usable == nil then
                 return nil
             end
-            local usable = Scoring.CanUse(item, key, { loadout = loadout, worn = piece.worn })
             if usable then
                 local score = Scoring.Score(item, loadout.spec, group)
                 if score then
@@ -302,20 +320,29 @@ end
 --- Best owned single-slot baseline by score, plus the highest item level.
 --- Exclusion identifies the candidate's unworn link for here. Duplicate copy
 --- and pair selection are the next scoring stage's separate rules.
+--- Stage 11.5 adds pending owned-data handling, its 10-second leave-out and
+--- load-event invalidation (spec 8.4). Until then, owned pieces with pending
+--- item facts or unavailable stats are omitted, and their arrival alone does
+--- not invalidate this cache. Unreadable usability is already pending here.
 -- @param key string character key
 -- @param loadout table scored loadout
--- @param options table group and optional excludeLink
+-- @param options table group, optional excludeLink and evaluatedLevel;
+--   evaluatedLevel defaults to current level for direct baseline callers
 -- @treturn table score, item, where, itemLevel, highestItem, highestWhere;
 --   pending = true when an owned piece's usability is unreadable
 function Scoring.Baseline(key, loadout, options)
-    local cacheKey = table.concat(
-        { key, loadout.spec, tostring(Scoring.BestArmorOnly(loadout)), options.group },
-        "|"
-    )
+    local evaluatedLevel = options.evaluatedLevel or CharacterLevel(key)
+    local cacheKey = table.concat({
+        key,
+        loadout.spec,
+        tostring(Scoring.BestArmorOnly(loadout)),
+        options.group,
+        evaluatedLevel,
+    }, "|")
     local stamp = Stamp(key)
     local cached = baselines[cacheKey]
     if not cached or cached.stamp ~= stamp then
-        local result = BuildBaseline(key, loadout, options.group)
+        local result = BuildBaseline(key, loadout, options.group, evaluatedLevel)
         if not result then
             baselines[cacheKey] = nil
             return { pending = true }
@@ -365,7 +392,8 @@ end
 --   pending = true when an owned piece's usability is unreadable
 function Scoring.Compare(item, key, options)
     local loadout = options.loadout
-    if item.pending or item.tooltipUnread or not loadout.spec then
+    local spec = loadout.spec
+    if item.pending or item.tooltipUnread or not spec or not WeightTables[spec] then
         return nil
     end
     local usable, train = Scoring.CanUse(item, key, options)
@@ -381,7 +409,12 @@ function Scoring.Compare(item, key, options)
     if Roster.IsHere(key) and not item.linkOnly then
         excludeLink = item.link
     end
-    local baseline = Scoring.Baseline(key, loadout, { group = group, excludeLink = excludeLink })
+    local evaluatedLevel = math.max(CharacterLevel(key), item.reqLevel)
+    local baseline = Scoring.Baseline(key, loadout, {
+        group = group,
+        excludeLink = excludeLink,
+        evaluatedLevel = evaluatedLevel,
+    })
     if baseline.pending then
         return baseline
     end

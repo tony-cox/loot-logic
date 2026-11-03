@@ -228,7 +228,7 @@ Mockups show proportions, not pixels. `Dr`, `Pa`, `Wl`, `Sh` stand for class ico
 - A character that plays more than one role (a druid who tanks, heals and does damage) can add a loadout for each, with its own spec.
 - Exactly one loadout is the **worn** one: the role the character is wearing now. Move the radio when the character changes role.
 - A loadout can be **linked** to a gear set the player already has in Outfitter or the Blizzard Equipment Manager. The link only labels the set's pieces in tooltips ("LootLogic: stays (in set Tank (Bear))"); every piece of an imported set stays whether it is linked or not. It does not set the spec.
-- Gear is scored under the spec of every loadout. A piece that is the best owned piece under two loadouts' specs stays for both; a new item that beats it under only one of them becomes that loadout's best piece, and the old piece stays while it is still the best under the other. On the current character an item is an upgrade (Equip) only under the worn loadout's spec; under another loadout's spec, a piece that beats what the character owns becomes that loadout's best piece and stays, and the piece it replaces is judged like any other item. For another character an item is an upgrade if it beats what that character owns under any of its loadouts, and the tooltip names the loadout ("Chamoomile (+9% Cat over Ferocious Bracers)"). In v1, loadouts that share a spec and an armour rule share one comparison, and a loadout is not compared with the pieces of its own set (that is v1.1).
+- Gear is scored under the spec of every loadout. A piece that is the best owned piece under two loadouts' specs stays for both; a new item that beats it under only one of them becomes that loadout's best piece, and the old piece stays while it is still the best under the other. On the current character an item is an upgrade (Equip) only under the worn loadout's spec; under another loadout's spec, a piece that becomes best at any level in the window stays. A replaced piece is judged like any other item only when it no longer wins at any level in the window for any scored loadout. For another character an item is an upgrade if it beats what that character owns under any of its loadouts, and the tooltip names the loadout ("Chamoomile (+9% Cat over Ferocious Bracers)"). In v1, loadouts that share a spec and an armour rule share one comparison, and a loadout is not compared with the pieces of its own set (that is v1.1).
 - Most players need only the first loadout. Extra loadouts are for characters that swap roles.
 
 **Reading the screen** (items marked *design choice* are not fixed by the spec and can be changed):
@@ -591,11 +591,15 @@ The tab has two panes, as the Weights tab does. The left pane lists seven groups
 
 | Control | Key | Notes |
 |---|---|---|
-| Look ahead, levels | `lookAheadLevels` | Whole number, 0 to 10. |
+| Look ahead, levels | `lookAheadLevels` | Whole number, 0 to 10. Keeps the best usable gear at each level in the window, preserving intermediate upgrades and discarding inferior alternatives for the same level. |
 | The character you are on keeps upgrades within the look-ahead | `hereWinsInLookAhead` | Tick box. Greyed when look-ahead is 0. |
 | Smallest gain that counts as an upgrade, percent | `minUpgradePct` | Number, 0 to 50, one decimal. |
 | Best armour only | `bestArmorOnly` | Tick box. Hint: "Each loadout can override this on the Characters tab." |
 | Compare item level when no stat is weighted | `itemLevelFallback` | Tick box. |
+
+Gear advice compares a candidate with owned gear usable at the level the candidate can first be used, or the current level if later. A stronger item for a later level does not hide an intermediate upgrade. A piece that is best at any level in the window stays; one that never wins follows the usual routing and sell rules. Rings, trinkets and weapons use their pair rules separately at each level (spec 8.4 to 8.6). This needs no per-level setup or recorded sets. The current-character priority switch affects the order of upgrade routing, not protection of owned progression gear.
+
+A saved loadout whose spec has no weights in this build gives no gear advice, like a loadout with no spec. Its saved choice remains intact. For the current character, equippable bag and bank gear stays with the existing "no gear advice for <class> in this build" reason, including when another loadout can be scored; link-only results can still advise for other characters (spec 7.2). Future-level gear is judged from level, class and proficiency rules without a live usability veto (spec 8.3).
 
 *Item classes* (`settings.classOverride`): one list of the item classes and Miscellaneous subclasses, in the client's names, from the shipped defaults (technical findings 14.1).
 
