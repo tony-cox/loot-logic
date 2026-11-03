@@ -28,3 +28,6 @@ Model\Asks.lua
 Model\Recipes.lua
 Prices\Prices.lua
 Prices\Vendor.lua
+Engine\Cache.lua
+Engine\Stats.lua
+Engine\ItemFacts.lua

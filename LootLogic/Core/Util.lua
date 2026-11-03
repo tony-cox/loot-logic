@@ -80,6 +80,46 @@ function Util.InstanceKey(link)
     return string.format("%d:%d", itemID, suffix)
 end
 
+-- What a number placeholder of a format string matches: digits, points and
+-- commas.
+local NUMBER_PATTERN = "[%d%.,]+"
+
+--- Reads a client format string (such as "Classes: %s" or "Improves hit
+--- rating by %d.") as an anchored Lua pattern. A placeholder (%s, %d, %.1f,
+--- %1$d) becomes a wildcard for a number, or, with `capture` true, a capture
+--- of any text; "%%" is a literal percent sign and every other character
+--- matches itself (technical findings 7.1, 14).
+-- @param format string
+-- @param capture boolean|nil true to capture the text of each placeholder
+-- @treturn string
+function Util.FormatPattern(format, capture)
+    local wildcard = NUMBER_PATTERN
+    if capture then
+        wildcard = "(.+)"
+    end
+    local parts = { "^" }
+    local position = 1
+    while position <= #format do
+        local char = string.sub(format, position, position)
+        local spec = string.match(format, "^(%%[%d%$%.%-%+ #]*[sdif])", position)
+        if char == "%" and string.sub(format, position + 1, position + 1) == "%" then
+            parts[#parts + 1] = "%%"
+            position = position + 2
+        elseif spec then
+            parts[#parts + 1] = wildcard
+            position = position + #spec
+        else
+            if string.find(char, "[%^%$%(%)%%%.%[%]%*%+%-%?]") then
+                char = "%" .. char
+            end
+            parts[#parts + 1] = char
+            position = position + 1
+        end
+    end
+    parts[#parts + 1] = "$"
+    return table.concat(parts)
+end
+
 --- True when the client marks the value secret. issecretvalue exists on Forever
 --- (source-read, technical findings 7.5; live check L25 tests secret values in
 --- combat; fallback: defer classification to out of combat). False when the

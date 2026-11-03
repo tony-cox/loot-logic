@@ -43,7 +43,8 @@ Setters of h.Stub (keep this list in step with the code below):
   SetBagSize(bag, size)   the number of slots C_Container.GetContainerNumSlots
                           gives (0 when unset, as for a tab not bought)
   SetBagItem(bag, slot, item)
-                          one bag slot, item = { itemID, link, count }, or nil
+                          one bag slot, item = { itemID, link, count, quality,
+                          bound, hasNoValue, isQuest, refundSeconds }, or nil
                           to empty it; also the link GetContainerItemLink gives
   SetBagIndex(name, value)
                           change a member of Enum.BagIndex
@@ -53,6 +54,22 @@ Setters of h.Stub (keep this list in step with the code below):
                           what C_Item.GetItemInfoInstant gives: equipLoc,
                           classID, subclassID
   SetKnownSpells(list)    the spell IDs IsPlayerSpell reports as known
+  SetItem(itemID, fields) an item the client knows: name, link, quality,
+                          itemLevel, reqLevel, sellPrice, bindType, equipLoc,
+                          classID, subclassID, stack, stats (a table of
+                          ITEM_MOD_* keys to values), unique (boolean),
+                          accountBound (what IsBoundToAccountUntilEquip gives);
+                          also sets what GetItemInfoInstant gives
+  SetItemPending(itemID, fields)
+                          as SetItem, but GetItemInfo, GetItemStats and
+                          GetDetailedItemLevelInfo give nil until LoadItem
+  LoadItem(itemID)        the item's data arrives: fires GET_ITEM_INFO_RECEIVED
+                          and ITEM_DATA_LOAD_RESULT with (itemID, true)
+  ItemRequests(itemID)    how many times GetItemInfo was called for the item
+                          while its data was missing
+  SetUniquenessApi(on)    whether C_Item.GetItemUniquenessByID exists
+  SetString(name, value)  a client global string such as ITEM_UNIQUE (nil
+                          removes it)
   SetInbox(mails)         the inbox, a list of { items = { { link, count } } }
   SetSendMailItems(items) the attachments of the mail being written, a list of
                           { link, count }
@@ -580,7 +597,30 @@ C_Container = {
         if not item then
             return nil
         end
-        return { itemID = item.itemID, hyperlink = item.link, stackCount = item.count or 1 }
+        return {
+            itemID = item.itemID,
+            hyperlink = item.link,
+            stackCount = item.count or 1,
+            quality = item.quality,
+            isBound = item.bound,
+            hasNoValue = item.hasNoValue,
+        }
+    end,
+    -- The quest info table with isQuestItem and the purchase info table with
+    -- refundSeconds are from memory (live checks L7 and L55).
+    GetContainerItemQuestInfo = function(bag, slot)
+        local item = bagItems[bag .. ":" .. slot]
+        if not item then
+            return nil
+        end
+        return { isQuestItem = item.isQuest or false, isActive = false }
+    end,
+    GetContainerItemPurchaseInfo = function(bag, slot)
+        local item = bagItems[bag .. ":" .. slot]
+        if not item or not item.refundSeconds then
+            return nil
+        end
+        return { money = 0, itemCount = 0, refundSeconds = item.refundSeconds }
     end,
 }
 
@@ -616,7 +656,21 @@ end
 -- C_Item.GetItemInfoInstant returns the item ID, type, subtype, equipLoc,
 -- icon, classID and subclassID; it accepts a link (from memory, technical
 -- findings 7.1; live check L8). An item with no fields set is unknown (nil).
+-- C_Item.GetItemInfo gives nil while the item is pending or unknown (from
+-- memory; live check L28), and its values come in the client's order: name,
+-- link, quality, item level, required level, type, subtype, stack size,
+-- equipLoc, icon, sell price, classID, subclassID, bindType.
 local instants = {}
+local itemFields = {}
+local pendingItems = {}
+local itemRequests = {}
+
+local function ItemIDOfItem(item)
+    if type(item) == "string" then
+        return tonumber(string.match(item, "item:(%d+)"))
+    end
+    return item
+end
 
 --- Sets what GetItemInfoInstant gives for an item ID.
 -- @param itemID number
@@ -625,17 +679,134 @@ function Stub.SetItemInstant(itemID, fields)
     instants[itemID] = fields
 end
 
+--- Defines an item the client has loaded (see the list at the top).
+-- @param itemID number
+-- @param fields table
+function Stub.SetItem(itemID, fields)
+    itemFields[itemID] = fields
+    pendingItems[itemID] = nil
+    instants[itemID] = {
+        equipLoc = fields.equipLoc,
+        classID = fields.classID,
+        subclassID = fields.subclassID,
+    }
+end
+
+--- Defines an item whose data has not arrived yet.
+-- @param itemID number
+-- @param fields table
+function Stub.SetItemPending(itemID, fields)
+    Stub.SetItem(itemID, fields)
+    pendingItems[itemID] = true
+end
+
+--- The data of a pending item arrives: both item-data events fire.
+-- @param itemID number
+function Stub.LoadItem(itemID)
+    pendingItems[itemID] = nil
+    Stub.FireEvent("GET_ITEM_INFO_RECEIVED", itemID, true)
+    Stub.FireEvent("ITEM_DATA_LOAD_RESULT", itemID, true)
+end
+
+--- How many times GetItemInfo was called for the item while it was pending.
+-- @param itemID number
+-- @treturn number
+function Stub.ItemRequests(itemID)
+    return itemRequests[itemID] or 0
+end
+
+-- The fields of a loaded item, or nil (counting a request when asked) while it
+-- is pending or unknown.
+local function LoadedItem(item, countRequest)
+    local itemID = ItemIDOfItem(item)
+    local fields = itemFields[itemID]
+    if fields and not pendingItems[itemID] then
+        return fields, itemID
+    end
+    if countRequest then
+        itemRequests[itemID] = (itemRequests[itemID] or 0) + 1
+    end
+    return nil, itemID
+end
+
+local function GetItemUniquenessByID(item)
+    local fields = LoadedItem(item, false)
+    return fields and fields.unique or false
+end
+
 C_Item = {
     GetItemInfoInstant = function(item)
-        local itemID = item
-        if type(item) == "string" then
-            itemID = tonumber(string.match(item, "item:(%d+)"))
-        end
+        local itemID = ItemIDOfItem(item)
         local fields = instants[itemID]
         if not fields then
             return nil
         end
         return itemID, nil, nil, fields.equipLoc or "", 134400, fields.classID, fields.subclassID
+    end,
+    GetItemInfo = function(item)
+        local fields, itemID = LoadedItem(item, true)
+        if not fields then
+            return nil
+        end
+        return fields.name or ("Item " .. itemID),
+            fields.link or ("item:" .. itemID),
+            fields.quality or 1,
+            fields.itemLevel or 1,
+            fields.reqLevel or 0,
+            "Armor",
+            "Cloth",
+            fields.stack or 1,
+            fields.equipLoc or "",
+            134400,
+            fields.sellPrice or 0,
+            fields.classID,
+            fields.subclassID,
+            fields.bindType or 0
+    end,
+    GetItemStats = function(item)
+        local fields = LoadedItem(item, false)
+        if not fields then
+            return nil
+        end
+        local copy = {}
+        for key, value in pairs(fields.stats or {}) do
+            copy[key] = value
+        end
+        return copy
+    end,
+    GetDetailedItemLevelInfo = function(item)
+        local fields = LoadedItem(item, false)
+        if not fields then
+            return nil
+        end
+        return fields.itemLevel or 1, false, fields.itemLevel or 1
+    end,
+    -- The location argument and the bag-slot form are from memory (live check
+    -- L24).
+    IsBoundToAccountUntilEquip = function(location)
+        local item = bagItems[location.bag .. ":" .. location.slot]
+        local fields = item and itemFields[item.itemID]
+        return fields and fields.accountBound or false
+    end,
+    GetItemUniquenessByID = GetItemUniquenessByID,
+}
+
+--- Sets whether C_Item.GetItemUniquenessByID exists (it is optional, live
+--- check L21).
+-- @param on boolean
+function Stub.SetUniquenessApi(on)
+    if on then
+        C_Item.GetItemUniquenessByID = GetItemUniquenessByID
+    else
+        C_Item.GetItemUniquenessByID = nil
+    end
+end
+
+-- ItemLocation:CreateFromBagAndSlot(bag, slot) (source-read on Forever,
+-- technical findings 5; the method call form is from memory).
+ItemLocation = {
+    CreateFromBagAndSlot = function(_, bag, slot)
+        return { bag = bag, slot = slot }
     end,
 }
 
@@ -743,6 +914,41 @@ local tooltips = {}
 local tooltipCalls = 0
 
 ITEM_SPELL_KNOWN = "Already known"
+
+-- Item tooltip strings. The names are source-read or from memory (live checks
+-- L21, L51 and L56); the wording of the TOOLTIP_ITEM_STAT_* formats is the
+-- stub's own invention, since the client's text is not known yet. The
+-- ITEM_SPELL_TRIGGER_* and ITEM_SET_BONUS texts are the Classic ones, from
+-- memory.
+ITEM_SPELL_TRIGGER_ONEQUIP = "Equip:"
+ITEM_SPELL_TRIGGER_ONUSE = "Use:"
+ITEM_SPELL_TRIGGER_ONPROC = "Chance on hit:"
+ITEM_SET_BONUS = "Set: %s"
+ITEM_CLASSES_ALLOWED = "Classes: %s"
+ITEM_UNIQUE = "Unique"
+ITEM_UNIQUE_EQUIPPABLE = "Unique-Equipped"
+TOOLTIP_ITEM_STAT_CRIT_PERCENT_INCREASE = "Increases your critical strike chance by %s%%."
+TOOLTIP_ITEM_STAT_HIT_PERCENT_INCREASE = "Increases your hit chance by %s%%."
+TOOLTIP_ITEM_STAT_SPELL_POWER_INCREASE = "Increases spell power by %d."
+LOCALIZED_CLASS_NAMES_MALE = {
+    WARRIOR = "Warrior",
+    PALADIN = "Paladin",
+    HUNTER = "Hunter",
+    ROGUE = "Rogue",
+    PRIEST = "Priest",
+    SHAMAN = "Shaman",
+    MAGE = "Mage",
+    WARLOCK = "Warlock",
+    DRUID = "Druid",
+}
+LOCALIZED_CLASS_NAMES_FEMALE = LOCALIZED_CLASS_NAMES_MALE
+
+--- Sets a client global string; nil removes it.
+-- @param name string
+-- @param value string|nil
+function Stub.SetString(name, value)
+    _G[name] = value
+end
 
 function Stub.SetTooltipLines(link, lines)
     local built = {}

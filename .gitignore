@@ -43,5 +43,8 @@ luac.out
 # Local scratch notes, never committed.
 .work/
 
+# Local Python environment.
+/.venv/
+
 # Worktrees made by other Claude sessions.
 .claude/worktrees/
