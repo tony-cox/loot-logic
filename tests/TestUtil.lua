@@ -76,11 +76,14 @@ return {
 
     ["pcall wrapper: an error object with a failing tostring still returns false and text"] = function()
         local ok, text = Util.Pcall(function()
-            error(setmetatable({}, {
-                __tostring = function()
-                    error("no text", 0)
-                end,
-            }), 0)
+            error(
+                setmetatable({}, {
+                    __tostring = function()
+                        error("no text", 0)
+                    end,
+                }),
+                0
+            )
         end)
         h.Equal(ok, false, "ok")
         h.Equal(type(text), "string", "message is text")
