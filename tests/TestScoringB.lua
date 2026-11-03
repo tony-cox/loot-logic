@@ -828,4 +828,29 @@ return {
         h.Equal(ns.Scoring.InUse(late, "druid").inUse, true, "protection recovers")
         ns.Stats.Get = original
     end,
+    ["a one-hand upgrade in one hand beats a non-upgrade in the other hand"] = function()
+        local entry = Boot()
+        entry.class = "ROGUE"
+        entry.proficiency.spells[674] = true
+        ns.WeightTables["DRUID:mhonly"] = { weights = { DPS_MH = 3 }, percent = {} }
+        local loadout = { name = "MH only", spec = "DRUID:mhonly" }
+        entry.loadouts = { loadout }
+        local owned = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPON",
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 5 },
+        })
+        local candidate = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPON",
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10 },
+        })
+        entry.bags = { gear = { owned.link } }
+        LootLogicDB.settings.gear.itemLevelFallback = false
+        local result = ns.Scoring.Compare(candidate, "druid", { loadout = loadout })
+        h.Equal(result.upgrade, true, "the main-hand upgrade is kept")
+        h.Equal(result.group, "mainHand", "main hand, not the zero-score off hand")
+    end,
 }

@@ -1206,7 +1206,17 @@ function Scoring.Compare(item, key, options)
             })
             if usableOff then
                 local off = CompareWeapon(item, options, "offHand", pool, trainOff)
-                if off and (not result or off.gainPct > result.gainPct) then
+                -- A hand that is an upgrade beats one that is not, whatever
+                -- the gains: an empty baseline gives even a zero score an
+                -- infinite gain.
+                if
+                    off
+                    and (
+                        not result
+                        or (off.upgrade and not result.upgrade)
+                        or (off.upgrade == result.upgrade and off.gainPct > result.gainPct)
+                    )
+                then
                     result = off
                 end
             end
