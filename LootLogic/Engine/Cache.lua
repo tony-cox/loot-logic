@@ -46,7 +46,8 @@ function Cache.LinkKey(link)
     return "L|" .. link
 end
 
---- The key of a mailbox attachment: "I|link".
+-- The key of a mailbox attachment: "I|link"; Classify adds "|inbound" for an
+-- inbound copy.
 -- @param link string
 -- @treturn string
 function Cache.InboxKey(link)
