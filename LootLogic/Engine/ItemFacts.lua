@@ -111,7 +111,8 @@ end
 
 -- The class tokens of the tooltip's "Classes: A, B" line, or nil when the item
 -- names none. The second result is false when a Classes line matched but no
--- name resolved to a token, so the restriction is unknown, not absent. The
+-- name resolved to a token, or a line was secret and no Classes line was
+-- found, so the restriction is unknown, not absent. The
 -- format string ITEM_CLASSES_ALLOWED and the two global tables
 -- LOCALIZED_CLASS_NAMES_MALE and _FEMALE that turn the localized names into
 -- tokens are from memory: live check L51 prints all three (fallback: a pattern
@@ -121,9 +122,12 @@ local function ReadClassRestriction(lines)
         return nil, true
     end
     classesPattern = classesPattern or Util.FormatPattern(ITEM_CLASSES_ALLOWED, true)
+    local secretSeen = false
     for _, line in ipairs(lines) do
         local text = line.leftText
-        if type(text) == "string" and not Util.IsSecret(text) then
+        if Util.IsSecret(text) then
+            secretSeen = true
+        elseif type(text) == "string" then
             local list = string.match(text, classesPattern)
             if list then
                 local set
@@ -138,7 +142,8 @@ local function ReadClassRestriction(lines)
             end
         end
     end
-    return nil, true
+    -- A secret line may have been the Classes line: unknown, not absent.
+    return nil, not secretSeen
 end
 
 -- The set of class tokens (nil for none) of an item, remembered once its
@@ -161,14 +166,20 @@ local function ClassRestriction(itemID, link)
     return set, true
 end
 
+-- True when a Unique line is found, nil when none is found but a line was
+-- secret (it may have been the Unique line), otherwise false.
 local function HasUniqueLine(lines)
+    local secretSeen = false
     for _, line in ipairs(lines) do
         local text = line.leftText
-        if type(text) == "string" and not Util.IsSecret(text) then
-            if text == ITEM_UNIQUE or text == ITEM_UNIQUE_EQUIPPABLE then
-                return true
-            end
+        if Util.IsSecret(text) then
+            secretSeen = true
+        elseif text == ITEM_UNIQUE or text == ITEM_UNIQUE_EQUIPPABLE then
+            return true
         end
+    end
+    if secretSeen then
+        return nil
     end
     return false
 end
@@ -196,6 +207,9 @@ local function IsUnique(itemID, link)
             return nil
         end
         unique = HasUniqueLine(lines)
+        if unique == nil then
+            return nil
+        end
     end
     uniqueCache[itemID] = unique
     return unique
@@ -213,7 +227,7 @@ local function IsAccountBound(facts)
         local location = ItemLocation:CreateFromBagAndSlot(facts.bag, facts.slot)
         -- A wrong argument raises (from memory, live check L24).
         local ok, result = Util.Pcall(C_Item.IsBoundToAccountUntilEquip, location)
-        if ok and result and not Util.IsSecret(result) then
+        if ok and Clean(facts, result) then
             return true
         end
     end
@@ -302,15 +316,13 @@ end
 
 -- Whether the slot's item is a quest item: GetContainerItemQuestInfo gives a
 -- table with isQuestItem (from memory, live check L7).
-local function IsQuestItem(bag, slot)
+local function IsQuestItem(facts, bag, slot)
     local info = C_Container.GetContainerItemQuestInfo(bag, slot)
-    if type(info) ~= "table" or Util.IsSecret(info.isQuestItem) then
+    if type(info) ~= "table" then
         return false
     end
-    if info.isQuestItem then
-        return true
-    end
-    return false
+    -- A secret value is deferred: Clean marks the facts secret and pending.
+    return Clean(facts, info.isQuestItem) and true or false
 end
 
 --- The count of each item ID over the container that holds `bag`: bags 0 to 5,
@@ -371,7 +383,7 @@ function ItemFacts.FromSlot(bag, slot, holdings)
     end
     local _, suffix = Util.ParseLink(facts.link)
     facts.suffix = suffix or 0
-    facts.isQuest = IsQuestItem(bag, slot)
+    facts.isQuest = IsQuestItem(facts, bag, slot)
     facts.refundable = IsRefundable(bag, slot)
     holdings = holdings or ItemFacts.Holdings(bag)
     facts.holding = holdings[facts.itemID] or facts.stack

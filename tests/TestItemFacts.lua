@@ -203,6 +203,50 @@ return {
         h.Equal(second.unscoredEffect, true, "same effect")
     end,
 
+    ["Facts: a secret tooltip line leaves the class restriction unread"] = function()
+        local item = Place("helm", 0, 1)
+        h.Stub.SetTooltipLines(item.link, { "Test Helm", h.Stub.MakeSecret() })
+        local facts = ItemFacts.FromSlot(0, 1)
+        h.Equal(facts.tooltipUnread, true, "unread")
+        h.Nil(facts.classRestriction, "unknown")
+        h.Stub.SetTooltipLines(item.link, { "Test Helm", "Classes: Warrior" })
+        local again = ItemFacts.FromSlot(0, 1)
+        h.Equal(again.tooltipUnread, false, "read once readable")
+        h.DeepEqual(again.classRestriction, { WARRIOR = true }, "restriction")
+    end,
+
+    ["Facts: a secret tooltip line leaves unique unknown and not remembered"] = function()
+        h.Stub.SetUniquenessApi(false)
+        local ring = Place("ring", 0, 1)
+        h.Stub.SetTooltipLines(ring.link, { "Test Ring", h.Stub.MakeSecret() })
+        local facts = ItemFacts.FromSlot(0, 1)
+        h.Nil(facts.unique, "unknown")
+        h.Equal(facts.tooltipUnread, true, "unread")
+        h.Stub.SetTooltipLines(ring.link, { "Test Ring", "Unique-Equipped" })
+        h.Equal(ItemFacts.FromSlot(0, 1).unique, true, "unique once readable")
+    end,
+
+    ["Facts: a secret quest flag makes the facts pending and secret"] = function()
+        Place("quest", 0, 1, { isQuest = h.Stub.MakeSecret() })
+        local facts = ItemFacts.FromSlot(0, 1)
+        h.Equal(facts.secret, true, "secret")
+        h.Equal(facts.pending, true, "pending")
+        h.Equal(facts.isQuest, false, "not reported as a quest item")
+    end,
+
+    ["Facts: a secret account-bound result makes the facts pending and secret"] = function()
+        local item = Place("robe", 0, 1)
+        local fields = {}
+        for key, value in pairs(items.robe) do
+            fields[key] = value
+        end
+        fields.accountBound = h.Stub.MakeSecret()
+        h.Stub.SetItem(item.itemID, fields)
+        local facts = ItemFacts.FromSlot(0, 1)
+        h.Equal(facts.secret, true, "secret")
+        h.Equal(facts.pending, true, "pending")
+    end,
+
     ["Facts: unique comes from the uniqueness call"] = function()
         Place("thunderfury", 0, 1)
         Place("dagger", 0, 2)
