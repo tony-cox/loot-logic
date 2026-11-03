@@ -66,17 +66,17 @@ return {
 
     ["a failing handler adds an Errors entry and the next handler runs"] = function()
         local ran = false
-        Events.Register("PLAYER_LOGIN", function()
+        Events.Register("PLAYER_ALIVE", function()
             error("boom", 0)
         end)
-        Events.Register("PLAYER_LOGIN", function()
+        Events.Register("PLAYER_ALIVE", function()
             ran = true
         end)
-        h.Stub.FireEvent("PLAYER_LOGIN")
+        h.Stub.FireEvent("PLAYER_ALIVE")
         h.Equal(ran, true, "next handler ran")
         h.Equal(#Log.Errors(), 1, "entries")
         h.Equal(Log.Errors()[1].area, "events", "area")
-        h.Equal(Log.Errors()[1].message, "PLAYER_LOGIN: boom", "message")
+        h.Equal(Log.Errors()[1].message, "PLAYER_ALIVE: boom", "message")
         h.Equal(#h.Stub.ChatLines(), 0, "no chat line")
     end,
 
@@ -114,9 +114,9 @@ return {
 
     ["an event with no arguments gives just its name"] = function()
         DebugOn()
-        Events.Register("PLAYER_LOGIN", function() end)
-        h.Stub.FireEvent("PLAYER_LOGIN")
-        h.DeepEqual(LootLogicDB.debug.log, { "[00:00:00] event: PLAYER_LOGIN" }, "log")
+        Events.Register("PLAYER_ALIVE", function() end)
+        h.Stub.FireEvent("PLAYER_ALIVE")
+        h.DeepEqual(LootLogicDB.debug.log, { "[00:00:00] event: PLAYER_ALIVE" }, "log")
     end,
 
     ["no event line for the two item-data events"] = function()

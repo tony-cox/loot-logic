@@ -110,6 +110,6 @@ Slots.armorGroups = {
 -- Bag IDs as numbers: bags 0 to 5 (backpack and bags 0 to 4, the reagent bag
 -- 5) and the bank tabs 6 to 14. These are the values of Enum.BagIndex
 -- (CharacterBankTab_1 to _9) that live check L14 confirms; the file does not
--- read the Enum (D153).
+-- read the Enum.
 Slots.bags = { first = 0, last = 5 }
 Slots.bankTabs = { first = 6, last = 14 }

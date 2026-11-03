@@ -20,5 +20,7 @@ Data\Slots.lua
 Data\Proficiency.lua
 Data\Specs.lua
 Data\WeightTables.lua
+Model\Roster.lua
+Model\Loadouts.lua
 Prices\Prices.lua
 Prices\Vendor.lua

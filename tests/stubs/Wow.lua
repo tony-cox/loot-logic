@@ -9,6 +9,10 @@ Setters of h.Stub (keep this list in step with the code below):
                           (default 0, UTC)
   SetAddOnMetadata(addon, field, value)
                           value C_AddOns.GetAddOnMetadata returns for an addon
+  SetPlayer(fields)       change the current character; fields (all optional):
+                          first, last, realm, faction, factionName, class
+                          (token), className, race (name), raceToken, raceID,
+                          level, version, build
   MakeSecret()            a new token that issecretvalue reports as true
   FireEvent(event, ...)   fire an event on every frame registered for it
   ChatLines()             list of the chat lines printed so far
@@ -263,6 +267,85 @@ DEFAULT_CHAT_FRAME = {
         AddChatLine(text)
     end,
 }
+
+-- The current character. UnitName returns the first and the last name
+-- (confirmed by the team in beta play, live check L2) and GetRealmName the
+-- region (unverified, L3). UnitFactionGroup (English faction, then the local
+-- name), UnitClass (class name, then token), UnitRace (race name, token, then
+-- numeric ID), UnitLevel and GetBuildInfo (version, then build number) are from
+-- memory, with no live check yet.
+local player = {
+    first = "Zugar",
+    last = "Soulsour",
+    realm = "Region",
+    faction = "Horde",
+    factionName = "Horde (local)",
+    class = "WARLOCK",
+    className = "Warlock",
+    race = "Orc",
+    raceToken = "Orc",
+    raceID = 2,
+    level = 60,
+    version = "1.60.1",
+    build = "12345",
+}
+
+function UnitName(unit)
+    if unit ~= "player" then
+        return nil
+    end
+    return player.first, player.last
+end
+
+function GetRealmName()
+    return player.realm
+end
+
+function UnitFactionGroup(unit)
+    if unit ~= "player" then
+        return nil
+    end
+    return player.faction, player.factionName
+end
+
+function UnitClass(unit)
+    if unit ~= "player" then
+        return nil
+    end
+    return player.className, player.class
+end
+
+function UnitRace(unit)
+    if unit ~= "player" then
+        return nil
+    end
+    return player.race, player.raceToken, player.raceID
+end
+
+function UnitLevel(unit)
+    if unit ~= "player" then
+        return nil
+    end
+    return player.level
+end
+
+function GetBuildInfo()
+    return player.version, player.build, "Jan 1 2026", 16001
+end
+
+--- Changes the current character. A field not in the table keeps its value; a
+--- field set to false is removed (a missing last name, for example).
+-- @param fields table first, last, realm, faction, factionName, class,
+-- className, race, raceToken, raceID, level, version, build
+function Stub.SetPlayer(fields)
+    for name, value in pairs(fields) do
+        if value == false then
+            player[name] = nil
+        else
+            player[name] = value
+        end
+    end
+end
 
 --- Moves the manual clock forward and runs the timers that fall due.
 -- @param seconds number
