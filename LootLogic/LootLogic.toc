@@ -21,6 +21,7 @@ Data\Proficiency.lua
 Data\Specs.lua
 Data\WeightTables.lua
 Model\Roster.lua
+Model\Snapshot.lua
 Model\Loadouts.lua
 Model\Sets.lua
 Model\Asks.lua

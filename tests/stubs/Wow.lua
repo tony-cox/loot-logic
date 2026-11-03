@@ -40,6 +40,22 @@ Setters of h.Stub (keep this list in step with the code below):
                           Outfitter:RegisterOutfitEvent for the event
   OutfitterHandlerCount(event)
                           how many functions are registered for the event
+  SetBagSize(bag, size)   the number of slots C_Container.GetContainerNumSlots
+                          gives (0 when unset, as for a tab not bought)
+  SetBagItem(bag, slot, item)
+                          one bag slot, item = { itemID, link, count }, or nil
+                          to empty it; also the link GetContainerItemLink gives
+  SetBagIndex(name, value)
+                          change a member of Enum.BagIndex
+  OpenBank()              fire BANKFRAME_OPENED
+  CloseBank()             fire BANKFRAME_CLOSED
+  SetItemInstant(itemID, fields)
+                          what C_Item.GetItemInfoInstant gives: equipLoc,
+                          classID, subclassID
+  SetKnownSpells(list)    the spell IDs IsPlayerSpell reports as known
+  SetInbox(mails)         the inbox, a list of { items = { { link, count } } }
+  SetSendMailItems(items) the attachments of the mail being written, a list of
+                          { link, count }
 
 Time: every "now" comes from the manual clock, never the machine clock. date()
 formats in UTC (plus the offset) so expected times do not depend on the
@@ -533,11 +549,192 @@ function Stub.SetBagLink(bag, slot, link)
     bagLinks[bag .. ":" .. slot] = link
 end
 
+-- Bag contents. GetContainerNumSlots and GetContainerItemInfo (a table with
+-- itemID, hyperlink and stackCount) are from memory (live checks L7 and L14).
+local bagSizes = {}
+local bagItems = {}
+
+function Stub.SetBagSize(bag, size)
+    bagSizes[bag] = size
+end
+
+--- Sets or clears (item nil) one bag slot; also the link GetContainerItemLink
+--- gives.
+-- @param bag number
+-- @param slot number
+-- @param item table|nil { itemID, link, count }
+function Stub.SetBagItem(bag, slot, item)
+    bagItems[bag .. ":" .. slot] = item
+    bagLinks[bag .. ":" .. slot] = item and item.link
+end
+
 C_Container = {
     GetContainerItemLink = function(bag, slot)
         return bagLinks[bag .. ":" .. slot]
     end,
+    GetContainerNumSlots = function(bag)
+        return bagSizes[bag] or 0
+    end,
+    GetContainerItemInfo = function(bag, slot)
+        local item = bagItems[bag .. ":" .. slot]
+        if not item then
+            return nil
+        end
+        return { itemID = item.itemID, hyperlink = item.link, stackCount = item.count or 1 }
+    end,
 }
+
+-- Enum.BagIndex: no Bank member, bank tabs 6 to 14 (technical findings 5;
+-- live check L14).
+local bagIndex = {
+    Backpack = 0,
+    Bag_1 = 1,
+    Bag_2 = 2,
+    Bag_3 = 3,
+    Bag_4 = 4,
+    ReagentBag = 5,
+}
+for tab = 1, 9 do
+    bagIndex["CharacterBankTab_" .. tab] = 5 + tab
+end
+Enum = { BagIndex = bagIndex }
+
+function Stub.SetBagIndex(name, value)
+    bagIndex[name] = value
+end
+
+--- Fires BANKFRAME_OPENED.
+function Stub.OpenBank()
+    Stub.FireEvent("BANKFRAME_OPENED")
+end
+
+--- Fires BANKFRAME_CLOSED.
+function Stub.CloseBank()
+    Stub.FireEvent("BANKFRAME_CLOSED")
+end
+
+-- C_Item.GetItemInfoInstant returns the item ID, type, subtype, equipLoc,
+-- icon, classID and subclassID; it accepts a link (from memory, technical
+-- findings 7.1; live check L8). An item with no fields set is unknown (nil).
+local instants = {}
+
+--- Sets what GetItemInfoInstant gives for an item ID.
+-- @param itemID number
+-- @param fields table equipLoc (such as "INVTYPE_CHEST"), classID, subclassID
+function Stub.SetItemInstant(itemID, fields)
+    instants[itemID] = fields
+end
+
+C_Item = {
+    GetItemInfoInstant = function(item)
+        local itemID = item
+        if type(item) == "string" then
+            itemID = tonumber(string.match(item, "item:(%d+)"))
+        end
+        local fields = instants[itemID]
+        if not fields then
+            return nil
+        end
+        return itemID, nil, nil, fields.equipLoc or "", 134400, fields.classID, fields.subclassID
+    end,
+}
+
+-- IsPlayerSpell is from memory (live check L6).
+local knownSpells = {}
+
+--- Sets the spell IDs IsPlayerSpell reports as known.
+-- @param list table list of spell IDs
+function Stub.SetKnownSpells(list)
+    knownSpells = {}
+    for _, spellID in ipairs(list) do
+        knownSpells[spellID] = true
+    end
+end
+
+function IsPlayerSpell(spellID)
+    return knownSpells[spellID] or false
+end
+
+-- Mail. GetInboxNumItems (the mail count, then the total), GetInboxItem (name,
+-- itemID, texture, count, quality, canUse), GetInboxItemLink,
+-- GetSendMailItem (name, itemID, texture, count, quality), GetSendMailItemLink,
+-- SendMail (recipient, subject, body) and the two attachment limits are from
+-- memory (live checks L13 and L49).
+ATTACHMENTS_MAX_SEND = 12
+ATTACHMENTS_MAX_RECEIVE = 16
+
+local inbox = {}
+local sendItems = {}
+
+local function ItemIDOf(link)
+    return tonumber(string.match(link, "item:(%d+)"))
+end
+
+--- Sets the inbox: a list of mails, each { items = { { link, count }, ... } }.
+-- @param mails table
+function Stub.SetInbox(mails)
+    inbox = mails
+end
+
+--- Sets the attachments of the mail being written: a list of { link, count }.
+-- @param items table
+function Stub.SetSendMailItems(items)
+    sendItems = items
+end
+
+function GetInboxNumItems()
+    return #inbox, #inbox
+end
+
+function GetInboxItem(mail, attachment)
+    local item = inbox[mail] and inbox[mail].items[attachment]
+    if not item then
+        return nil
+    end
+    return "Item", ItemIDOf(item.link), 134400, item.count or 1, 1, true
+end
+
+function GetInboxItemLink(mail, attachment)
+    local item = inbox[mail] and inbox[mail].items[attachment]
+    return item and item.link
+end
+
+function GetSendMailItem(index)
+    local item = sendItems[index]
+    if not item then
+        return nil
+    end
+    return "Item", ItemIDOf(item.link), 134400, item.count or 1, 1
+end
+
+function GetSendMailItemLink(index)
+    local item = sendItems[index]
+    return item and item.link
+end
+
+-- The client sends the mail; the stub does nothing, so a test fires
+-- MAIL_SEND_SUCCESS or MAIL_FAILED itself.
+function SendMail() end
+
+-- hooksecurefunc(name, hook) and hooksecurefunc(table, name, hook): the hook
+-- runs after the original with the same arguments (from memory; live check
+-- L13).
+function hooksecurefunc(first, second, third)
+    local target = _G
+    local name = first
+    local hook = second
+    if type(first) == "table" then
+        target = first
+        name = second
+        hook = third
+    end
+    local original = target[name]
+    target[name] = function(...)
+        local results = { original(...) }
+        hook(...)
+        return unpack(results)
+    end
+end
 
 -- Scripted tooltips. C_TooltipInfo.GetHyperlink(link).lines, each with
 -- leftText, is source-read on Forever for the call (technical findings 7.1);
