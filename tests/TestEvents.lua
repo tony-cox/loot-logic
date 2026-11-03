@@ -141,7 +141,12 @@ return {
         Events.Register("ADDON_LOADED", function() end)
         h.Stub.FireEvent("ADDON_LOADED", "LootLogic")
         h.DeepEqual(LootLogicDB.debug.log, { "kept" }, "log unchanged")
-        h.Equal(#h.Stub.ChatLines(), 0, "no chat line")
+        -- DB.lua is loaded too, so its one notice is the only chat line.
+        h.DeepEqual(
+            h.Stub.ChatLines(),
+            { ns.L.chatPrefix .. " " .. ns.L.dataNewer },
+            "only the DB notice"
+        )
     end,
 
     ["no event line and no table with debug off"] = function()

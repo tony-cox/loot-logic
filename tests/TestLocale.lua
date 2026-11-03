@@ -10,6 +10,16 @@ return {
         h.Equal(ns.L.chatPrefix, "LootLogic:", "chat prefix")
         h.Equal(ns.L.debugPrefix, "LootLogic debug:", "debug prefix")
         h.Equal(ns.L.errorEngine, "error on an item, see /ll status.", "engine error line")
+        h.Equal(
+            ns.L.dataNewer,
+            "saved data is newer than this version and is left unchanged.",
+            "newer-schema notice"
+        )
+        h.Equal(
+            ns.L.dataNotUpgraded,
+            "saved data could not be upgraded and is left unchanged.",
+            "failed-migration notice"
+        )
     end,
 
     ["a defined key returns its string and formats"] = function()

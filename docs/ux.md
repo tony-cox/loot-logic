@@ -655,7 +655,7 @@ The tab has two panes, as the Weights tab does. The left pane lists seven groups
 | No price addon installed | Sell rule: a line at the top "No price addon found: the AH rule has nothing to work on until one is installed." The controls stay editable. |
 | Only one price provider installed | The order control is greyed with "Needs two price addons" |
 | A setting changed | The next classification uses it; the Contents tab and tooltips update within a second |
-| Saved data newer than the addon | Every control is greyed with the notice of spec 6 (the saved data is newer than the addon and is left unchanged) |
+| Saved data newer than the addon, or not upgraded | Every control is greyed with the notice of spec 6 (the saved data is newer than the addon, or could not be upgraded, and is left unchanged) |
 
 ---
 
@@ -798,13 +798,14 @@ LootLogic: Zugar (wants Trade Goods: Cloth)
 - Adapter failed: "<adapter> sections are off (<error>); tooltips still work."
 - Engine error: "error on an item, see /ll status."
 - Saved data newer than this version (once, when the addon loads): "saved data is newer than this version and is left unchanged."
+- Saved data that could not be upgraded (once, when the addon loads): "saved data could not be upgraded and is left unchanged."
 - First run, no price addon: "no price addon found; tradable items nobody wants show as Vendor/AH."
 - Last scan ignored (at login, M2): "'Only prices from the latest scan' is on, but Auctionator cannot tell which items were in the last scan, so it is ignored. Use AHDB for this."
 - Scan summary: "prices updated: 9 items left Vendor/AH (6 AH, 3 Vendor)."
 - Mail recorded (off by default): "mail to Boneset recorded (2 items)."
 - Upgrades in mail (at login, once): "2 upgrades are waiting in your mail: [Chestguard] (Cat), [Ring] (Bear). Collect them at a mailbox."
 
-**In M1** (no window, no bag adapter) LootLogic prints the added, first-run, no-price, provider error, engine error and newer-saved-data lines. The last-scan line (with the `requireLastScan` toggle), stale, scan summary, mail-recorded and mail-upgrade lines arrive in M2 with their switches in the Settings tab (`notify.*`, 3.8), and the adapter-failed line arrives with the BetterBags adapter.
+**In M1** (no window, no bag adapter) LootLogic prints the added, first-run, no-price, provider error, engine error, newer-saved-data and could-not-upgrade lines. The last-scan line (with the `requireLastScan` toggle), stale, scan summary, mail-recorded and mail-upgrade lines arrive in M2 with their switches in the Settings tab (`notify.*`, 3.8), and the adapter-failed line arrives with the BetterBags adapter.
 
 **Staleness.** A snapshot changes only when its character logs in, so an idle character's snapshot is correct however old it is, unless that character was played on another PC or with LootLogic off, which LootLogic cannot detect. Tooltips therefore carry no age warning, which would be noise for characters that are simply idle. The login line names characters not seen for `staleDays`, once per session, and leaves out characters that cannot receive gear (other faction or region, or Receives gear off). Every age is on the Characters tab and Status.
 
