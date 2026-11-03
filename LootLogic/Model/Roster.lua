@@ -141,11 +141,14 @@ local function GroupNames(group, characters)
             break
         end
         names[key] = JoinName(characters[key].first, letter)
-        if seen[names[key]] then
+        -- Commands match names ignoring case, so names that differ only in
+        -- case clash too.
+        local folded = string.lower(names[key])
+        if seen[folded] then
             complete = false
             break
         end
-        seen[names[key]] = true
+        seen[folded] = true
     end
     if complete then
         return names

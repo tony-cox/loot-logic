@@ -88,6 +88,14 @@ return {
         }, "names")
     end,
 
+    ["DisplayNames: letters that differ only in case give full names"] = function()
+        h.DeepEqual(Names({ { "Zugar", "Axx" }, { "Zugar", "Bay" }, { "Zugar", "Bbz" } }), {
+            "Zugar Axx",
+            "Zugar Bay",
+            "Zugar Bbz",
+        }, "names")
+    end,
+
     ["DisplayNames: equal surnames ignoring case give full names"] = function()
         h.DeepEqual(Names({ { "Zugar", "Soul" }, { "Zugar", "SOUL" } }), {
             "Zugar Soul",
