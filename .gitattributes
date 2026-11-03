@@ -1,0 +1,5 @@
+*.lua text eol=lf
+*.toc text eol=lf
+*.py text eol=lf
+.luacheckrc text eol=lf
+stylua.toml text eol=lf
