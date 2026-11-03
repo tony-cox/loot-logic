@@ -55,3 +55,9 @@ L.slotRanged = "ranged"
 L.slotMainHand = "main-hand weapon"
 L.slotOffHand = "off-hand"
 L.slotTwoHand = "two-hander"
+
+-- Debug log lines (technical findings 15, Debug log): the imported-set
+-- snapshots (sets, items) and the known-recipe cache clearing (the event).
+L.snapshotSetsEquipment = "imported sets, Equipment Manager: sets %d, items %d"
+L.snapshotSetsOutfitter = "imported sets, Outfitter: sets %d, items %d"
+L.recipesCleared = "known-recipe cache cleared by %s"

@@ -46,6 +46,12 @@ local function LogEvent(event, ...)
     Log.Debug("event", text)
 end
 
+--- Writes the debug "event" line for an event and its arguments, as the event
+--- frame does; for events that do not come through it (Outfitter's).
+-- @param event string
+-- @param ... any the event arguments
+Events.LogEvent = LogEvent
+
 local function Dispatch(_, event, ...)
     local list = handlers[event]
     if not list then
