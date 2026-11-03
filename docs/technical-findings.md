@@ -595,7 +595,7 @@ TypeExamples = {
 
 **Budget** (measured with `debugprofilestop` and `/ll perf`):
 - A cached refresh of 100 slots: about 1 ms.
-- A full recompute of 100 items × 4 characters × up to 3 loadout specs: target under 20 ms (unverified until L35), spread over frames (`C_Timer.After(0)` batches of 25) when above 10 ms.
+- A full recompute of 100 items × 4 characters × up to 3 loadout specs: a warm pass takes under 50 ms and a cold first pass is allowed longer (17.1; unverified until L35), spread over frames (`C_Timer.After(0)` batches of 25) when above 10 ms.
 - BetterBags `ReprocessAllItems`: at most once per 2 s.
 - Overlay painting reuses one texture pair per button.
 
