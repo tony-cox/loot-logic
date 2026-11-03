@@ -406,7 +406,7 @@ classify(slot, here):
     a quest item (class 12 or quest info), key (class 13), WoW Token (18), or an item on the never-touch list (Hearthstone)
     b on a Protect list (here, or global)
     c a member of one of here's imported sets (Outfitter, Equipment Manager)
-    d profession tool (2/14, 2/20, or the built-in tool list: Flint and Tinder, runed rods, ...) unless the tool is tradable and a want by any eligible character matches it (step 4 then decides who); a soulbound tool always stays
+    d profession tool (2/14, 2/20, or the built-in tool list: Flint and Tinder, runed rods, ...) unless the tool is tradable and a want by here or any eligible character matches it (step 4 then decides who); a soulbound tool always stays
     e soulbound (account-bound items count as tradable, section 4) and vendorPrice == 0 and not gear (step 3 decides gear first; gear left over reaches step 6 and gets `novalue`): "no vendor value", unless a want by here matches
  2  GREY      quality 0:
     here includes the item ID -> none (reason `wantedhere`)
@@ -601,13 +601,13 @@ Shirt, tabard, ammo, bags, quivers, cosmetic armour and profession tools (step 1
 | Candidate | Baseline |
 |---|---|
 | Single-slot item | The best usable owned piece |
-| Rings and trinkets | The **weaker of the best two** owned (an empty second slot counts as 0). The best two never include two copies of one unique-equipped item. |
+| Rings and trinkets | The **weaker of the best two** owned (an empty second slot counts as 0, and so does an owned piece that scores below 0). The best two never include two copies of one unique-equipped item. |
 | Two-hander | `max(best 2H, best MH 1H + best off-hand)` |
 | One-hand main hand | The best MH 1H. If this spec prefers a 2H (2H > MH + OH), compare candidate + best off-hand against the 2H; the reason names the two-hander. |
 | Off-hand | The best off-hand. If this spec prefers a 2H (2H > MH + OH), compare candidate + best MH 1H against the 2H. |
 | Nothing owned | 0: any positive score is an upgrade |
 
-**Pairs.** The main-hand and off-hand terms are two different owned instances: one weapon never fills both hands, and two copies count only when the item is not unique-equipped. The best pair is the higher of (best MH 1H + best off-hand of the rest) and (best off-hand + best MH 1H of the rest). In the main-hand and off-hand rows, "best MH 1H" and "best off-hand" are the two pieces of the best pair (the candidate's own instance left out), so an off-hand candidate is compared with the pair's off hand, never with the piece the pair uses as its main hand. 8.6 uses the same pair.
+**Pairs.** The main-hand and off-hand terms are two different owned instances: one weapon never fills both hands, and two copies count only when the item is not unique-equipped. The best pair is the higher of (best MH 1H + best off-hand of the rest) and (best off-hand + best MH 1H of the rest). In the main-hand and off-hand rows, "best MH 1H" and "best off-hand" are the two pieces of the best pair (the candidate's own instance left out), so an off-hand candidate is compared with the pair's off hand, never with the piece the pair uses as its main hand. A unique-equipped candidate is not an upgrade for a hand when the piece kept in the other hand is the same item. 8.6 uses the same pair.
 
 - **One-hand weapons** that can go in either hand (for a class that dual wields) are judged as main hand and as off hand, and the better gain is used; the reason names the slot.
 - **Ties:** when two owned pieces with different links score exactly the same and the score is above 0, item level breaks the tie when `itemLevelFallback` is on; equal item level (or the setting off) leaves both as best, so both are "in use". A piece scoring 0 under a spec is never "in use" for it, whatever its item level. Identical copies (same link) never tie: a worn copy, else the copy in the lowest bag and slot, else an inbox or inbound copy, is the best one.
@@ -1116,4 +1116,5 @@ Version 2 follows version 1.1. The first two items change the data model: `asks`
 - **Upgrade chat line:** a setting, off by default, that prints a chat line when a looted item beats a loadout on any character, so upgrades while levelling, and a stowed loadout's piece being replaced, are noticed.
 - **"Mail to" button:** a button on the Contents tab, enabled while the mailbox is open, that fills the mail recipient with a character's full name. It attaches nothing. The game already completes the player's own character names in that box (confirmed in beta), so the gain is small. Mail needs "First Last" (confirmed by the team in beta play, L12). Natural to build with "attach this section" if mail handling is ever added.
 - **Baganator tile marker:** a category badge on Baganator's own item tiles through its public corner-widget call, so Baganator users get the at-a-glance marker that default-bag users have. The player probably has to enable the widget in Baganator's settings (unverified). It needs a live check of the call, and nothing in version 1 interacts with Baganator beyond the tooltip line every bag addon gets. Until then Baganator users have the tooltip line and the Contents tab.
+- **Whole-setup weapon comparison** (section 8.4): compare every main-hand and off-hand pair and two-hander with and without the candidate, and take the gain on the whole setup, instead of the gain on one hand. A unique weapon next to its own twin, and a different partner that makes a pair better, would then need no special rule. It changes the gain a player sees for every weapon, so it needs an owner decision and a rewrite of the 8.4 weapon rows first.
 - **Baganator adapter,** once a category API exists (12.3). Baganator's own transfer button acts on the current search, so once our categories exist in Baganator through that API, searching a category could attach or sell it with no LootLogic code (technical findings 12.3).

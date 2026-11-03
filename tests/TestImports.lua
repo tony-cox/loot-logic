@@ -183,6 +183,8 @@ return {
         h.Equal(Sets.IsSetMember(200, 0), true, "suffix 0 member, suffix 0")
         h.Equal(Sets.IsSetMember(200, -5), true, "suffix 0 member, any roll")
         h.Equal(Sets.IsSetMember(777, 0), false, "not a member")
+        local _, set = Sets.IsSetMember(100, -17)
+        h.Equal(set.name, "Cat", "the set that holds it")
     end,
 
     ["Imported sets: a member of an Outfitter set is found too"] = function()
