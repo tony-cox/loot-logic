@@ -30,6 +30,7 @@ LootLogic is read-only: it never sells, mails, lists on the AH, deletes or moves
 | [`docs/style.md`](docs/style.md) | The Lua style guide and tooling for the addon code |
 | [`docs/decisions.md`](docs/decisions.md) | The decision log: open and answered decisions, with dates |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Rules for writing docs and code comments, and for researching and using other addons' code |
+| [`AGENTS.md`](AGENTS.md) | Working notes for coding agents (Claude Code and Codex): the workflow, the decisions rules and the build agents, which are defined in [`agents/`](agents/) |
 
 ## Licence
 

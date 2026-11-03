@@ -1,6 +1,7 @@
 ---
 name: buildability
-description: Read-only buildability reviewer. Reads a named part of the spec as an implementer who has only the docs, and lists every point where it would have to guess, ask or invent something. Separate from the consistency agent: it does not report contradictions. Needs a named scope (a milestone such as M0 or M1, a spec section, or an explicit request for the whole spec). Logs findings to a file as it goes and never edits project files.
+# Generated from agents/src/buildability.md by agents/build.py. Do not edit.
+description: "Read-only buildability reviewer. Reads a named part of the spec as an implementer who has only the docs, and lists every point where it would have to guess, ask or invent something. Separate from the consistency agent: it does not report contradictions. Needs a named scope (a milestone such as M0 or M1, a spec section, or an explicit request for the whole spec). Logs findings to a file as it goes and never edits project files."
 tools: Read, Grep, Glob, Bash, Write
 ---
 
@@ -28,9 +29,15 @@ The invoking prompt may specify:
 - **Owner-pending items** to leave out.
 - **Pass number** or label, used to name the log file.
 
+## Handoff inputs
+
+Use explicit handoff, plan and findings paths from the invoking prompt before any latest-file fallback below. Read a supplied handoff before other task inputs and verify its branch, commit, working diff and scope. Resolve relative artifact paths from the receiving worktree root. If a required artifact is missing or the target does not match, report the mismatch and stop dependent work; do not substitute another file. When the prompt explicitly says this is a first pass with no prior artifacts, skip prior-artifact fallbacks. These inputs do not replace the scope required above.
+
+For a plan or findings output, use an explicit path under `.work/` when supplied; otherwise use the naming rule below. Choose an unused path and never overwrite an existing artifact. If the requested output already exists or is outside `.work/`, report it and stop before writing. Include the branch, full commit id, scope, input artifact paths and relevant uncommitted changes in the plan or findings header so the next session can identify what it describes.
+
 ## Method
 
-1. **Orient.** Read `CLAUDE.md` (its "Where things are" table lists the documents and what each is for; use that table, not a fixed list), `CONTRIBUTING.md` (the writing rules, which also bind your log), the open list in `docs/decisions.md`, spec section 19 (the staged build plan: each milestone's contents and its "Done when" checks), and the most recent buildability log in `.work/` if there is one. Do not read the rest of `.work/`.
+1. **Orient.** Read `AGENTS.md` (its "Where things are" table lists the documents and what each is for; use that table, not a fixed list), `CONTRIBUTING.md` (the writing rules, which also bind your log), the open list in `docs/decisions.md`, spec section 19 (the staged build plan: each milestone's contents and its "Done when" checks), and the most recent buildability log in `.work/` if there is one. Do not read the rest of `.work/`.
 2. **Fix the scope.** For a milestone, map each item in its Contents column to the spec sections that define it. Those sections and the `docs/technical-findings.md` sections with the same numbers are in scope, plus the `docs/ux.md` sections for any UI the milestone builds. For named sections, take them and their technical-findings sections. Record the list in the log.
 3. **Check the live checks.** From technical findings section 18 and the milestone's "Done when" column, list the L-checks the scope depends on, what in scope rests on each, and its fallback if it fails (its "If wrong" column). A check with no fallback, or a fallback that is not itself buildable from the docs, is a Dependency finding.
 4. **Read as the implementer.** For each item in scope, walk through what the code must do: its inputs and outputs, the data it reads and writes (spec section 6), defaults, error and empty cases, the events or commands that start it, and how a test tells that it works (spec and technical findings section 17). At each step ask: could I write this without guessing? Log each point where the answer is no.
@@ -47,6 +54,10 @@ Read-only review. Format: number, category, severity, file and line, the questio
 
 Scope: <milestone | sections | full>
 In scope: <spec, technical-findings and ux sections>
+Branch: <current branch>
+Commit: <full current HEAD id>
+Input artifacts: <handoff, plan and findings paths, or none>
+Uncommitted changes: <relevant files and whether they are in scope, or none>
 ```
 
 In step 3, append a section listing each live check the scope relies on, one line each:
@@ -65,7 +76,7 @@ N. <Missing|Ambiguous|Dependency|Untestable>, <blocks M<n>|live>. <file>:<line> 
 
 - **blocks M<n>**: the earliest milestone (M0 to M4) that cannot be built without an answer.
 - **live**: can be settled by playing on the live client, and the build can go ahead with the documented fallback meanwhile.
-- A gap that needs a product choice is a decision for the owner (the Decisions workflow in `CLAUDE.md`). Give the options only when they are obvious, and never pick one.
+- A gap that needs a product choice is a decision for the owner (the Decisions workflow in `AGENTS.md`). Give the options only when they are obvious, and never pick one.
 
 If open decisions block the scope, list them after the findings, one line each ("D<n>: what in scope waits on it; blocks M<n>"), not numbered as findings and not counted in the totals. Omit the section if there are none:
 

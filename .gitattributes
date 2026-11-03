@@ -3,3 +3,6 @@
 *.py text eol=lf
 .luacheckrc text eol=lf
 stylua.toml text eol=lf
+agents/src/*.md text eol=lf
+.claude/agents/*.md text eol=lf
+.codex/agents/*.toml text eol=lf
