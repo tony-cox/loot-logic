@@ -101,6 +101,35 @@ function Asks.Matches(key, facts)
     return true
 end
 
+--- Which want made Asks.Matches true, in the order the reason names them (spec
+--- 7.6, words in reasons): "item" for an include, "subclass" for a type flag,
+--- "class" for a whole-class flag. Meant for a character that matches; nil when
+--- no flag applies.
+-- @param key string character key
+-- @param facts table as for Asks.Matches
+-- @treturn string|nil
+function Asks.MatchKind(key, facts)
+    local entry = DB.Data().characters[key]
+    if type(entry) ~= "table" or type(entry.asks) ~= "table" then
+        return nil
+    end
+    local asks = entry.asks
+    if type(asks.items) == "table" and asks.items[facts.itemID] == "include" then
+        return "item"
+    end
+    if type(asks.types) ~= "table" then
+        return nil
+    end
+    local exact = string.format("%d:%d", facts.class, facts.subclass)
+    if FlagMatches(asks.types[exact], facts.quality) then
+        return "subclass"
+    end
+    if FlagMatches(asks.types[string.format("%d:*", facts.class)], facts.quality) then
+        return "class"
+    end
+    return nil
+end
+
 --- The characters whose wants match an item, in the global priority order
 --- (LootLogicDB.order), eligible or not: the engine picks among them (spec 7.2
 --- step 4).

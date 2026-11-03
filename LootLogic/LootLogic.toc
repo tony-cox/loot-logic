@@ -32,3 +32,4 @@ Engine\Cache.lua
 Engine\Stats.lua
 Engine\ItemFacts.lua
 Engine\Scoring.lua
+Engine\Classify.lua

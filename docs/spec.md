@@ -406,7 +406,7 @@ classify(slot, here):
     a quest item (class 12 or quest info), key (class 13), WoW Token (18), or an item on the never-touch list (Hearthstone)
     b on a Protect list (here, or global)
     c a member of one of here's imported sets (Outfitter, Equipment Manager)
-    d profession tool (2/14, 2/20, or the built-in tool list: Flint and Tinder, runed rods, ...) unless the tool is tradable and a want by any eligible character matches it (step 4 then decides who); a soulbound tool always stays
+    d profession tool (2/14, 2/20, or the built-in tool list: Flint and Tinder, runed rods, ...) unless the tool is tradable and a want by here or any eligible character matches it (step 4 then decides who); a soulbound tool always stays
     e soulbound (account-bound items count as tradable, section 4) and vendorPrice == 0 and not gear (step 3 decides gear first; gear left over reaches step 6 and gets `novalue`): "no vendor value", unless a want by here matches
  2  GREY      quality 0:
     here includes the item ID -> none (reason `wantedhere`)

@@ -388,6 +388,8 @@ end
 -- @param itemID number
 -- @param suffix number|nil suffix ID of the item, nil or 0 for none
 -- @treturn boolean
+-- @treturn table|nil the first set that holds the item ({ source, name, ... }),
+--   for the reason text (spec 7.6, `inset`)
 function Sets.IsSetMember(itemID, suffix)
     local entry = DB.Data().characters[Roster.HereKey()]
     if type(entry) ~= "table" or type(entry.importedSets) ~= "table" then
@@ -398,7 +400,7 @@ function Sets.IsSetMember(itemID, suffix)
         if type(set) == "table" and type(set.items) == "table" then
             for _, member in ipairs(set.items) do
                 if member.id == itemID and (member.suffix == 0 or member.suffix == suffix) then
-                    return true
+                    return true, set
                 end
             end
         end

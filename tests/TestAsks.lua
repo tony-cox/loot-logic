@@ -46,6 +46,20 @@ return {
         h.Equal(Asks.Matches(PRIEST, Facts({ class = 4 })), false, "another class")
     end,
 
+    ["Asks: MatchKind names the include, then the subclass flag, then the class flag"] = function()
+        Login()
+        Want(PRIEST, { ["7:5"] = {}, ["7:*"] = {} }, { [2589] = "include" })
+        h.Equal(Asks.MatchKind(PRIEST, Facts()), "item", "include")
+        Want(PRIEST, { ["7:5"] = {}, ["7:*"] = {} })
+        h.Equal(Asks.MatchKind(PRIEST, Facts()), "subclass", "subclass")
+        Want(PRIEST, { ["7:*"] = {} })
+        h.Equal(Asks.MatchKind(PRIEST, Facts()), "class", "class")
+        Want(PRIEST, { ["7:5"] = { minQuality = 3 }, ["7:*"] = { minQuality = 1 } })
+        h.Equal(Asks.MatchKind(PRIEST, Facts()), "class", "the subclass minimum is not met")
+        Want(PRIEST, { ["4:*"] = {} })
+        h.Nil(Asks.MatchKind(PRIEST, Facts()), "no flag")
+    end,
+
     ["Asks: a class:* flag matches the whole class"] = function()
         Login()
         Want(PRIEST, { ["4:*"] = {} })
