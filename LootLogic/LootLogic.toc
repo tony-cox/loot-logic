@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: LootLogic
+## Notes: Sorts bag items into destination categories (other characters, Equip, AH, Vendor, Vendor/AH) for alts.
+## Author: LootLogic contributors
+## X-License: MIT
+## Version: @project-version@
+## SavedVariables: LootLogicDB
+## OptionalDeps: Auctionator, AuctionDB, BetterBags, BagBrother, Bagnon, Bagnonium, ArkInventory, EllesmereUI, EllesmereUIBags, OutfitterForever
+
+Locale\enUS.lua
+Core\Init.lua
