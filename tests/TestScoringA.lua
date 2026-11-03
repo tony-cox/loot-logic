@@ -25,9 +25,16 @@ end
 
 local function Item(fields)
     nextID = nextID + 1
-    local item = { itemID = nextID, link = "item:" .. nextID,
-        equipLoc = "INVTYPE_CHEST", classID = 4, subclassID = 2, reqLevel = 1,
-        itemLevel = 20, stats = {} }
+    local item = {
+        itemID = nextID,
+        link = "item:" .. nextID,
+        equipLoc = "INVTYPE_CHEST",
+        classID = 4,
+        subclassID = 2,
+        reqLevel = 1,
+        itemLevel = 20,
+        stats = {},
+    }
     for key, value in pairs(fields or {}) do
         item[key] = value
     end
@@ -49,8 +56,7 @@ end
 return {
     ["unreadable owned usability stays pending and retries without a generation bump"] = function()
         Boot()
-        local owned = Item({ noTooltip = true,
-            stats = { ITEM_MOD_AGILITY_SHORT = 20 } })
+        local owned = Item({ noTooltip = true, stats = { ITEM_MOD_AGILITY_SHORT = 20 } })
         local candidate = Item({ stats = { ITEM_MOD_AGILITY_SHORT = 10 } })
         LootLogicDB.characters.druid.bags = { gear = { owned.link } }
         LootLogicDB.characters[HERE].bags = { gear = { owned.link } }
@@ -73,9 +79,16 @@ return {
     end,
     ["weighted sum and weapon DPS use the judged hand"] = function()
         Boot()
-        local item = Item({ classID = 2, subclassID = 15, equipLoc = "INVTYPE_WEAPON",
-            stats = { ITEM_MOD_AGILITY_SHORT = 5, ITEM_MOD_STRENGTH_SHORT = 3,
-                ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10 } })
+        local item = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPON",
+            stats = {
+                ITEM_MOD_AGILITY_SHORT = 5,
+                ITEM_MOD_STRENGTH_SHORT = 3,
+                ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10,
+            },
+        })
         h.Equal(Scoring.Score(item, "DRUID:cat", "mainHand"), 43, "main hand")
         h.Equal(Scoring.Score(item, "DRUID:cat", "offHand"), 23, "off hand")
         h.Equal(Scoring.Score(item, "DRUID:cat", "ranged"), 53, "ranged")
@@ -85,10 +98,16 @@ return {
     end,
     ["percent keys convert once without changing source tables"] = function()
         Boot()
-        local item = Item({ stats = { ITEM_MOD_HIT_RATING_SHORT = 10,
-            ITEM_MOD_CRIT_RATING_SHORT = 14, ITEM_MOD_HASTE_RATING_SHORT = 10,
-            ITEM_MOD_DODGE_RATING_SHORT = 12, ITEM_MOD_PARRY_RATING_SHORT = 15,
-            ITEM_MOD_BLOCK_RATING_SHORT = 5 } })
+        local item = Item({
+            stats = {
+                ITEM_MOD_HIT_RATING_SHORT = 10,
+                ITEM_MOD_CRIT_RATING_SHORT = 14,
+                ITEM_MOD_HASTE_RATING_SHORT = 10,
+                ITEM_MOD_DODGE_RATING_SHORT = 12,
+                ITEM_MOD_PARRY_RATING_SHORT = 15,
+                ITEM_MOD_BLOCK_RATING_SHORT = 5,
+            },
+        })
         h.Equal(Scoring.Score(item, "PALADIN:holy"), 66, "converted score")
         h.Equal(Scoring.Score(item, "PALADIN:holy"), 66, "not converted twice")
         h.Equal(ns.WeightTables["PALADIN:holy"].weights.HIT, 10, "source unchanged")
@@ -181,8 +200,13 @@ return {
         local item = Item({ classRestriction = { PALADIN = true } })
         h.Equal(Scoring.CanUse(item, HERE, Options()), false, "here class restriction")
         h.Equal(Scoring.CanUse(item, "druid", Options()), false, "other class restriction")
-        for _, equipLoc in ipairs({ "INVTYPE_BODY", "INVTYPE_TABARD", "INVTYPE_AMMO",
-            "INVTYPE_BAG", "INVTYPE_QUIVER" }) do
+        for _, equipLoc in ipairs({
+            "INVTYPE_BODY",
+            "INVTYPE_TABARD",
+            "INVTYPE_AMMO",
+            "INVTYPE_BAG",
+            "INVTYPE_QUIVER",
+        }) do
             h.Nil(Scoring.Group(Item({ equipLoc = equipLoc })), "ignored slot")
         end
         h.Nil(Scoring.Group(Item({ subclassID = 5 })), "cosmetic")
@@ -311,15 +335,28 @@ return {
         Boot()
         local options = Options(fixture.characters.shaman.loadouts[1])
         LootLogicDB.characters[HERE].class = "SHAMAN"
-        for _, equipLoc in ipairs({ "INVTYPE_HEAD", "INVTYPE_SHOULDER", "INVTYPE_CHEST",
-            "INVTYPE_ROBE", "INVTYPE_WRIST", "INVTYPE_HAND", "INVTYPE_WAIST",
-            "INVTYPE_LEGS", "INVTYPE_FEET" }) do
+        for _, equipLoc in ipairs({
+            "INVTYPE_HEAD",
+            "INVTYPE_SHOULDER",
+            "INVTYPE_CHEST",
+            "INVTYPE_ROBE",
+            "INVTYPE_WRIST",
+            "INVTYPE_HAND",
+            "INVTYPE_WAIST",
+            "INVTYPE_LEGS",
+            "INVTYPE_FEET",
+        }) do
             local item = Item({ subclassID = 2, equipLoc = equipLoc, reqLevel = 35 })
             h.Equal(Scoring.CanUse(item, HERE, options), false, "here best armour")
             h.Equal(Scoring.CanUse(item, "shaman", options), false, "other best armour")
         end
-        for _, equipLoc in ipairs({ "INVTYPE_CLOAK", "INVTYPE_NECK", "INVTYPE_FINGER",
-            "INVTYPE_TRINKET", "INVTYPE_HOLDABLE" }) do
+        for _, equipLoc in ipairs({
+            "INVTYPE_CLOAK",
+            "INVTYPE_NECK",
+            "INVTYPE_FINGER",
+            "INVTYPE_TRINKET",
+            "INVTYPE_HOLDABLE",
+        }) do
             local item = Item({ subclassID = 0, equipLoc = equipLoc })
             h.Equal(Scoring.CanUse(item, HERE, options), true, "here exempt")
             h.Equal(Scoring.CanUse(item, "shaman", options), true, "other exempt")
@@ -365,8 +402,10 @@ return {
         h.Equal(Compare(Item({ itemLevel = 104 })).upgrade, false, "below fallback threshold")
         h.Equal(Compare(Item({ itemLevel = 105 })).upgrade, true, "at fallback threshold")
         ns.WeightTables["DRUID:cat"] = { weights = { STR = 1, AGI = -1 }, percent = {} }
-        local item = Item({ itemLevel = 200,
-            stats = { ITEM_MOD_STRENGTH_SHORT = 10, ITEM_MOD_AGILITY_SHORT = 10 } })
+        local item = Item({
+            itemLevel = 200,
+            stats = { ITEM_MOD_STRENGTH_SHORT = 10, ITEM_MOD_AGILITY_SHORT = 10 },
+        })
         local result = Compare(item)
         h.Equal(result.itemLevel, false, "weighted zero is not unweighted")
         h.Equal(result.upgrade, false, "no zero-score upgrade")

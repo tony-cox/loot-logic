@@ -250,7 +250,9 @@ local function Stamp(key)
         gear = "gearHere"
     end
     return table.concat({
-        Generations.Get(gear), Generations.Get("loadouts"), Generations.Get("settings"),
+        Generations.Get(gear),
+        Generations.Get("loadouts"),
+        Generations.Get("settings"),
     }, ":")
 end
 
@@ -306,8 +308,10 @@ end
 -- @treturn table score, item, where, itemLevel, highestItem, highestWhere;
 --   pending = true when an owned piece's usability is unreadable
 function Scoring.Baseline(key, loadout, options)
-    local cacheKey = table.concat({ key, loadout.spec,
-        tostring(Scoring.BestArmorOnly(loadout)), options.group }, "|")
+    local cacheKey = table.concat(
+        { key, loadout.spec, tostring(Scoring.BestArmorOnly(loadout)), options.group },
+        "|"
+    )
     local stamp = Stamp(key)
     local cached = baselines[cacheKey]
     if not cached or cached.stamp ~= stamp then
@@ -399,7 +403,16 @@ function Scoring.Compare(item, key, options)
         end
     end
     local upgrade, gainPct = Scoring.IsUpgrade(candidate, value, settings.minUpgradePct)
-    return { upgrade = upgrade, gainPct = gainPct, candidate = candidate, baseline = value,
-        baselineItem = baselineItem, baselineWhere = baselineWhere, itemLevel = itemLevel,
-        loadout = loadout, group = group, train = train }
+    return {
+        upgrade = upgrade,
+        gainPct = gainPct,
+        candidate = candidate,
+        baseline = value,
+        baselineItem = baselineItem,
+        baselineWhere = baselineWhere,
+        itemLevel = itemLevel,
+        loadout = loadout,
+        group = group,
+        train = train,
+    }
 end
