@@ -270,11 +270,21 @@ local function Stamp(key)
     }, ":")
 end
 
+-- Equal scores fall to item level while itemLevelFallback is on (spec 8.4).
+local function Better(piece, other, field)
+    if piece[field] ~= other[field] then
+        return piece[field] > other[field]
+    end
+    return field == "score"
+        and DB.Data().settings.gear.itemLevelFallback
+        and piece.itemLevel > other.itemLevel
+end
+
 local function KeepBest(list, piece, field)
-    if #list == 0 or piece[field] > list[1][field] then
+    if #list == 0 or Better(piece, list[1], field) then
         list[2] = list[1]
         list[1] = piece
-    elseif #list == 1 or piece[field] > list[2][field] then
+    elseif #list == 1 or Better(piece, list[2], field) then
         list[2] = piece
     end
 end
@@ -370,6 +380,9 @@ function Scoring.Baseline(key, loadout, options)
     return result
 end
 
+-- Fractional scores can compute an exact boundary gain a hair low.
+local GAIN_TOLERANCE = 1e-9
+
 --- Upgrade verdict and percentage gain; an empty baseline gives infinite gain.
 -- @param candidate number score or fallback item level
 -- @param baseline number score or fallback item level
@@ -381,7 +394,7 @@ function Scoring.IsUpgrade(candidate, baseline, minimum)
         return candidate > 0, math.huge
     end
     local gain = (candidate - baseline) / baseline * 100
-    return candidate > baseline and gain >= minimum, gain
+    return candidate > baseline and gain >= minimum - GAIN_TOLERANCE, gain
 end
 
 --- Compare a usable single-slot candidate under one loadout.
