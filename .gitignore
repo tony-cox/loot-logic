@@ -42,3 +42,6 @@ luac.out
 
 # Local scratch notes, never committed.
 .work/
+
+# Worktrees made by other Claude sessions.
+.claude/worktrees/

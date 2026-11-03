@@ -31,7 +31,8 @@ local function Describe(value, depth)
     local parts = {}
     for _, key in ipairs(keys) do
         local name = Describe(key, depth + 1)
-        parts[#parts + 1] = string.format("[%s] = %s", name, Describe(rawget(value, key), depth + 1))
+        parts[#parts + 1] =
+            string.format("[%s] = %s", name, Describe(rawget(value, key), depth + 1))
     end
     return "{ " .. table.concat(parts, ", ") .. " }"
 end
