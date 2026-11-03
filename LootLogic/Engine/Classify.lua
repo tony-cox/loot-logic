@@ -267,7 +267,7 @@ local function Sell(context, facts)
     Use(context, "prices")
     Use(context, "settings")
     local settings = DB.Data().settings.ah
-    local price, source = Prices.Best(facts.itemID, facts.link)
+    local price, source, considered = Prices.Best(facts.itemID, facts.link)
     if not price then
         -- source is the reason here: { code, price, provider }.
         data.noVendorValue = vendor == 0
@@ -279,6 +279,12 @@ local function Sell(context, facts)
         return Result("vendorah", source.code, data)
     end
     context.relied = { price }
+    if #considered > 1 then
+        -- The winner is chosen by whole-day age, so any of them crossing a day
+        -- boundary can change it.
+        context.relied = considered
+        context.byAge = true
+    end
     local passes, detail = AHRule(settings, facts, {
         unit = price.unit,
         ageDays = price.ageDays,
@@ -432,7 +438,8 @@ function Classify.BagSlot(bag, slot, holdings)
         -- The steps that ran are not known, so any generation moving retries.
         used = ALL_GENERATIONS
     elseif context.relied then
-        validUntil = Cache.ValidUntil(context.relied, DB.Data().settings.ah.maxPriceAgeDays)
+        validUntil =
+            Cache.ValidUntil(context.relied, DB.Data().settings.ah.maxPriceAgeDays, context.byAge)
     end
     Cache.Store(key, result, used, validUntil)
     return result

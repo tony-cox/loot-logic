@@ -302,6 +302,7 @@ local function Choose(itemID, link, available)
     local maxAge = Settings().maxPriceAgeDays
     local honouringOnly = HonouringOnly(available)
     local best, bestProvider, failure
+    local considered = {}
     for _, provider in ipairs(available) do
         if not honouringOnly or provider.honoursLastScan then
             local ok, price = Call(provider, "GetPrice", itemID, link)
@@ -314,6 +315,7 @@ local function Choose(itemID, link, available)
                     code = "notinscan"
                 end
                 if not code then
+                    considered[#considered + 1] = price
                     -- The list is in providerOrder, so a strict comparison
                     -- leaves the tie to the earlier provider.
                     if not best or price.ageDays < best.ageDays then
@@ -329,7 +331,8 @@ local function Choose(itemID, link, available)
         end
     end
     if best then
-        return best, { id = bestProvider.id, label = ProviderLabel(bestProvider) }
+        local source = { id = bestProvider.id, label = ProviderLabel(bestProvider) }
+        return best, source, considered
     end
     if not sessionPriced and not AnyHasData(available) then
         return nil, { code = "noscan" }
@@ -344,11 +347,13 @@ end
 -- @return table source { id, label }; or, when the price is nil, the reason
 --   { code, price, provider } with code stale, notinscan, neverseen, noscan or
 --   noprovider
+-- @return table|nil considered usable prices that competed, when a price won
 function Prices.Best(itemID, link)
     local ordered, available = EnterLists()
-    local price, extra = Choose(itemID, link, AvailableProviders(ordered, available))
+    local usable = AvailableProviders(ordered, available)
+    local price, extra, considered = Choose(itemID, link, usable)
     LeaveLists()
-    return price, extra
+    return price, extra, considered
 end
 
 --- True when requireLastScan is on, a provider is available and none of the
