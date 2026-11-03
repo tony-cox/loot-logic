@@ -37,4 +37,4 @@ MIT, see [`LICENSE`](LICENSE). Third-party material and its licences: [`THIRD_PA
 
 ## Status
 
-Pre-implementation: the first version (v1) is fully scoped in the spec, version 1.1 is partly scoped, and a list of possible further additions follows it (spec sections 22 and 23). No code exists yet. Nothing here has run on a live Forever client; the live client arrives 2026-11-05. The project is private until the addon is well tested.
+Implementation has started. The first version (v1) is fully scoped in the spec, version 1.1 is partly scoped, and a list of possible further additions follows it (spec sections 22 and 23). v1 is built in five milestones, M0 to M4 (spec section 19). We are partway through M0, the offline engine (saved data, prices, roster, scoring and classification, built and tested with a stubbed client); the addon code is in `LootLogic/` and its tests in `tests/`. Nothing here has run on a live Forever client; the live client arrives 2026-11-05. The project is private until the addon is well tested.

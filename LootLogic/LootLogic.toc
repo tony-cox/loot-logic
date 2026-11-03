@@ -14,3 +14,5 @@ Core\Generations.lua
 Core\Log.lua
 Core\Events.lua
 Core\DB.lua
+Prices\Prices.lua
+Prices\Vendor.lua

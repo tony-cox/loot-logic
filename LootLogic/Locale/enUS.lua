@@ -24,6 +24,15 @@ L.errorEngine = "error on an item, see /ll status."
 L.dataNewer = "saved data is newer than this version and is left unchanged."
 L.dataNotUpgraded = "saved data could not be upgraded and is left unchanged."
 
+-- The provider error chat lines, without the prefix (docs/ux.md 6): the
+-- provider's label, the error text and the label of the provider still used.
+L.providerFailedUsing = "%s failed (%s); using %s."
+L.providerFailedNone = "%s failed (%s); no prices until it works."
+
+-- The Errors entry for a second provider with a registered id (technical
+-- findings 14, Registering).
+L.providerDuplicate = "provider id %s is already registered; the second is ignored."
+
 -- Money parts (technical findings 14, Locale table).
 L.moneyGold = "%dg"
 L.moneySilver = "%ds"

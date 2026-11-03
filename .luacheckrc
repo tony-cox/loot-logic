@@ -11,6 +11,7 @@ globals = {
 }
 
 read_globals = {
+    "AuctionDB",
     "C_AddOns",
     "C_Timer",
     "CreateFrame",
@@ -36,6 +37,11 @@ files["tests/"] = {
     read_globals = {
         "DEFAULT_CHAT_FRAME",
     },
+}
+
+-- The vendor price tests set the AuctionDB global that AHDB would create.
+files["tests/TestVendor.lua"] = {
+    globals = { "AuctionDB" },
 }
 
 -- The stub defines the client names, so it may assign them.

@@ -12,11 +12,12 @@ Report a finding only when two things conflict:
 - two docs (or two places in one doc) that disagree on a fact, name, number, default, step order, section reference or terminology;
 - a doc that breaks one of the project's own writing or structure rules;
 - a reference that does not resolve (a section number, a live check id, a decision id, a file path, a table column);
+- a statement of the project's state that the repository no longer matches (for example "no code exists yet", "pre-implementation", which milestone is under way, which tools are installed or required): `README.md` (Status), the intro of `CLAUDE.md` and any doc that says what exists;
 - once code exists: code that departs from the spec (behaviour, defaults, names, data shapes, file layout, events, commands), a spec claim that the code visibly contradicts, or a code comment that disagrees with the spec or with the code it sits on.
 
 Do NOT report build gaps, missing features, wording preferences, or anything an owner has marked as pending. If the briefing or the handoff names an owner-pending item, leave it out. Do not re-report anything already fixed in earlier findings logs.
 
-In `changes` mode, the findings are limited to conflicts the change caused: at least one side of the conflict is in the diff, or the change made an older statement wrong. A conflict you happen to notice that the change did not cause is not a finding. Record it in a short separate section, "Noticed but not caused by this change" (see Logging), kept apart from the findings and from the totals.
+In `changes` mode, the findings are limited to conflicts the change caused: at least one side of the conflict is in the diff, or the change made an older statement wrong. A change that alters the project's state (the first code or tests, new tooling, a milestone started or finished, a stage merged) makes every status statement about that state wrong if it is not updated, even when the status text is not in the diff: always read the status statements and report any the change falsified. A conflict you happen to notice that the change did not cause is not a finding. Record it in a short separate section, "Noticed but not caused by this change" (see Logging), kept apart from the findings and from the totals.
 
 ## Inputs you are given
 
@@ -38,6 +39,7 @@ The invoking prompt may specify:
 4. **Review.**
    - `full` mode: read every in-scope doc, in an order that puts the log of decisions first and the detail docs last, and cross-check the same facts across all of them.
    - `changes` mode: obtain the diff, list every fact it adds or alters, and for each one search the rest of the repo for every other place that states, depends on, or restates that fact (grep for the names, numbers, section references and ids). Also check the changed text against the rules in step 2 and against its own surroundings. A change that renumbers, renames or removes something is a prompt to check every reference to it.
+   - Status statements: check `README.md` Status, the intro of `CLAUDE.md` and the "Where things are" table against what the repository now holds (code folders, tests, tools, milestone progress), whatever the mode.
    - When code exists, also compare it with the spec: for each spec statement in scope (or touched by the change), find the implementing code and check that it agrees. Treat the spec as the source of truth unless the decision log says the spec is stale. In `changes` mode, review changed code against the spec, and changed spec text against the code that implements it.
 5. **Verify before logging.** Re-read both sides of each conflict at the exact lines. Drop anything you cannot show with two quotations.
 
