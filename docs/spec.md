@@ -426,7 +426,7 @@ classify(slot, here):
     c "in use": the best owned piece for one of here's loadout specs in its slot group (for the main-hand, off-hand and two-hand groups, only the winning set; section 8.6) -> none (reason `inuse`)
        This runs after 3a, so a new arrival that beats the worn piece still gets Equip. In 3c the candidate counts as owned under every loadout spec: under the worn loadout's spec 3a has taken every upgrade, so a candidate that is best there but below `minUpgradePct` (or tied with a piece of a different link) stays as `inuse`; under another loadout's spec a better piece becomes that loadout's best and stays, and the piece it replaces is judged by the later steps (other characters, wants, then the sell rules).
     d otherwise continue to step 4 (wants can still claim gear, for example a disenchanter), except an item whose 3a result was `equipat`, which stops at none
- 4  WANTS     wanters = characters whose wants match (7.3), minus excludes and class restrictions
+ 4  WANTS     wanters = characters whose wants match (7.3), minus excludes and class restrictions (an item include is exempt from the restrictions)
     here in wanters -> none (reason `wantedhere`)
     tradable: first eligible wanter in the global order -> CHARACTER(wanter)
  5  STAYS     disposition for (classID[:subclassID]) == "stay" -> none. Lookup: the player's class:subclass override, the player's class override,
@@ -446,7 +446,7 @@ classify(slot, here):
 ### 7.3 Want matching
 For character `c` and item `i`, in order:
 1. `c.asks.items[i.itemID] == "exclude"`: no match.
-2. `c.asks.items[i.itemID] == "include"`: match, whatever the quality.
+2. `c.asks.items[i.itemID] == "include"`: match, whatever the quality, the class restriction and a known recipe.
 3. Otherwise a match if `c.asks.types["class:subclass"]` or `c.asks.types["class:*"]` exists and `i.quality >= minQuality` (when a minimum is set). If both exist with different minimums, it is a match if either matches.
 4. Class restriction: if the item names classes and `c.class` is not among them, no match. This keeps "Recipe: Book" wants safe.
 5. Recipes (class 9): if `c` is known to already know the recipe, no match (section 10). LootLogic knows this for here only.
@@ -678,7 +678,7 @@ LootLogic reads the sets of Outfitter Forever and of the Blizzard Equipment Mana
 
 ## 10. Recipes and class books (separable feature)
 
-Recipes route by subclass want. **For here only**, LootLogic checks whether the item is already known. If it is, here does not count as wanting it, so the recipe falls through to other wanters and then to AH, Vendor or Vendor/AH. Class books use the same check plus the class restriction. The answer is remembered for the session and checked again when the character learns a recipe or a spell (technical findings 10; from memory, L23). About 40 lines.
+Recipes route by subclass want. **For here only**, LootLogic checks whether the item is already known. If it is, here does not count as wanting it (unless the item is an include of here), so the recipe falls through to other wanters and then to AH, Vendor or Vendor/AH. Class books use the same check plus the class restriction. The answer is remembered for the session and checked again when the character learns a recipe or a spell (technical findings 10; from memory, L23). About 40 lines.
 
 LootLogic only knows what the character it is running on has learned, so a recipe a wanter already knows still routes to it (unknown counts as wanted, agreed rule).
 

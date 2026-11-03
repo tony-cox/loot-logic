@@ -17,6 +17,29 @@ Setters of h.Stub (keep this list in step with the code below):
   FireEvent(event, ...)   fire an event on every frame registered for it
   ChatLines()             list of the chat lines printed so far
   ClearChat()             forget the captured chat lines
+  SetEquipmentSets(list)  the Equipment Manager sets of the current character;
+                          each { id, name, items = { [slot] = itemID },
+                          places = { [slot] = { where = "worn" | "bag" |
+                          "bank", slot, bag } or a plain number }, noLocations =
+                          true makes GetItemLocations give nil }
+  SetWornLink(slot, link) the link GetInventoryItemLink("player", slot) gives
+  SetBagLink(bag, slot, link)
+                          the link C_Container.GetContainerItemLink gives
+  SetTooltipLines(link, lines)
+                          the lines C_TooltipInfo.GetHyperlink(link) gives (a
+                          list of strings); no call, no tooltip (nil)
+  SetItemSpellKnown(text)
+                          the global ITEM_SPELL_KNOWN (nil removes it)
+  TooltipCalls()          how many times C_TooltipInfo.GetHyperlink was called
+  SetOutfitter(settings)  install the Outfitter global with Settings = settings
+  RemoveOutfitter()       remove the Outfitter global
+  SetOutfitterGlobal(characters)
+                          gOutfitter_GlobalSettings.Characters = characters
+  FireOutfitterEvent(event, ...)
+                          call the functions registered with
+                          Outfitter:RegisterOutfitEvent for the event
+  OutfitterHandlerCount(event)
+                          how many functions are registered for the event
 
 Time: every "now" comes from the manual clock, never the machine clock. date()
 formats in UTC (plus the offset) so expected times do not depend on the
@@ -410,6 +433,177 @@ end
 --- Forgets the captured chat lines, keeping the same list.
 function Stub.ClearChat()
     wipe(chatLines)
+end
+
+-- The Equipment Manager. C_EquipmentSet.GetEquipmentSetIDs, GetEquipmentSetInfo
+-- (the name first), GetItemIDs and GetItemLocations are unverified (technical
+-- findings 9.1; live check L1). A place table of a set is turned into an opaque
+-- location number that EquipmentManager_UnpackLocation reads back; the real
+-- values are bit flags (from memory).
+local equipmentSets = {}
+local places = {}
+local placeSeq = 1000
+local wornLinks = {}
+local bagLinks = {}
+
+function Stub.SetEquipmentSets(list)
+    equipmentSets = {}
+    places = {}
+    for _, set in ipairs(list) do
+        local locations = {}
+        for slot, place in pairs(set.places or {}) do
+            if type(place) == "table" then
+                placeSeq = placeSeq + 1
+                places[placeSeq] = place
+                locations[slot] = placeSeq
+            else
+                locations[slot] = place
+            end
+        end
+        equipmentSets[#equipmentSets + 1] = {
+            id = set.id,
+            name = set.name,
+            items = set.items or {},
+            locations = locations,
+            noLocations = set.noLocations,
+        }
+    end
+end
+
+local function FindSet(setID)
+    for _, set in ipairs(equipmentSets) do
+        if set.id == setID then
+            return set
+        end
+    end
+    return nil
+end
+
+C_EquipmentSet = {
+    GetEquipmentSetIDs = function()
+        local ids = {}
+        for _, set in ipairs(equipmentSets) do
+            ids[#ids + 1] = set.id
+        end
+        return ids
+    end,
+    GetEquipmentSetInfo = function(setID)
+        local set = FindSet(setID)
+        return set.name, 134400, setID
+    end,
+    GetItemIDs = function(setID)
+        return FindSet(setID).items
+    end,
+    GetItemLocations = function(setID)
+        local set = FindSet(setID)
+        if set.noLocations then
+            return nil
+        end
+        return set.locations
+    end,
+}
+
+-- Returns player, bank, bags, voidStorage, slot, bag (from memory; live check
+-- L1).
+function EquipmentManager_UnpackLocation(location)
+    local place = places[location]
+    if not place then
+        return false, false, false, false
+    end
+    if place.where == "worn" then
+        return true, false, false, false, place.slot
+    elseif place.where == "bag" then
+        return true, false, true, false, place.slot, place.bag
+    end
+    return true, true, true, false, place.slot, place.bag
+end
+
+function Stub.SetWornLink(slot, link)
+    wornLinks[slot] = link
+end
+
+function GetInventoryItemLink(unit, slot)
+    if unit ~= "player" then
+        return nil
+    end
+    return wornLinks[slot]
+end
+
+function Stub.SetBagLink(bag, slot, link)
+    bagLinks[bag .. ":" .. slot] = link
+end
+
+C_Container = {
+    GetContainerItemLink = function(bag, slot)
+        return bagLinks[bag .. ":" .. slot]
+    end,
+}
+
+-- Scripted tooltips. C_TooltipInfo.GetHyperlink(link).lines, each with
+-- leftText, is source-read on Forever for the call (technical findings 7.1);
+-- the field name is from memory.
+local tooltips = {}
+local tooltipCalls = 0
+
+ITEM_SPELL_KNOWN = "Already known"
+
+function Stub.SetTooltipLines(link, lines)
+    local built = {}
+    for index, text in ipairs(lines) do
+        built[index] = { leftText = text }
+    end
+    tooltips[link] = { lines = built }
+end
+
+function Stub.SetItemSpellKnown(text)
+    ITEM_SPELL_KNOWN = text
+end
+
+function Stub.TooltipCalls()
+    return tooltipCalls
+end
+
+C_TooltipInfo = {
+    GetHyperlink = function(link)
+        tooltipCalls = tooltipCalls + 1
+        return tooltips[link]
+    end,
+}
+
+-- Outfitter Forever: Outfitter.Settings.Outfits and
+-- Outfitter:RegisterOutfitEvent are source-read;
+-- gOutfitter_GlobalSettings.Characters["First-Realm"] is source-read
+-- (technical findings 9.1; live check L29).
+local outfitterHandlers = {}
+
+function Stub.SetOutfitter(settings)
+    outfitterHandlers = {}
+    Outfitter = {
+        Settings = settings,
+        RegisterOutfitEvent = function(_, event, fn)
+            outfitterHandlers[event] = outfitterHandlers[event] or {}
+            table.insert(outfitterHandlers[event], fn)
+        end,
+    }
+end
+
+function Stub.RemoveOutfitter()
+    Outfitter = nil
+    outfitterHandlers = {}
+end
+
+function Stub.SetOutfitterGlobal(characters)
+    gOutfitter_GlobalSettings = { Characters = characters }
+end
+
+function Stub.FireOutfitterEvent(event, ...)
+    for _, fn in ipairs(outfitterHandlers[event] or {}) do
+        fn(...)
+    end
+end
+
+function Stub.OutfitterHandlerCount(event)
+    return #(outfitterHandlers[event] or {})
 end
 
 return Stub
