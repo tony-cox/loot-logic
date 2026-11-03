@@ -6,7 +6,7 @@ description: "LootLogic: specification for a shared, standalone WoW Forever addo
 
 # LootLogic: specification
 
-**Status:** spec only. No code exists. The live client arrives 2026-11-05, so every runtime claim below is graded by evidence, not by test.
+**Status:** v1 is under implementation: milestone M0 is under way (section 19), and this spec is the source of truth for the code in `LootLogic/`. The live client arrives 2026-11-05, so every runtime claim below is graded by evidence, not by test.
 
 **Related:**
 - `docs/ux.md`: the UX and workflow design: journeys, tab layouts, the Wants editor, wording and accessibility. This spec says what LootLogic does; the UX document says how it looks and flows.

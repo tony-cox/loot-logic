@@ -1,6 +1,6 @@
 # LootLogic: working notes for Claude
 
-The repo for LootLogic, a WoW: Forever addon. It currently holds the spec and design docs; the addon code will live here too. Nothing has run on a live client yet (it arrives 2026-11-05), and the project is private until the addon is well tested. See `README.md` for the overview.
+The repo for LootLogic, a WoW: Forever addon. It holds the spec and design docs and the addon code (`LootLogic/`, with offline tests in `tests/`); we are partway through milestone M0 of M0 to M4. Nothing has run on a live client yet (it arrives 2026-11-05), and the project is private until the addon is well tested. See `README.md` for the overview.
 
 ## Where things are
 
