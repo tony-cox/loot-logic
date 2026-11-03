@@ -352,6 +352,16 @@ return {
         h.Equal(#entry.inbound, 1, "one cleared")
     end,
 
+    ["Snapshot: an unchanged attachment does not clear a second identical entry"] = function()
+        local entry = Login()
+        local item = { sentAt = GetServerTime(), from = OTHER, id = POTION, count = 5 }
+        entry.inbound = { item, { sentAt = item.sentAt, from = OTHER, id = POTION, count = 5 } }
+        h.Stub.SetInbox({ { items = { { link = Link(POTION), count = 5 } } } })
+        h.Stub.FireEvent("MAIL_SHOW")
+        h.Stub.FireEvent("MAIL_INBOX_UPDATE")
+        h.Equal(#entry.inbound, 1, "still one in transit")
+    end,
+
     ["Snapshot: an inbound entry older than 30 days is cleared, a newer one kept"] = function()
         local entry = Login()
         local now = GetServerTime()

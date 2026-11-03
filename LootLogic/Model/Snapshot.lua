@@ -205,37 +205,45 @@ local function ReadInbox()
     return attachments
 end
 
--- Drops each inbound entry of here that an attachment in the inbox matches
--- (item and count, one attachment per entry) or that is older than the mail
--- lifetime. An entry still in transit stays, so its item keeps counting as
--- owned (technical findings 15).
+-- Attachments already used to clear an entry, by "itemID:count": how many of
+-- the inbox's current attachments of that kind have been matched. It survives
+-- from one inbox snapshot to the next, so an unchanged attachment cannot clear
+-- a second identical entry on MAIL_INBOX_UPDATE. It is not saved, so a reload
+-- with the mailbox open forgets it.
+local claimed = {}
+
+local function AttachmentKey(id, count)
+    return tostring(id) .. ":" .. tostring(count)
+end
+
+-- Drops each inbound entry of here that an unclaimed attachment in the inbox
+-- matches (item and count, one attachment per entry) or that is older than the
+-- mail lifetime. An entry still in transit stays, so its item keeps counting
+-- as owned (technical findings 15).
 local function ClearInbound(entry, attachments)
+    -- Attachments taken since the last snapshot free their claim.
+    local present = {}
+    for _, attachment in ipairs(attachments) do
+        local key = AttachmentKey(attachment.id, attachment.count)
+        present[key] = (present[key] or 0) + 1
+    end
+    for key, count in pairs(claimed) do
+        claimed[key] = math.min(count, present[key] or 0)
+    end
     local inbound = entry.inbound
     if type(inbound) ~= "table" then
         return
     end
     local now = GetServerTime()
-    local used = {}
     local kept = {}
     for _, item in ipairs(inbound) do
-        local matched
-        if type(item) == "table" then
-            for position, attachment in ipairs(attachments) do
-                if
-                    not used[position]
-                    and attachment.id == item.id
-                    and attachment.count == item.count
-                then
-                    matched = position
-                    break
-                end
-            end
-        end
+        local key = type(item) == "table" and AttachmentKey(item.id, item.count)
+        local matched = key and (present[key] or 0) > (claimed[key] or 0)
         local expired = type(item) == "table"
             and type(item.sentAt) == "number"
             and now - item.sentAt > MAIL_LIFETIME
         if matched then
-            used[matched] = true
+            claimed[key] = (claimed[key] or 0) + 1
             Log.Debug(
                 "mail",
                 string.format(L.mailClearedSeen, tostring(item.id), tostring(item.count))
