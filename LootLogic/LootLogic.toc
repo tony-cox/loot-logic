@@ -14,5 +14,11 @@ Core\Generations.lua
 Core\Log.lua
 Core\Events.lua
 Core\DB.lua
+Data\ItemMods.lua
+Data\ItemClasses.lua
+Data\Slots.lua
+Data\Proficiency.lua
+Data\Specs.lua
+Data\WeightTables.lua
 Prices\Prices.lua
 Prices\Vendor.lua
