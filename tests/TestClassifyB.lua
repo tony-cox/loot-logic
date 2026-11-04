@@ -207,6 +207,109 @@ local function Count(text, part)
 end
 
 return {
+    ["ClassifyB: unreadable candidate usable only in a stowed loadout stays pending"] = function()
+        Boot()
+        local item, slot = Carry(Ring(AGI, 10), { bound = true })
+        local originalStats, originalCanUse = ns.Stats.Get, ns.Scoring.CanUse
+        ns.Stats.Get = function(link)
+            if link == item.link then
+                return nil
+            end
+            return originalStats(link)
+        end
+        ns.Scoring.CanUse = function(facts, key, options)
+            if options.loadout and options.loadout.worn then
+                return false, {}
+            end
+            return originalCanUse(facts, key, options)
+        end
+        h.Equal(Classify.BagSlot(0, slot), nil, "candidate is pending")
+        h.Stub.Advance(11)
+        h.Equal(Classify.BagSlot(0, slot), nil, "candidate does not time out into a sell verdict")
+        ns.Stats.Get, ns.Scoring.CanUse = originalStats, originalCanUse
+    end,
+    ["ClassifyB: unreadable candidate stats stay pending"] = function()
+        Boot()
+        local item = Ring(AGI, 10)
+        local original = ns.Stats.Get
+        ns.Stats.Get = function(link)
+            if link == item.link then
+                return nil
+            end
+            return original(link)
+        end
+        h.Equal(Classify.Link(item.link), nil, "candidate waits for stats")
+        ns.Stats.Get = original
+        h.True(Classify.Link(item.link) ~= nil, "candidate retries after stats recover")
+    end,
+    ["ClassifyB: cached results retry when omitted owned stats recover"] = function()
+        Boot()
+        local owned = Ring(AGI, 30, { equipLoc = "INVTYPE_NECK" })
+        local candidate = Ring(AGI, 10, { equipLoc = "INVTYPE_NECK" })
+        Wear(owned, 2)
+        local original = ns.Stats.Get
+        ns.Stats.Get = function(link)
+            if link == owned.link then
+                return nil
+            end
+            return original(link)
+        end
+        h.Equal(Classify.Link(candidate.link), nil, "owned piece is pending")
+        h.Stub.Advance(10)
+        h.Equal(Classify.Link(candidate.link).reasonCode, "equip", "omitted piece")
+        ns.Stats.Get = original
+        h.Equal(Classify.Link(candidate.link).reasonCode, "equip", "cached until scheduled probe")
+        h.Stub.Advance(1)
+        h.True(Classify.Link(candidate.link).reasonCode ~= "equip", "cached result is refreshed")
+    end,
+    ["ClassifyB: other-character recovery survives a here snapshot change"] = function()
+        Boot()
+        LootLogicDB.characters[HERE].loadouts = { { name = "Unset", worn = true } }
+        local owned = Ring(AGI, 30, { equipLoc = "INVTYPE_NECK" })
+        local candidate = Ring(AGI, 10, { equipLoc = "INVTYPE_NECK" })
+        LootLogicDB.characters[BONESET].bags.gear = { owned.link }
+        local original = ns.Stats.Get
+        local readable = false
+        ns.Stats.Get = function(link)
+            if link == owned.link and not readable then
+                return nil
+            end
+            return original(link)
+        end
+        h.Equal(Classify.Link(candidate.link), nil, "other character's item is pending")
+        h.Stub.Advance(10)
+        h.Equal(Classify.Link(candidate.link).category, "char:" .. BONESET, "omitted item")
+        Generations.Bump("gearHere")
+        readable = true
+        h.Stub.Advance(1)
+        h.True(Classify.Link(candidate.link).category ~= "char:" .. BONESET, "other item recovers")
+        ns.Stats.Get = original
+    end,
+    ["ClassifyB: recovered owned stats schedule a new pass"] = function()
+        Boot()
+        local owned = Ring(AGI, 30, { equipLoc = "INVTYPE_NECK" })
+        local candidate = Ring(AGI, 10, { equipLoc = "INVTYPE_NECK" })
+        Wear(owned, 2)
+        local originalStats, originalPass = ns.Stats.Get, Classify.Pass
+        local readable, passes = false, 0
+        ns.Stats.Get = function(link)
+            if link == owned.link and not readable then
+                return nil
+            end
+            return originalStats(link)
+        end
+        h.Equal(Classify.Link(candidate.link), nil, "owned stats pending")
+        h.Stub.Advance(10)
+        h.Equal(Classify.Link(candidate.link).reasonCode, "equip", "omitted item")
+        Classify.Pass = function(scope)
+            passes = passes + 1
+            return originalPass(scope)
+        end
+        readable = true
+        h.Stub.Advance(1)
+        h.True(passes > 0, "recovery schedules a pass without another classification request")
+        ns.Stats.Get, Classify.Pass = originalStats, originalPass
+    end,
     -- Step 3a
     ["ClassifyB: a ring for an empty slot is Equip with an infinite gain (3a)"] = function()
         Boot()

@@ -1153,7 +1153,7 @@ end)
 -- (spec 7.2 step 0).
 -- A scope with a pass under way is marked dirty instead of restarted, so a
 -- spread pass keeps its place; it runs once more when it finishes.
-ItemFacts.OnLoaded(function()
+local function RefreshAfterLoad()
     for _, scope in ipairs({ "bags", "bank" }) do
         if runs[scope] then
             dirty[scope] = true
@@ -1161,6 +1161,12 @@ ItemFacts.OnLoaded(function()
             Classify.Pass(scope)
         end
     end
+end
+
+ItemFacts.OnLoaded(RefreshAfterLoad)
+Scoring.OnOwnedStatsRecovered(function()
+    Cache.Clear()
+    RefreshAfterLoad()
 end)
 
 -- A pass deferred in combat does not outlive the bank window.

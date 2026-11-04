@@ -53,6 +53,47 @@ end
 
 -- Owned pieces left out for unreadable stats (L4) are remembered by link, so a
 -- cached result is rebuilt once any of them becomes readable.
+local unreadableOwned = { gearHere = {}, gearOthers = {} }
+local lastRecoveryCheck
+local recoveryTimer
+local recoveryCallback
+
+local function HasUnreadable()
+    return next(unreadableOwned.gearHere) ~= nil or next(unreadableOwned.gearOthers) ~= nil
+end
+
+local function ScheduleRecovery()
+    if recoveryTimer or not HasUnreadable() then
+        return
+    end
+    recoveryTimer = C_Timer.NewTimer(1, function()
+        recoveryTimer = nil
+        local recovered = ns.Log.Guard("engine", Scoring.OwnedStatsRecovered)
+        if recovered and recoveryCallback then
+            ns.Log.Guard("engine", recoveryCallback)
+        end
+        ScheduleRecovery()
+    end)
+end
+
+Generations.OnBump(function(name)
+    if unreadableOwned[name] then
+        wipe(unreadableOwned[name])
+        lastRecoveryCheck = nil
+    end
+end)
+
+local function TrackUnreadable(link, key)
+    local generation = Roster.IsHere(key) and "gearHere" or "gearOthers"
+    unreadableOwned[generation][link] = true
+    ScheduleRecovery()
+end
+
+--- Registers the classification refresh for recovered owned stats.
+function Scoring.OnOwnedStatsRecovered(callback)
+    recoveryCallback = callback
+end
+
 local function Recovered(links)
     for _, link in ipairs(links) do
         if Stats.Get(link) then
@@ -60,6 +101,25 @@ local function Recovered(links)
         end
     end
     return false
+end
+
+--- True once an owned piece with unreadable stats becomes readable.
+function Scoring.OwnedStatsRecovered()
+    local now = GetTime()
+    if lastRecoveryCheck == now then
+        return false
+    end
+    local recovered = false
+    for _, links in pairs(unreadableOwned) do
+        for link in pairs(links) do
+            if Stats.Get(link) then
+                links[link] = nil
+                recovered = true
+            end
+        end
+    end
+    lastRecoveryCheck = now
+    return recovered
 end
 
 ItemFacts.OnLoaded(function(ids)
@@ -474,6 +534,7 @@ local function BuildBaseline(key, loadout, group, evaluatedLevel)
                         pending = true
                     end
                     if not Stats.Get(item.link) then
+                        TrackUnreadable(item.link, key)
                         result.unreadable[#result.unreadable + 1] = item.link
                     end
                 end
@@ -533,7 +594,7 @@ function Scoring.Baseline(key, loadout, options)
         Roster.IsHere(key)
         and options.candidate
         and options.candidate.unique
-        and options.group == "finger"
+        and (options.group == "finger" or options.group == "trinket")
     then
         for _, piece in ipairs(cached.result.levels) do
             if piece.worn and piece.item.itemID == options.candidate.itemID then
@@ -604,6 +665,7 @@ local function WeaponPool(key, loadout, level)
                                 pending = true
                             end
                             if not Stats.Get(item.link) then
+                                TrackUnreadable(item.link, key)
                                 unreadable[#unreadable + 1] = item.link
                             end
                         end
@@ -1042,6 +1104,10 @@ end
 -- @treturn table pending or inUse, loadout, train (the training the winning
 --   piece needs) and optional better-piece data
 function Scoring.InUse(item, key, options)
+    if not Stats.Get(item.link) then
+        TrackUnreadable(item.link, key)
+        return { pending = true }
+    end
     local group = Scoring.Group(item)
     local start = CharacterLevel(key)
     local identity = CandidateIdentity(item, options)
@@ -1191,8 +1257,9 @@ end
 -- @param key string character key
 -- @param options table loadout, lookAhead, optional fromInbox or fromInbound
 -- @treturn table|nil comparison, nil when unusable, unscored or not loaded;
---   pending = true while an owned piece's usability is unreadable or its
---     item data is still loading (within 10 s of its first request)
+--   pending = true while the candidate's stats are unreadable, an owned
+--     piece's usability is unreadable or its item data is still loading
+--     (within 10 s of its first request)
 function Scoring.Compare(item, key, options)
     local loadout = options.loadout
     local spec = loadout.spec
@@ -1212,6 +1279,10 @@ function Scoring.Compare(item, key, options)
                 return nil
             end
         end
+    end
+    if not Stats.Get(item.link) then
+        TrackUnreadable(item.link, key)
+        return { pending = true }
     end
     if group == "mainHand" or group == "offHand" or group == "twoHand" then
         local excludeLink
