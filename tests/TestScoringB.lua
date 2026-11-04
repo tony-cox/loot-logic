@@ -247,6 +247,48 @@ return {
         h.Equal(result.better.where, "bags", "better location")
         h.Equal(result.better.loadout.name, "Cat", "loadout")
     end,
+    ["in use reports the training the winning armour piece needs"] = function()
+        local entry = Boot()
+        entry.class = "PALADIN"
+        entry.loadouts = { { name = "Holy", spec = "PALADIN:holy", worn = true } }
+        entry.proficiency = { spells = {} }
+        local chest = Item({
+            equipLoc = "INVTYPE_CHEST",
+            subclassID = 4,
+            stats = { ITEM_MOD_INTELLECT_SHORT = 20 },
+        })
+        entry.bags = { gear = { chest.link } }
+        local result = ns.Scoring.InUse(chest, "druid")
+        h.Equal(result.inUse, true, "untrained plate is the best piece")
+        h.DeepEqual(result.train, { 750 }, "train plate")
+        entry.proficiency.spells[750] = true
+        ns.Generations.Bump("gearOthers")
+        h.DeepEqual(ns.Scoring.InUse(chest, "druid").train, {}, "nothing to train once learned")
+    end,
+    ["in use reports Dual Wield for a winning off hand"] = function()
+        local entry = Boot()
+        entry.class = "ROGUE"
+        entry.proficiency.spells[1180] = true
+        entry.loadouts = { entry.loadouts[2] }
+        LootLogicDB.settings.gear.lookAheadLevels = 0
+        local main = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONMAINHAND",
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10 },
+        })
+        local off = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONOFFHAND",
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 5 },
+        })
+        entry.bags = { gear = { main.link, off.link } }
+        local offResult = ns.Scoring.InUse(off, "druid")
+        h.Equal(offResult.inUse, true, "off hand is in the winning pair")
+        h.DeepEqual(offResult.train, { 674 }, "Dual Wield needed for the off hand")
+        h.DeepEqual(ns.Scoring.InUse(main, "druid").train, {}, "main hand needs none")
+    end,
     ["weapon set protection follows the winning set at each level"] = function()
         local entry = Boot()
         entry.class = "ROGUE"

@@ -15,10 +15,11 @@ reason texts of stage 14, except for the error result, which carries its text
 from the start. reasonData holds the values the text needs (an internal
 table, so the texts and M1's detail lines read one source): the winner and
 kind of a want, the set of an `inset` stay, the price of a Vendor/AH, AH or
-Vendor result, the flags "refundable" and "noVendorValue", and for gear the
-`gear` entry (the fields of spec 12.4 `detail.gear` that M0 has), the
-`runnerUps` of a `gearfor`, the loadout of an `inuse` stay, `atLevel` for an
-item above the level, and `better` (a better piece for a stowed loadout).
+Vendor result, the flags "refundable", "noVendorValue" and "unscoredEffect",
+and for gear the `gear` entry (the fields of spec 12.4 `detail.gear` that M0
+has), the `runnerUps` of a `gearfor`, the loadout and `train` list of an
+`inuse` stay, `atLevel` for an item above the level, and `better` (a better
+piece for a stowed loadout).
 
 A result is cached by the key of the bag slot with the generations it used
 (Cache.lua). An item whose facts are incomplete has no result and no cache
@@ -191,6 +192,9 @@ local function ReasonText(result)
             end
             text = text .. string.format(L.reasonLoadout, loadout)
         end
+        if data.gear.itemLevel then
+            text = text .. L.reasonIlvl
+        end
     elseif code == "stale" then
         text = string.format(
             text,
@@ -264,9 +268,10 @@ local function ReasonText(result)
     if data.noVendorValue then
         text = text .. L.reasonNoVendorValue
     end
-    if data.gear and data.gear.train and #data.gear.train > 0 then
+    local train = data.gear and data.gear.train or data.train
+    if train and #train > 0 then
         local names = {}
-        for _, spell in ipairs(data.gear.train) do
+        for _, spell in ipairs(train) do
             names[#names + 1] = SkillName(spell)
         end
         text = text .. string.format(L.reasonTrain, table.concat(names, ", "))
@@ -646,7 +651,7 @@ local function InUse(context, facts, hereKey)
             loadout = verdict.loadout.name,
             assumed = verdict.loadout.assumed,
             group = Scoring.Group(facts),
-            unscoredEffect = facts.unscoredEffect,
+            train = verdict.train,
         }
         return Result("none", "inuse", data)
     end
@@ -835,7 +840,8 @@ end
 
 -- Runs the steps of the context, and adds the flags of spec 7.6: "refundable"
 -- ("Any bag item's reason adds "; refundable""), which stage 14 reads from the
--- reason data, and the better piece for a stowed loadout found by step 3c. The
+-- reason data, "unscoredEffect" (any gear item, whatever the category), and the
+-- better piece for a stowed loadout found by step 3c. The
 -- cache key does not include the refund state, so a purchase that stops being
 -- refundable is noticed when the key or a generation changes (live check L55).
 local function Run(context, facts)
@@ -845,6 +851,9 @@ local function Run(context, facts)
     end
     if facts.refundable then
         result.reasonData.refundable = true
+    end
+    if facts.unscoredEffect then
+        result.reasonData.unscoredEffect = true
     end
     if context.better then
         result.reasonData.better = context.better

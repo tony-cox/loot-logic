@@ -28,6 +28,12 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 |---|---|---|---|---|
 | D165 | spec 7.6; M0 stage 14 | How are fractional gear upgrade gains displayed? | **One decimal place**, omitting a trailing zero, for the main recommendation and runner-ups. Scoring, eligibility and ranking retain full precision. Applied to spec 7.6 and UX 6. | 2026-11-04 |
 
+### Gear reason suffixes
+
+| # | Raised in | Question | Answer | Date |
+|---|---|---|---|---|
+| D167 | spec 7.6; Copilot comments 4465685020, 4465685078 and 4465685125 on PR 20 | Which gear reason suffixes apply to which results? | **All three comments accepted.** " (ilvl)" also applies to `equipat`; "; train <skill> first" also applies to `inuse`, using the training the winning piece needs (carried from the protection evaluation through `Scoring.InUse`); "; effect not scored" applies to any result for a gear item, including the sell rules. Applied to spec 7.6. | 2026-11-04 |
+
 ### UX decisions
 
 | # | Raised in | Question | Answer | Date |

@@ -435,6 +435,58 @@ return {
         )
     end,
 
+    ["ClassifyB: in-use gear reports the training it needs"] = function()
+        Boot()
+        StrongRings()
+        local _, slot = Carry(Ring(AGI, 10))
+        ns.Scoring.InUse = function()
+            return {
+                inUse = true,
+                loadout = { name = "Cat" },
+                train = { 674 },
+            }
+        end
+        local result = SlotResult(slot)
+        Expect(result, "none", "inuse", false, "stowed loadout")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonInuse, "Cat", ns.L.slotFinger)
+                .. string.format(ns.L.reasonTrain, ns.L.skillDualWield),
+            "train suffix"
+        )
+    end,
+
+    ["ClassifyB: an item-level fallback look-ahead upgrade carries the ilvl marker"] = function()
+        Boot()
+        h.Stub.SetPlayer({ level = 20 })
+        LootLogicDB.characters[HERE].level = 20
+        LootLogicDB.settings.gear.itemLevelFallback = true
+        local item = Ring(STA, 0, { reqLevel = 22, stats = {} })
+        local result = Classify.Link(item.link)
+        Expect(result, "none", "equipat", true, "fallback look-ahead")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonEquipat, 22) .. ns.L.reasonIlvl .. ns.L.reasonNotInBags,
+            "ilvl after the level"
+        )
+    end,
+
+    ["ClassifyB: a sale of gear with an unscored effect keeps the warning"] = function()
+        Boot()
+        local item = Ring(INT, 10)
+        h.Stub.SetTooltipLines(item.link, { "Use: Restores health." })
+        local _, slot = Carry(item, { bound = true })
+        local result = SlotResult(slot)
+        Expect(result, "vendor", "vendorbound", false, "bound and not wanted")
+        h.Equal(result.reasonData.unscoredEffect, true, "carried into the data")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonVendorbound, ns.Util.FormatMoney(item.sellPrice))
+                .. ns.L.reasonEffect,
+            "effect suffix on a sale"
+        )
+    end,
+
     ["ClassifyB: a replaced piece reaches the other characters (3c then 3b)"] = function()
         Boot()
         StrongRings()
