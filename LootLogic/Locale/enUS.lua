@@ -276,4 +276,12 @@ L.probeAssumptionL60 = "Comparison tooltips and chat-link popups can be told fro
 
 -- /ll in this build (technical findings 14, Slash.lua). Replaced when the help
 -- list and the other commands arrive.
-L.slashPlaceholder = "only /ll probe works in this build."
+L.slashPlaceholder = "only /ll probe and /ll debug on|off work in this build."
+
+-- The /ll debug replies, without the prefix (spec 13).
+L.debugOn = "debug is on. Lines echo to chat and the last %s are kept in the saved data."
+L.debugOff = "debug is off."
+L.debugAlreadyOn = "debug is already on."
+L.debugAlreadyOff = "debug is already off."
+L.debugUsage = "/ll debug on|off. Example: /ll debug on"
+L.debugReadOnly = "saved data is left unchanged, so debug cannot be changed."
