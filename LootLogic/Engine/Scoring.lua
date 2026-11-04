@@ -51,11 +51,11 @@ local function AwaitOwned(item, key)
     return GetTime() < waiting.deadline
 end
 
--- Owned pieces left out for unreadable stats (L4) are remembered by link, so a
--- cached result is rebuilt once any of them becomes readable.
+-- Unreadable owned pieces and candidates are remembered by link, so cached
+-- results can be rebuilt once any of them becomes readable.
 local unreadableOwned = { gearHere = {}, gearOthers = {} }
 local lastRecoveryCheck
-local recoveryTimer
+local recoveryScheduled = false
 local recoveryCallback
 
 local function HasUnreadable()
@@ -63,11 +63,12 @@ local function HasUnreadable()
 end
 
 local function ScheduleRecovery()
-    if recoveryTimer or not HasUnreadable() then
+    if recoveryScheduled or not HasUnreadable() then
         return
     end
-    recoveryTimer = C_Timer.NewTimer(1, function()
-        recoveryTimer = nil
+    recoveryScheduled = true
+    C_Timer.After(1, function()
+        recoveryScheduled = false
         local recovered = ns.Log.Guard("engine", Scoring.OwnedStatsRecovered)
         if recovered and recoveryCallback then
             ns.Log.Guard("engine", recoveryCallback)
@@ -78,7 +79,8 @@ end
 
 Generations.OnBump(function(name)
     if unreadableOwned[name] then
-        wipe(unreadableOwned[name])
+        -- Keep probing: the generation bump can be the 10-second leave-out
+        -- deadline, while the unreadable item can still be owned.
         lastRecoveryCheck = nil
     end
 end)
@@ -89,7 +91,7 @@ local function TrackUnreadable(link, key)
     ScheduleRecovery()
 end
 
---- Registers the classification refresh for recovered owned stats.
+--- Registers the classification refresh for recovered tracked-item stats.
 function Scoring.OnOwnedStatsRecovered(callback)
     recoveryCallback = callback
 end
@@ -103,23 +105,26 @@ local function Recovered(links)
     return false
 end
 
---- True once an owned piece with unreadable stats becomes readable.
+--- True once a tracked item with unreadable stats becomes readable.
 function Scoring.OwnedStatsRecovered()
     local now = GetTime()
     if lastRecoveryCheck == now then
         return false
     end
-    local recovered = false
-    for _, links in pairs(unreadableOwned) do
+    local recovered = {}
+    for generation, links in pairs(unreadableOwned) do
         for link in pairs(links) do
             if Stats.Get(link) then
                 links[link] = nil
-                recovered = true
+                recovered[generation] = true
             end
         end
     end
+    for generation in pairs(recovered) do
+        Generations.Bump(generation)
+    end
     lastRecoveryCheck = now
-    return recovered
+    return next(recovered) ~= nil
 end
 
 ItemFacts.OnLoaded(function(ids)

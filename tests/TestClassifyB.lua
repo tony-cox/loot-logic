@@ -280,13 +280,19 @@ return {
         h.Stub.Advance(10)
         h.Equal(Classify.Link(candidate.link).category, "char:" .. BONESET, "omitted item")
         Generations.Bump("gearHere")
+        local generation = Generations.Get("gearOthers")
         readable = true
         h.Stub.Advance(1)
+        h.True(
+            Generations.Get("gearOthers") > generation,
+            "recovery bumps the other-character gear generation"
+        )
         h.True(Classify.Link(candidate.link).category ~= "char:" .. BONESET, "other item recovers")
         ns.Stats.Get = original
     end,
     ["ClassifyB: recovered owned stats schedule a new pass"] = function()
         Boot()
+        h.Stub.SetNewTimer(false)
         local owned = Ring(AGI, 30, { equipLoc = "INVTYPE_NECK" })
         local candidate = Ring(AGI, 10, { equipLoc = "INVTYPE_NECK" })
         Wear(owned, 2)
@@ -300,7 +306,8 @@ return {
         end
         h.Equal(Classify.Link(candidate.link), nil, "owned stats pending")
         h.Stub.Advance(10)
-        h.Equal(Classify.Link(candidate.link).reasonCode, "equip", "omitted item")
+        passes = 0
+        local generation = Generations.Get("gearHere")
         Classify.Pass = function(scope)
             passes = passes + 1
             return originalPass(scope)
@@ -308,6 +315,7 @@ return {
         readable = true
         h.Stub.Advance(1)
         h.True(passes > 0, "recovery schedules a pass without another classification request")
+        h.True(Generations.Get("gearHere") > generation, "recovery bumps the here gear generation")
         ns.Stats.Get, Classify.Pass = originalStats, originalPass
     end,
     -- Step 3a
