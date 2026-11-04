@@ -781,6 +781,8 @@ LootLogic: Zugar (wants Trade Goods: Cloth)
 
 ## 6. Stale and missing data
 
+Gear upgrade percentages in reasons and runner-up clauses use one decimal place, omitting a trailing zero: "+3.6%", "+4%". The displayed rounding does not change upgrade eligibility or ranking.
+
 | Condition | Detected by | Effect on results | Tooltip | Contents tab | Characters or Status | Chat |
 |---|---|---|---|---|---|---|
 | Character not seen for `staleDays` (default 14) | `lastSeen` | Gear routed to it uses its last gear and level; wants unaffected | none | | Seen cell "16 d (old)"; Status roster line | One line at login, once per session, if `notify.staleSnapshot` is on: "LootLogic: Zugar (20 d) and Boneset (16 d) have not been seen for 14 days or more. Gear sent to them is judged on their old data." Lists only characters that can receive gear |

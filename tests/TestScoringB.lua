@@ -73,6 +73,7 @@ return {
         entry.bags = { gear = { main.link, off.link } }
         local result = ns.Scoring.Compare(candidate, "druid", { loadout = entry.loadouts[2] })
         h.Equal(result.group, "offHand", "better gain is off hand")
+        h.Equal(result.judgedBoth, true, "both hands were judged")
         h.Equal(result.baseline, 5, "pair off hand, not the main hand")
         h.Equal(result.candidate, 6, "off-hand weight")
         h.Equal(result.upgrade, true, "off-hand upgrade")
@@ -722,7 +723,11 @@ return {
         entry.bags = { gear = { main.link, off.link } }
         local result = ns.Scoring.Compare(candidate, "druid", { loadout = entry.loadouts[2] })
         h.Equal(result.baseline, 35, "main plus different off hand")
+        h.Nil(result.judgedBoth, "two-hander is not judged in both hands")
         h.Equal(result.upgrade, true, "two hand beats pair")
+        h.Equal(result.baselinePair[1].item.link, main.link, "pair main hand")
+        h.Equal(result.baselinePair[2].item.link, off.link, "pair off hand")
+        h.Equal(result.baselinePair[1].where, "bags", "pair location")
     end,
     ["ring baseline is the weaker of two and an empty slot is zero"] = function()
         local entry = Boot()

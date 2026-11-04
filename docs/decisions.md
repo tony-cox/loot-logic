@@ -22,6 +22,12 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 
 ## Answered decisions
 
+### Gear reason percentage format
+
+| # | Raised in | Question | Answer | Date |
+|---|---|---|---|---|
+| D165 | spec 7.6; M0 stage 14 | How are fractional gear upgrade gains displayed? | **One decimal place**, omitting a trailing zero, for the main recommendation and runner-ups. Scoring, eligibility and ranking retain full precision. Applied to spec 7.6 and UX 6. | 2026-11-04 |
+
 ### UX decisions
 
 | # | Raised in | Question | Answer | Date |

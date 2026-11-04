@@ -1084,7 +1084,7 @@ local function CompareWeapon(item, options, hand, pool, train)
     if candidate == nil then
         return nil
     end
-    local baseline, reference
+    local baseline, reference, pair
     local partner = 0
     if hand == "twoHand" then
         if
@@ -1101,6 +1101,9 @@ local function CompareWeapon(item, options, hand, pool, train)
         else
             baseline = pool.pairScore
             reference = pool.main or pool.off
+            if pool.main and pool.off then
+                pair = { pool.main, pool.off }
+            end
             if pool.main and pool.off and pool.off.itemLevel > pool.main.itemLevel then
                 reference = pool.off
             end
@@ -1120,6 +1123,7 @@ local function CompareWeapon(item, options, hand, pool, train)
     local settings = DB.Data().settings.gear
     local itemLevel = not weighted and settings.itemLevelFallback
     if itemLevel then
+        pair = nil
         if not reference then
             reference = pool.highest[hand]
             if hand == "twoHand" then
@@ -1152,6 +1156,7 @@ local function CompareWeapon(item, options, hand, pool, train)
         baseline = baseline,
         baselineItem = reference and reference.item,
         baselineWhere = reference and reference.where,
+        baselinePair = pair,
         itemLevel = itemLevel and true or false,
         loadout = options.loadout,
         group = hand,
@@ -1224,6 +1229,9 @@ function Scoring.Compare(item, key, options)
                     )
                 then
                     result = off
+                end
+                if result then
+                    result.judgedBoth = true
                 end
             end
         end
