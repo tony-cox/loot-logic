@@ -33,3 +33,6 @@ Engine\Stats.lua
 Engine\ItemFacts.lua
 Engine\Scoring.lua
 Engine\Classify.lua
+Probe.lua
+Slash.lua
+Globals.lua
