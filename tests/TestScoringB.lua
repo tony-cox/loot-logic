@@ -35,6 +35,27 @@ local function Item(fields)
 end
 
 return {
+    ["a unique trinket with a worn twin compares against the twin"] = function()
+        local entry = Boot()
+        local here = "Zugar Soulsour-Region"
+        local character = LootLogicDB.characters[here]
+        character.class = "DRUID"
+        character.loadouts = { entry.loadouts[2] }
+        local twin = Item({
+            unique = true,
+            equipLoc = "INVTYPE_TRINKET",
+            stats = { ITEM_MOD_AGILITY_SHORT = 20 },
+        })
+        local weak = Item({ equipLoc = "INVTYPE_TRINKET", stats = { ITEM_MOD_AGILITY_SHORT = 2 } })
+        character.gear = { slots = { [13] = twin.link, [14] = weak.link } }
+        character.bags = { gear = { twin.link } }
+        h.Stub.SetBagSize(0, 1)
+        h.Stub.SetBagItem(0, 1, { itemID = twin.itemID, link = twin.link, count = 1 })
+        local candidate = ns.ItemFacts.FromSlot(0, 1)
+        local result = ns.Scoring.Compare(candidate, here, { loadout = entry.loadouts[2] })
+        h.Equal(result.baseline, 40, "worn twin is baseline")
+        h.Equal(result.upgrade, false, "duplicate cannot fill the other slot")
+    end,
     ["trinket baseline uses its weaker owned slot"] = function()
         local entry = Boot()
         local first =
@@ -896,7 +917,7 @@ return {
         h.Equal(ns.Scoring.Compare(candidate, "druid", options).pending, true, "waits")
         h.Stub.Advance(10)
         h.Equal(ns.Scoring.Compare(candidate, "druid", options).baseline, 0, "left out")
-        h.Equal(ns.Scoring.InUse(late, "druid").inUse, false, "not protected while unreadable")
+        h.Equal(ns.Scoring.InUse(late, "druid").pending, true, "candidate waits for its own stats")
         readable = true
         h.Equal(ns.Scoring.Compare(candidate, "druid", options).baseline, 40, "baseline recovers")
         h.Equal(ns.Scoring.InUse(late, "druid").inUse, true, "protection recovers")
