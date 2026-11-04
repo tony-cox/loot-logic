@@ -587,7 +587,7 @@ local function WeaponPool(key, loadout, level)
                 if
                     group == hand or (hand == "offHand" and Slots.alsoGroup[item.equipLoc] == hand)
                 then
-                    local usable = Scoring.CanUse(item, key, {
+                    local usable, train = Scoring.CanUse(item, key, {
                         loadout = loadout,
                         worn = piece.worn,
                         evaluatedLevel = level,
@@ -596,6 +596,8 @@ local function WeaponPool(key, loadout, level)
                     if usable == nil then
                         pending = true
                     elseif usable then
+                        piece.trainBy = piece.trainBy or {}
+                        piece.trainBy[hand] = train
                         piece[hand] = Scoring.Score(item, loadout.spec, hand)
                         if piece[hand] == nil then
                             if AwaitOwned(item, key) then
@@ -773,11 +775,19 @@ local function ProtectionAt(key, loadout, group, level)
     local stamp = Stamp(key)
     local cached = protections[cacheKey]
     if cached and cached.stamp == stamp and not Recovered(cached.unreadable) then
-        return cached.winners, cached.near
+        return cached.winners, cached.near, cached.trains
     end
     local unreadable
     local winners = {}
     local near = {}
+    -- The proficiencies each winner needs trained, for the reason text.
+    local trains = {}
+    local function KeepTrain(piece, train)
+        local kept = trains[piece]
+        if not kept or #train < #kept then
+            trains[piece] = train
+        end
+    end
     if group == "mainHand" or group == "offHand" or group == "twoHand" then
         local pieces, missing = WeaponPool(key, loadout, level)
         if not pieces then
@@ -821,7 +831,7 @@ local function ProtectionAt(key, loadout, group, level)
                 score == best
                 and (not DB.Data().settings.gear.itemLevelFallback or itemLevel == bestLevel)
             then
-                sets[#sets + 1] = { a, b }
+                sets[#sets + 1] = { a, b, firstHand = firstHand }
             end
         end
         for _, main in ipairs(pieces) do
@@ -847,8 +857,10 @@ local function ProtectionAt(key, loadout, group, level)
             end
         end
         for _, set in ipairs(sets) do
-            for _, piece in ipairs(set) do
+            for index, piece in ipairs(set) do
                 winners[piece] = true
+                local hand = index == 1 and set.firstHand or "offHand"
+                KeepTrain(piece, piece.trainBy[hand] or {})
             end
         end
         if not loadout.worn then
@@ -913,7 +925,7 @@ local function ProtectionAt(key, loadout, group, level)
         local chosen = {}
         local threshold
         for _, piece in ipairs(list) do
-            local usable =
+            local usable, train =
                 Scoring.CanUse(piece.item, key, { loadout = loadout, evaluatedLevel = level })
             if usable and piece.score > 0 then
                 local duplicateUnique = false
@@ -926,6 +938,7 @@ local function ProtectionAt(key, loadout, group, level)
                     if #chosen < count then
                         chosen[#chosen + 1] = piece
                         winners[piece] = true
+                        KeepTrain(piece, train)
                         threshold = piece
                     elseif
                         piece.score == threshold.score
@@ -942,6 +955,7 @@ local function ProtectionAt(key, loadout, group, level)
                         end
                         if copies < CopySlots(chosen, piece, count) then
                             winners[piece] = true
+                            KeepTrain(piece, train)
                         end
                     end
                 end
@@ -1017,24 +1031,26 @@ local function ProtectionAt(key, loadout, group, level)
         end
     end
     protections[cacheKey] =
-        { stamp = stamp, winners = winners, near = near, unreadable = unreadable }
-    return winners, near
+        { stamp = stamp, winners = winners, near = near, trains = trains, unreadable = unreadable }
+    return winners, near, trains
 end
 
 --- Protection at any level in here's look-ahead window under scored loadouts.
 -- @param item table candidate facts
 -- @param key string character key
 -- @param options table|nil fromInbox or fromInbound identifies a mail copy
--- @treturn table pending or inUse, loadout and optional better-piece data
+-- @treturn table pending or inUse, loadout, train (the training the winning
+--   piece needs) and optional better-piece data
 function Scoring.InUse(item, key, options)
     local group = Scoring.Group(item)
     local start = CharacterLevel(key)
     local identity = CandidateIdentity(item, options)
     local better
     local winningLoadout
+    local winningTrain
     for _, loadout in ipairs(Scoring.Comparisons(key)) do
         for level = start, start + DB.Data().settings.gear.lookAheadLevels do
-            local winners, near = ProtectionAt(key, loadout, group, level)
+            local winners, near, trains = ProtectionAt(key, loadout, group, level)
             if not winners then
                 return { pending = true }
             end
@@ -1042,6 +1058,7 @@ function Scoring.InUse(item, key, options)
                 if IsCandidate(piece, identity) then
                     if not winningLoadout or (loadout.worn and not winningLoadout.worn) then
                         winningLoadout = loadout
+                        winningTrain = trains[piece]
                     end
                 end
             end
@@ -1060,7 +1077,12 @@ function Scoring.InUse(item, key, options)
             end
         end
     end
-    return { inUse = winningLoadout ~= nil, loadout = winningLoadout, better = better }
+    return {
+        inUse = winningLoadout ~= nil,
+        loadout = winningLoadout,
+        train = winningTrain,
+        better = better,
+    }
 end
 
 --- Upgrade verdict and percentage gain; an empty baseline gives infinite gain.
@@ -1084,7 +1106,7 @@ local function CompareWeapon(item, options, hand, pool, train)
     if candidate == nil then
         return nil
     end
-    local baseline, reference
+    local baseline, reference, pair
     local partner = 0
     if hand == "twoHand" then
         if
@@ -1101,6 +1123,9 @@ local function CompareWeapon(item, options, hand, pool, train)
         else
             baseline = pool.pairScore
             reference = pool.main or pool.off
+            if pool.main and pool.off then
+                pair = { pool.main, pool.off }
+            end
             if pool.main and pool.off and pool.off.itemLevel > pool.main.itemLevel then
                 reference = pool.off
             end
@@ -1120,6 +1145,7 @@ local function CompareWeapon(item, options, hand, pool, train)
     local settings = DB.Data().settings.gear
     local itemLevel = not weighted and settings.itemLevelFallback
     if itemLevel then
+        pair = nil
         if not reference then
             reference = pool.highest[hand]
             if hand == "twoHand" then
@@ -1152,6 +1178,7 @@ local function CompareWeapon(item, options, hand, pool, train)
         baseline = baseline,
         baselineItem = reference and reference.item,
         baselineWhere = reference and reference.where,
+        baselinePair = pair,
         itemLevel = itemLevel and true or false,
         loadout = options.loadout,
         group = hand,
@@ -1224,6 +1251,9 @@ function Scoring.Compare(item, key, options)
                     )
                 then
                     result = off
+                end
+                if result then
+                    result.judgedBoth = true
                 end
             end
         end

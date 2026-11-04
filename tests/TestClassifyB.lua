@@ -216,6 +216,128 @@ return {
         h.Equal(result.reasonData.gear.loadout, "Bear", "the worn loadout")
         h.Equal(result.reasonData.gear.gainPct, math.huge, "infinite gain")
         h.Equal(result.reasonData.gear.baseline, 0, "baseline 0")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonEmptySlot, "Bear", ns.L.slotFinger),
+            "text"
+        )
+    end,
+
+    ["ClassifyB: empty-slot gear adds ilvl, training and effect suffixes"] = function()
+        Boot()
+        local item = Ring(AGI, 10)
+        h.Stub.SetTooltipLines(item.link, { "Use: Restores health." })
+        local _, slot = Carry(item)
+        ns.Scoring.Compare = function(_, _, options)
+            return {
+                upgrade = true,
+                baseline = 0,
+                gainPct = math.huge,
+                itemLevel = true,
+                group = "finger",
+                train = { 674 },
+                loadout = options.loadout,
+            }
+        end
+        local result = SlotResult(slot)
+        Expect(result, "equip", "equip", false, "empty slot")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonEmptySlot, "Bear", ns.L.slotFinger)
+                .. ns.L.reasonIlvl
+                .. string.format(ns.L.reasonTrain, ns.L.skillDualWield)
+                .. ns.L.reasonEffect,
+            "gear suffixes"
+        )
+    end,
+
+    ["ClassifyB: pair baseline names both items and their locations"] = function()
+        Boot()
+        local main = Ring(AGI, 10, { name = "Blade" })
+        local off = Ring(AGI, 5, { name = "Buckler" })
+        local _, slot = Carry(Ring(AGI, 20))
+        ns.Scoring.Compare = function(_, _, options)
+            return {
+                upgrade = true,
+                baseline = 15,
+                gainPct = 3.56,
+                group = "twoHand",
+                baselinePair = { { item = main, where = "worn" }, { item = off, where = "bags" } },
+                loadout = options.loadout,
+            }
+        end
+        local result = SlotResult(slot)
+        local pair = string.format(
+            ns.L.reasonPairLocated,
+            string.format(ns.L.reasonItemLocation, "Blade", ns.L.reasonWhereWorn),
+            string.format(ns.L.reasonItemLocation, "Buckler", ns.L.reasonWhereBags)
+        )
+        h.Equal(result.reasonText, string.format(ns.L.reasonEquip, "3.6", "Bear", pair), "pair")
+    end,
+
+    ["ClassifyB: judged hand is named only for a weapon compared in both hands"] = function()
+        Boot()
+        local baseline = Ring(AGI, 10, { name = "Old" })
+        local _, slot = Carry(Ring(AGI, 20))
+        local hand = "mainHand"
+        ns.Scoring.Compare = function(_, _, options)
+            return {
+                upgrade = true,
+                baseline = 10,
+                baselineItem = baseline,
+                baselineWhere = "bank",
+                gainPct = 4,
+                group = hand,
+                judgedBoth = true,
+                loadout = options.loadout,
+            }
+        end
+        local prefix = string.format(
+            ns.L.reasonEquip,
+            "4",
+            "Bear",
+            string.format(ns.L.reasonItemLocation, "Old", ns.L.reasonWhereBank)
+        )
+        h.Equal(SlotResult(slot).reasonText, prefix .. ns.L.reasonMainHand, "main hand")
+        hand = "offHand"
+        Generations.Bump("gearHere")
+        h.Equal(SlotResult(slot).reasonText, prefix .. ns.L.reasonOffHand, "off hand")
+    end,
+
+    ["ClassifyB: other character pair baseline omits locations"] = function()
+        Boot()
+        Roster.SetReceivesGear(CHAM, false)
+        local main = Ring(AGI, 10, { name = "Blade" })
+        local off = Ring(AGI, 5, { name = "Buckler" })
+        local _, slot = Carry(Ring(AGI, 20))
+        ns.Scoring.Compare = function(_, key, options)
+            if key == HERE then
+                return nil
+            end
+            return {
+                upgrade = true,
+                baseline = 15,
+                gainPct = 4.04,
+                group = "twoHand",
+                baselinePair = { { item = main, where = "bank" }, { item = off, where = "inbox" } },
+                loadout = options.loadout,
+            }
+        end
+        ns.Scoring.InUse = function()
+            return { inUse = false }
+        end
+        local result = SlotResult(slot)
+        Expect(result, "char:" .. BONESET, "gearfor", false, "other pair")
+        h.Equal(
+            result.reasonText,
+            string.format(
+                ns.L.reasonGearfor,
+                "4",
+                "Cat",
+                string.format(ns.L.reasonPair, "Blade", "Buckler")
+            ),
+            "pair and trailing zero"
+        )
     end,
 
     ["ClassifyB: an empty second ring slot counts as 0 (3a)"] = function()
@@ -229,7 +351,8 @@ return {
 
     ["ClassifyB: a ring that beats the weaker worn ring by the minimum is Equip (3a)"] = function()
         Boot()
-        Wear(Ring(AGI, 10), 11)
+        local baseline = Ring(AGI, 10)
+        Wear(baseline, 11)
         Wear(Ring(AGI, 20), 12)
         local _, slot = Carry(Ring(AGI, 30))
         local result = SlotResult(slot)
@@ -238,6 +361,16 @@ return {
         h.Equal(result.reasonData.gear.candidate, 30, "candidate score")
         h.Equal(result.reasonData.gear.gainPct, 200, "gain")
         h.Equal(result.reasonData.gear.assumed, false, "spec not assumed")
+        h.Equal(
+            result.reasonText,
+            string.format(
+                ns.L.reasonEquip,
+                "200",
+                "Bear",
+                string.format(ns.L.reasonItemLocation, baseline.name, ns.L.reasonWhereWorn)
+            ),
+            "whole percentage and worn baseline"
+        )
     end,
 
     ["ClassifyB: a candidate below the minimum upgrade stays in use (3a then 3c)"] = function()
@@ -250,13 +383,108 @@ return {
         h.Equal(result.reasonData.loadout, "Bear", "names the loadout")
     end,
 
+    ["ClassifyB: fractional gains round for display without changing ranking"] = function()
+        local here = Boot()
+        here.loadouts = { here.loadouts[1] }
+        StrongRings()
+        Wear(Ring(STA, 1000), 11)
+        Wear(Ring(STA, 1000), 12)
+        local first = Ring(AGI, 100, { name = "First" })
+        Stow(BONESET, first)
+        Stow(BONESET, Ring(AGI, 100, { name = "First" }))
+        Stow(CHAM, Ring(AGI, 100.04))
+        Stow(CHAM, Ring(AGI, 100.04))
+        local _, slot = Carry(Ring(AGI, 103.56))
+        local result = SlotResult(slot)
+        Expect(result, "char:" .. BONESET, "gearfor", false, "unrounded gain wins")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonGearfor, "3.6", "Cat", "First")
+                .. string.format(ns.L.reasonRunner, "Chamoomile", "3.5"),
+            "one decimal for winner and runner"
+        )
+    end,
+
     ["ClassifyB: an upgrade only for a stowed loadout is in use, not Equip (skips 3a)"] = function()
-        Boot()
+        local here = Boot()
+        here.loadouts[2].assumed = true
         StrongRings()
         local _, slot = Carry(Ring(AGI, 10))
         local result = SlotResult(slot)
         Expect(result, "none", "inuse", false, "Cat only")
         h.Equal(result.reasonData.loadout, "Cat", "the stowed loadout")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonInuse, "Cat" .. ns.L.reasonAssumed, ns.L.slotFinger),
+            "assumed in-use text"
+        )
+    end,
+
+    ["ClassifyB: in-use gear reports an unscored effect"] = function()
+        Boot()
+        StrongRings()
+        local item = Ring(AGI, 10)
+        h.Stub.SetTooltipLines(item.link, { "Use: Restores health." })
+        local _, slot = Carry(item)
+        local result = SlotResult(slot)
+        Expect(result, "none", "inuse", false, "stowed loadout")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonInuse, "Cat", ns.L.slotFinger) .. ns.L.reasonEffect,
+            "unscored effect suffix"
+        )
+    end,
+
+    ["ClassifyB: in-use gear reports the training it needs"] = function()
+        Boot()
+        StrongRings()
+        local _, slot = Carry(Ring(AGI, 10))
+        ns.Scoring.InUse = function()
+            return {
+                inUse = true,
+                loadout = { name = "Cat" },
+                train = { 674 },
+            }
+        end
+        local result = SlotResult(slot)
+        Expect(result, "none", "inuse", false, "stowed loadout")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonInuse, "Cat", ns.L.slotFinger)
+                .. string.format(ns.L.reasonTrain, ns.L.skillDualWield),
+            "train suffix"
+        )
+    end,
+
+    ["ClassifyB: an item-level fallback look-ahead upgrade carries the ilvl marker"] = function()
+        Boot()
+        h.Stub.SetPlayer({ level = 20 })
+        LootLogicDB.characters[HERE].level = 20
+        LootLogicDB.settings.gear.itemLevelFallback = true
+        local item = Ring(STA, 0, { reqLevel = 22, stats = {} })
+        local result = Classify.Link(item.link)
+        Expect(result, "none", "equipat", true, "fallback look-ahead")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonEquipat, 22) .. ns.L.reasonIlvl .. ns.L.reasonNotInBags,
+            "ilvl after the level"
+        )
+    end,
+
+    ["ClassifyB: a sale of gear with an unscored effect keeps the warning"] = function()
+        Boot()
+        local item = Ring(INT, 10)
+        h.Stub.SetTooltipLines(item.link, { "Use: Restores health." })
+        local _, slot = Carry(item, { bound = true })
+        local result = SlotResult(slot)
+        Expect(result, "vendor", "vendorbound", false, "bound and not wanted")
+        h.Equal(result.reasonData.unscoredEffect, true, "carried into the data")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonVendorbound, ns.Util.FormatMoney(item.sellPrice))
+                .. ns.L.reasonEffect,
+            "effect suffix on a sale"
+        )
     end,
 
     ["ClassifyB: a replaced piece reaches the other characters (3c then 3b)"] = function()
@@ -272,6 +500,33 @@ return {
         h.Equal(result.reasonData.better.item.link ~= nil, true, "names a better piece")
     end,
 
+    ["ClassifyB: better-piece suffix names every location"] = function()
+        Boot()
+        StrongRings()
+        local _, slot = Carry(Ring(AGI, 1), { bound = true })
+        local where = "worn"
+        ns.Scoring.InUse = function()
+            return { better = { loadout = { name = "Cat" }, group = "finger", where = where } }
+        end
+        for _, entry in ipairs({
+            { "worn", ns.L.reasonWhereWorn },
+            { "bags", ns.L.reasonBetterBags },
+            { "bank", ns.L.reasonBetterBank },
+            { "inbox", ns.L.reasonBetterMail },
+            { "inbound", ns.L.reasonBetterMail },
+        }) do
+            where = entry[1]
+            Generations.Bump("gearHere")
+            local result = SlotResult(slot)
+            h.Equal(
+                result.reasonText,
+                string.format(ns.L.reasonVendorbound, ns.Util.FormatMoney(10))
+                    .. string.format(ns.L.reasonBetter, "Cat", ns.L.slotFinger, entry[2]),
+                where
+            )
+        end
+    end,
+
     -- Look-ahead
     ["ClassifyB: a look-ahead upgrade stops at equipat when here wins (3a)"] = function()
         Boot()
@@ -283,6 +538,24 @@ return {
         Expect(result, "none", "equipat", false, "look-ahead")
         h.Equal(result.reasonData.atLevel, 22, "level")
         h.Equal(result.reasonData.gear.loadout, "Bear", "loadout")
+        h.Equal(result.reasonText, string.format(ns.L.reasonEquipat, 22), "worn loadout omitted")
+    end,
+
+    ["ClassifyB: equipat names an assumed stowed loadout"] = function()
+        local here = Boot()
+        h.Stub.SetPlayer({ level = 20 })
+        here.level = 20
+        here.loadouts[2].assumed = true
+        StrongRings()
+        local _, slot = Carry(Ring(AGI, 30, { reqLevel = 22 }))
+        local result = SlotResult(slot)
+        Expect(result, "none", "equipat", false, "look-ahead")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonEquipat, 22)
+                .. string.format(ns.L.reasonLoadout, "Cat" .. ns.L.reasonAssumed),
+            "assumed stowed loadout"
+        )
     end,
 
     ["ClassifyB: with the priority off an owned future winner stays in use (3c)"] = function()
@@ -309,6 +582,25 @@ return {
         Expect(Classify.Link(item.link), "none", "equipat", true, "nobody else wins")
     end,
 
+    ["ClassifyB: future gear destination names its required level"] = function()
+        Boot()
+        h.Stub.SetPlayer({ level = 20 })
+        LootLogicDB.characters[HERE].level = 20
+        LootLogicDB.characters[BONESET].level = 20
+        Roster.SetReceivesGear(CHAM, false)
+        LootLogicDB.settings.gear.hereWinsInLookAhead = false
+        local item = Ring(AGI, 30, { reqLevel = 22 })
+        local result = Classify.Link(item.link)
+        Expect(result, "char:" .. BONESET, "gearfor", true, "future destination")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonEmptySlot, "Cat", ns.L.slotFinger)
+                .. string.format(ns.L.reasonAtLevel, 22)
+                .. ns.L.reasonNotInBags,
+            "required level text"
+        )
+    end,
+
     ["ClassifyB: owned progression winners stay in use, an inferior piece is routed"] = function()
         Boot()
         h.Stub.SetPlayer({ level = 20 })
@@ -325,6 +617,11 @@ return {
         local _, level23 = Carry(Neck(20, 23))
         local _, inferior = Carry(Neck(12, 22))
         Expect(SlotResult(level21), "none", "inuse", false, "level 21 winner")
+        h.Equal(
+            SlotResult(level21).reasonText,
+            string.format(ns.L.reasonInuse, "Bear", ns.L.slotNeck),
+            "intermediate winner text"
+        )
         Expect(SlotResult(level22), "none", "inuse", false, "level 22 winner")
         Expect(SlotResult(level23), "none", "inuse", false, "level 23 winner")
         Expect(
@@ -373,8 +670,9 @@ return {
         local here = Boot()
         here.loadouts = { here.loadouts[1] }
         StrongRings()
-        Stow(BONESET, Ring(AGI, 5))
-        Stow(BONESET, Ring(AGI, 5))
+        local baseline = Ring(AGI, 5)
+        Stow(BONESET, baseline)
+        Stow(BONESET, Ring(AGI, 5, { name = baseline.name }))
         Stow(CHAM, Ring(AGI, 8))
         Stow(CHAM, Ring(AGI, 8))
         LootLogicDB.order = { CHAM, BONESET, HERE }
@@ -386,6 +684,12 @@ return {
         h.Equal(#result.reasonData.runnerUps, 1, "one runner-up")
         h.Equal(result.reasonData.runnerUps[1].key, CHAM, "runner-up")
         h.Equal(result.reasonData.runnerUps[1].gainPct, 25, "runner-up gain")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonGearfor, "100", "Cat", baseline.name)
+                .. string.format(ns.L.reasonRunner, "Chamoomile", "25"),
+            "winner and runner text"
+        )
     end,
 
     ["ClassifyB: equal gains fall to the character order, never the name (3b)"] = function()
@@ -410,6 +714,21 @@ return {
         Expect(result, "char:" .. CHAM, "gearfor", false, "Chamoomile has empty slots")
         h.Equal(result.reasonData.gear.gainPct, math.huge, "infinite")
         h.Equal(result.reasonData.runnerUps[1].key, BONESET, "the finite gain is the runner-up")
+    end,
+
+    ["ClassifyB: empty gear destinations name the runner-up slot"] = function()
+        local here = Boot()
+        here.loadouts = { here.loadouts[1] }
+        StrongRings()
+        local _, slot = Carry(Ring(AGI, 10))
+        local result = SlotResult(slot)
+        Expect(result, "char:" .. BONESET, "gearfor", false, "first empty destination")
+        h.Equal(
+            result.reasonText,
+            string.format(ns.L.reasonEmptySlot, "Cat", ns.L.slotFinger)
+                .. string.format(ns.L.reasonRunnerEmpty, "Chamoomile", ns.L.slotFinger),
+            "empty winner and runner-up"
+        )
     end,
 
     ["ClassifyB: a character with Receives gear off is skipped (3b)"] = function()
@@ -503,10 +822,20 @@ return {
         Want(BONESET, { ["4:*"] = {} })
         local _, slot = Carry(Ring(AGI, 10))
         Expect(SlotResult(slot), "none", "nospec", false, "spec nil")
+        h.Equal(
+            SlotResult(slot).reasonText,
+            string.format(ns.L.reasonNospec, UnitClass("player")),
+            "nil text"
+        )
         h.DeepEqual(here.loadouts, { { name = "Mage", worn = true } }, "saved loadout unchanged")
         here.loadouts = { { name = "Future", spec = "MAGE:future", worn = true } }
         Generations.Bump("loadouts")
         Expect(SlotResult(slot), "none", "nospec", false, "unsupported spec")
+        h.Equal(
+            SlotResult(slot).reasonText,
+            string.format(ns.L.reasonNospec, UnitClass("player")),
+            "unsupported text"
+        )
         h.DeepEqual(
             here.loadouts,
             { { name = "Future", spec = "MAGE:future", worn = true } },
@@ -633,6 +962,11 @@ return {
         here.inbox = { gear = { item.link } }
         Generations.Bump("gearHere")
         Expect(Classify.Link(item.link, "inbox"), "none", "inuse", true, "attachment")
+        h.Equal(
+            Classify.Link(item.link, "inbox").reasonText,
+            string.format(ns.L.reasonInuse, "Cat", ns.L.slotFinger) .. ns.L.reasonNotInBags,
+            "mail attachment text"
+        )
         -- The same link with no bag slot is not owned: no 3c, so it goes on.
         Expect(Classify.Link(item.link), "char:" .. BONESET, "gearfor", true, "plain link")
     end,

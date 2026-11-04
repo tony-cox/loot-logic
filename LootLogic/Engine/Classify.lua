@@ -15,10 +15,11 @@ reason texts of stage 14, except for the error result, which carries its text
 from the start. reasonData holds the values the text needs (an internal
 table, so the texts and M1's detail lines read one source): the winner and
 kind of a want, the set of an `inset` stay, the price of a Vendor/AH, AH or
-Vendor result, the flags "refundable" and "noVendorValue", and for gear the
-`gear` entry (the fields of spec 12.4 `detail.gear` that M0 has), the
-`runnerUps` of a `gearfor`, the loadout of an `inuse` stay, `atLevel` for an
-item above the level, and `better` (a better piece for a stowed loadout).
+Vendor result, the flags "refundable", "noVendorValue" and "unscoredEffect",
+and for gear the `gear` entry (the fields of spec 12.4 `detail.gear` that M0
+has), the `runnerUps` of a `gearfor`, the loadout and `train` list of an
+`inuse` stay, `atLevel` for an item above the level, and `better` (a better
+piece for a stowed loadout).
 
 A result is cached by the key of the bag slot with the generations it used
 (Cache.lua). An item whose facts are incomplete has no result and no cache
@@ -40,6 +41,7 @@ local L = ns.L
 local Loadouts = ns.Loadouts
 local Log = ns.Log
 local Prices = ns.Prices
+local Proficiency = ns.Proficiency
 local Roster = ns.Roster
 local Scoring = ns.Scoring
 local Sets = ns.Sets
@@ -78,6 +80,219 @@ local function Result(category, code, data)
         linkOnly = false,
         reasonData = data or {},
     }
+end
+
+local BETTER_WHERE = {
+    worn = "reasonWhereWorn",
+    bags = "reasonBetterBags",
+    bank = "reasonBetterBank",
+    inbox = "reasonBetterMail",
+    inbound = "reasonBetterMail",
+}
+
+local REASON_WHERE = {
+    worn = "reasonWhereWorn",
+    bags = "reasonWhereBags",
+    bank = "reasonWhereBank",
+    inbox = "reasonWhereMail",
+    inbound = "reasonWhereMail",
+}
+
+local function GainText(gain)
+    local text = string.format("%.1f", gain)
+    return (string.gsub(text, "%.0$", ""))
+end
+
+local function BaselineName(item, where, located)
+    local name = C_Item.GetItemInfo(item.link)
+    if located then
+        return string.format(L.reasonItemLocation, name, L[REASON_WHERE[where]])
+    end
+    return name
+end
+
+local function BaselineText(gear, located)
+    if gear.baselinePair then
+        local first, second = unpack(gear.baselinePair)
+        local key = L.reasonPair
+        if located then
+            key = L.reasonPairLocated
+        end
+        return string.format(
+            key,
+            BaselineName(first.item, first.where, located),
+            BaselineName(second.item, second.where, located)
+        )
+    end
+    return BaselineName(gear.baselineItem, gear.baselineWhere, located)
+end
+
+local function PriceAge(days)
+    if days == nil then
+        return L.reasonAgeOver
+    end
+    return string.format(L.reasonAgeDays, days)
+end
+
+local function ProviderLabel(id)
+    for _, provider in ipairs(Prices.Status()) do
+        if provider.id == id then
+            return provider.label
+        end
+    end
+    return id
+end
+
+local function SkillName(spell)
+    if spell == Proficiency.spells.dualWield then
+        return L.skillDualWield
+    end
+    for kind, id in pairs(Proficiency.subclassSpell) do
+        if spell == id then
+            local class, subclass = string.match(kind, "^(%d+):(%d+)$")
+            return C_Item.GetItemSubClassInfo(tonumber(class), tonumber(subclass))
+        end
+    end
+end
+
+local function ReasonText(result)
+    local code, data = result.reasonCode, result.reasonData
+    local key = "reason" .. string.upper(string.sub(code, 1, 1)) .. string.sub(code, 2)
+    local text = L[key]
+    if code == "wanted" or code == "wantedhere" then
+        local name
+        if data.kind == "item" then
+            name = C_Item.GetItemInfo(data.itemID)
+        elseif data.kind == "class" then
+            name = Util.TypeName(data.class)
+        else
+            name = Util.TypeName(data.class, data.subclass)
+        end
+        text = string.format(text, name)
+    elseif code == "inset" then
+        text = string.format(text, data.set)
+        if data.loadout then
+            text = text .. string.format(L.reasonLoadout, data.loadout)
+        end
+    elseif code == "inuse" then
+        local loadout = data.loadout
+        if data.assumed then
+            loadout = loadout .. L.reasonAssumed
+        end
+        text = string.format(text, loadout, Slots.Word(data.group))
+    elseif code == "nospec" then
+        text = string.format(text, UnitClass("player"))
+    elseif code == "equipat" then
+        text = string.format(text, data.atLevel)
+        local worn = Loadouts.Worn(Roster.HereKey())
+        if not worn or worn.name ~= data.gear.loadout then
+            local loadout = data.gear.loadout
+            if data.gear.assumed then
+                loadout = loadout .. L.reasonAssumed
+            end
+            text = text .. string.format(L.reasonLoadout, loadout)
+        end
+        if data.gear.itemLevel then
+            text = text .. L.reasonIlvl
+        end
+    elseif code == "stale" then
+        text = string.format(
+            text,
+            PriceAge(data.price.ageDays),
+            data.maxPriceAgeDays,
+            Util.FormatMoney(data.price.unit),
+            ProviderLabel(data.provider)
+        )
+    elseif code == "ah" then
+        local price = data.price
+        text = string.format(
+            text,
+            Util.FormatMoney(price.unit),
+            Util.FormatMoney(price.gainPerUnit),
+            price.cutPct,
+            price.label,
+            PriceAge(price.ageDays)
+        )
+    elseif code == "vendor" or code == "vendorbound" or code == "grey" then
+        text = string.format(text, Util.FormatMoney(data.vendor))
+    elseif code == "equip" or code == "gearfor" then
+        local gear = data.gear
+        local loadout = gear.loadout
+        if gear.assumed then
+            loadout = loadout .. L.reasonAssumed
+        end
+        if gear.baseline == 0 then
+            text = string.format(L.reasonEmptySlot, loadout, Slots.Word(gear.group))
+        else
+            text = string.format(
+                text,
+                GainText(gear.gainPct),
+                loadout,
+                BaselineText(gear, code == "equip")
+            )
+        end
+        if gear.itemLevel then
+            text = text .. L.reasonIlvl
+        end
+        if gear.atLevel then
+            text = text .. string.format(L.reasonAtLevel, gear.atLevel)
+        end
+        if code == "equip" and gear.judgedBoth then
+            if gear.group == "offHand" then
+                text = text .. L.reasonOffHand
+            else
+                text = text .. L.reasonMainHand
+            end
+        end
+        for _, runner in ipairs(data.runnerUps or {}) do
+            if runner.baseline == 0 then
+                text = text
+                    .. string.format(
+                        L.reasonRunnerEmpty,
+                        Roster.DisplayName(runner.key),
+                        Slots.Word(runner.group)
+                    )
+            else
+                text = text
+                    .. string.format(
+                        L.reasonRunner,
+                        Roster.DisplayName(runner.key),
+                        GainText(runner.gainPct)
+                    )
+            end
+        end
+    end
+    if data.refundable then
+        text = text .. L.reasonRefundable
+    end
+    if data.noVendorValue then
+        text = text .. L.reasonNoVendorValue
+    end
+    local train = data.gear and data.gear.train or data.train
+    if train and #train > 0 then
+        local names = {}
+        for _, spell in ipairs(train) do
+            names[#names + 1] = SkillName(spell)
+        end
+        text = text .. string.format(L.reasonTrain, table.concat(names, ", "))
+    end
+    if data.unscoredEffect or (data.gear and data.gear.unscoredEffect) then
+        text = text .. L.reasonEffect
+    end
+    if data.better then
+        local better = data.better
+        text = text
+            .. string.format(
+                L.reasonBetter,
+                better.loadout.name,
+                Slots.Word(better.group),
+                L[BETTER_WHERE[better.where]]
+            )
+    end
+    if result.linkOnly and code ~= "nobody" and code ~= "error" then
+        text = text .. L.reasonNotInBags
+    end
+    return text
 end
 
 -- Records that the result used a generation.
@@ -355,6 +570,8 @@ local function GearData(key, comparison, facts)
         baseline = comparison.baseline,
         baselineItem = comparison.baselineItem,
         baselineWhere = comparison.baselineWhere,
+        baselinePair = comparison.baselinePair,
+        judgedBoth = comparison.judgedBoth,
         gainPct = comparison.gainPct,
         train = comparison.train,
         unscoredEffect = facts.unscoredEffect,
@@ -430,7 +647,12 @@ local function InUse(context, facts, hereKey)
         return PENDING
     end
     if verdict.inUse then
-        local data = { loadout = verdict.loadout.name, group = Scoring.Group(facts) }
+        local data = {
+            loadout = verdict.loadout.name,
+            assumed = verdict.loadout.assumed,
+            group = Scoring.Group(facts),
+            train = verdict.train,
+        }
         return Result("none", "inuse", data)
     end
     context.better = verdict.better
@@ -618,7 +840,8 @@ end
 
 -- Runs the steps of the context, and adds the flags of spec 7.6: "refundable"
 -- ("Any bag item's reason adds "; refundable""), which stage 14 reads from the
--- reason data, and the better piece for a stowed loadout found by step 3c. The
+-- reason data, "unscoredEffect" (any gear item, whatever the category), and the
+-- better piece for a stowed loadout found by step 3c. The
 -- cache key does not include the refund state, so a purchase that stops being
 -- refundable is noticed when the key or a generation changes (live check L55).
 local function Run(context, facts)
@@ -629,12 +852,16 @@ local function Run(context, facts)
     if facts.refundable then
         result.reasonData.refundable = true
     end
+    if facts.unscoredEffect then
+        result.reasonData.unscoredEffect = true
+    end
     if context.better then
         result.reasonData.better = context.better
     end
     if facts.linkOnly then
         result.linkOnly = true
     end
+    result.reasonText = ReasonText(result)
     return result
 end
 

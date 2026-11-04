@@ -1,6 +1,6 @@
 # LootLogic: working notes for coding agents
 
-The repo for LootLogic, a WoW: Forever addon. It holds the spec and design docs and the addon code (`LootLogic/`, with offline tests in `tests/`); we are partway through milestone M0 of M0 to M4. Nothing has run on a live client yet (it arrives 2026-11-05), and the project is private until the addon is well tested. See `README.md` for the overview.
+The repo for LootLogic, a WoW: Forever addon. It holds the spec and design docs and the addon code (`LootLogic/`, with offline tests in `tests/`); milestone M0 of M0 to M4 is implemented and passes its offline checks, with the final stages awaiting merge. Nothing has run on a live client yet (it arrives 2026-11-05), and the project is private until the addon is well tested. See `README.md` for the overview.
 
 This file is read by every coding tool used on the repo (Codex reads it directly; Claude Code reads it through `CLAUDE.md`). Keep it tool-neutral. Anything only one tool needs goes in that tool's own file.
 

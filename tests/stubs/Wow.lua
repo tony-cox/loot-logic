@@ -778,7 +778,25 @@ local function GetItemUniquenessByID(item)
     return fields and fields.unique or false
 end
 
+local itemClassNames = { [0] = "Consumable", [4] = "Armor", [7] = "Trade Goods" }
+local itemSubclassNames = {
+    [4] = { [1] = "Cloth" },
+    [7] = { [5] = "Cloth", [7] = "Metal and Stone", [11] = "Other" },
+}
+
+function Stub.SetItemTypeNames(classes, subclasses)
+    itemClassNames = classes
+    itemSubclassNames = subclasses
+end
+
 C_Item = {
+    GetItemClassInfo = function(class)
+        return itemClassNames[class]
+    end,
+    GetItemSubClassInfo = function(class, subclass)
+        local names = itemSubclassNames[class]
+        return names and names[subclass]
+    end,
     GetItemInfoInstant = function(item)
         local itemID = ItemIDOfItem(item)
         local fields = instants[itemID]

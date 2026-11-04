@@ -189,6 +189,7 @@ return {
         Boot()
         Bag({ itemID = 6948, classID = 15, subclassID = 0, bindType = 1 })
         Expect(Classified(), "none", "nevertouch", "Hearthstone")
+        h.Equal(Classified().reasonText, L.reasonNevertouch, "never-touch text")
     end,
 
     -- Step 1b
@@ -198,8 +199,14 @@ return {
         local item = Bag()
         ns.Sets.ToggleProtect(HERE, item.itemID)
         Expect(Classified(), "none", "protected", "here's list")
+        h.Equal(Classified().reasonText, L.reasonProtected, "protected text")
         ns.Sets.ToggleProtect(HERE, item.itemID)
         Expect(Classified(), "vendor", "vendor", "removed again")
+        h.Equal(
+            Classified().reasonText,
+            string.format(L.reasonVendor, ns.Util.FormatMoney(13)),
+            "vendor text"
+        )
         ns.Sets.ToggleProtectGlobal(item.itemID)
         Expect(Classified(), "none", "protected", "global list")
     end,
@@ -230,6 +237,15 @@ return {
         Expect(result, "none", "inset", "set member")
         h.Equal(result.reasonData.set, "Tank", "set name")
         h.Equal(result.reasonData.loadout, here.loadouts[1].name, "linked loadout")
+        h.Equal(
+            result.reasonText,
+            string.format(L.reasonInset, "Tank")
+                .. string.format(L.reasonLoadout, here.loadouts[1].name),
+            "linked set text"
+        )
+        here.loadouts[1].link = nil
+        Generations.Bump("loadouts")
+        h.Equal(Classified().reasonText, string.format(L.reasonInset, "Tank"), "unlinked set")
     end,
 
     ["Classify: an imported-set member beats a want (1c before 4)"] = function()
@@ -259,6 +275,7 @@ return {
         Boot()
         Bag({ classID = 2, subclassID = 14 })
         Expect(Classified(), "none", "tool", "2/14")
+        h.Equal(Classified().reasonText, L.reasonTool, "tool text")
         Bag({ classID = 2, subclassID = 20 })
         Expect(Classified(), "none", "tool", "2/20")
         Bag({ itemID = 4471, classID = 7, subclassID = 11 })
@@ -273,6 +290,7 @@ return {
         local result = Classified()
         Expect(result, "char:" .. HUNTER, "wanted", "tool wanted")
         h.Equal(result.reasonData.winner, HUNTER, "winner")
+        h.Equal(result.reasonText, string.format(L.reasonWanted, "Other"), "other wants text")
     end,
 
     ["Classify: a tool wanted only by an opposite-faction character stays (1d)"] = function()
@@ -520,6 +538,7 @@ return {
         end, { hasData = false })
         Bag()
         Expect(Classified(), "vendorah", "noscan", "provider without data")
+        h.Equal(Classified().reasonText, L.reasonNoscan, "no-scan text")
         price = { unit = 1000, ageDays = 9, timestamp = GetServerTime() - 9 * 86400 }
         Generations.Bump("prices")
         Expect(Classified(), "vendorah", "stale", "a price was seen: stale, not noscan")
@@ -542,6 +561,7 @@ return {
         Provider(nil, { hasData = true })
         Bag()
         Expect(Classified(), "vendorah", "neverseen", "never seen")
+        h.Equal(Classified().reasonText, L.reasonNeverseen, "never-seen text")
     end,
 
     ["Classify: the AH rule passes and fails on each of its three tests (6)"] = function()
@@ -622,6 +642,7 @@ return {
         Provider({ unit = 50, ageDays = 0 })
         Bag({ sellPrice = 0 }, { hasNoValue = true })
         Expect(Classified(), "none", "belowthreshold", "net 47 under 100, no vendor value")
+        h.Equal(Classified().reasonText, L.reasonBelowthreshold, "below-threshold text")
         Settings().minGainCopper = 0
         Generations.Bump("settings")
         Expect(Classified(), "ah", "ah", "any gain lists with a zero floor")
@@ -794,11 +815,11 @@ return {
     end,
 
     -- The reason data of other results
-    ["Classify: the class stay, tool and protect results carry no reason text yet"] = function()
+    ["Classify: the class stay carries its reason text"] = function()
         Boot()
         Bag({ classID = 0, subclassID = 0 })
         local result = Classified()
-        h.Nil(result.reasonText, "stage 14 writes the text")
+        h.Equal(result.reasonText, L.reasonClassstay, "class stay text")
         h.DeepEqual(result.reasonData, {}, "no fill-ins")
     end,
 
@@ -883,6 +904,7 @@ return {
         provider.honoursLastScan = true
         Bag({ sellPrice = 100 })
         Expect(Classified(), "vendorah", "notinscan", "not in the last scan")
+        h.Equal(Classified().reasonText, L.reasonNotinscan, "not-in-scan text")
     end,
 
     ["Classify: an item include is exempt from a class restriction (4)"] = function()

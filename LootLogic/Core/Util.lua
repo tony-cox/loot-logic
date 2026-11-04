@@ -13,6 +13,36 @@ local L = ns.L
 local COPPER_PER_SILVER = 100
 local COPPER_PER_GOLD = 10000
 
+--- Names a client item type, qualifying a subclass when another class or
+--- subclass has the same name (spec 7.6). The 0 to 20 ranges and client
+--- names are from memory and unverified; live checks L8 and L61; fallback:
+--- the built-in table described in technical findings 5.
+-- @param classID number
+-- @param subclassID number|nil nil for a whole class
+-- @treturn string
+function Util.TypeName(classID, subclassID)
+    local className = C_Item.GetItemClassInfo(classID)
+    if subclassID == nil then
+        return className
+    end
+    local name = C_Item.GetItemSubClassInfo(classID, subclassID)
+    local count = 0
+    for class = 0, 20 do
+        if C_Item.GetItemClassInfo(class) == name then
+            count = count + 1
+        end
+        for subclass = 0, 20 do
+            if C_Item.GetItemSubClassInfo(class, subclass) == name then
+                count = count + 1
+            end
+        end
+    end
+    if count > 1 then
+        return string.format(L.typeQualified, className, name)
+    end
+    return name
+end
+
 --- Writes an amount of copper as gold, silver and copper parts: "1g 2s",
 --- "4g 10s", "35c". A part that is zero is left out, none is padded, and zero
 --- is "0c" (technical findings 14, Locale table).
