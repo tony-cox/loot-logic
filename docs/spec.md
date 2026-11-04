@@ -601,7 +601,7 @@ Shirt, tabard, ammo, bags, quivers, cosmetic armour and profession tools (step 1
 | Candidate | Baseline |
 |---|---|
 | Single-slot item | The best usable owned piece |
-| Rings and trinkets | The **weaker of the best two** owned (an empty second slot counts as 0, and so does an owned piece that scores below 0). The best two never include two copies of one unique-equipped item. |
+| Rings and trinkets | The **weaker of the best two** owned (an empty second slot counts as 0, and so does an owned piece that scores below 0, including for item-level fallback). The best two never include two copies of one unique-equipped item. |
 | Two-hander | `max(best 2H, best MH 1H + best off-hand)` |
 | One-hand main hand | The best MH 1H. If this spec prefers a 2H (2H > MH + OH), compare candidate + best off-hand against the 2H; the reason names the two-hander. |
 | Off-hand | The best off-hand. If this spec prefers a 2H (2H > MH + OH), compare candidate + best MH 1H against the 2H. |
