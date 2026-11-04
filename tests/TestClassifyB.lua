@@ -744,6 +744,20 @@ return {
         h.Equal(Count(DebugText(), "classify: bags"), 1, "not on a zone change")
     end,
 
+    ["ClassifyB: two initial-login events give one pass after the last snapshot"] = function()
+        Boot()
+        LootLogicDB.debug.enabled = true
+        FillBags(12)
+        h.Stub.FireEvent("PLAYER_ENTERING_WORLD", true, false)
+        h.Stub.Advance(ns.Snapshot.DEBOUNCE_SECONDS / 2)
+        h.Stub.FireEvent("PLAYER_ENTERING_WORLD", true, false)
+        h.Stub.Advance(ns.Snapshot.DEBOUNCE_SECONDS / 2)
+        h.Equal(FromSlotCalls(), 0, "no pass before the last event settles")
+        h.Stub.Advance(ns.Snapshot.DEBOUNCE_SECONDS)
+        h.Equal(FromSlotCalls(), 12, "one pass over every slot")
+        h.Equal(Count(DebugText(), "classify: bags"), 1, "one line")
+    end,
+
     ["ClassifyB: a pass above the budget is spread over frames in batches of 25"] = function()
         Boot()
         LootLogicDB.debug.enabled = true

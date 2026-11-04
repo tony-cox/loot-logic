@@ -51,6 +51,17 @@ local function AwaitOwned(item, key)
     return GetTime() < waiting.deadline
 end
 
+-- Owned pieces left out for unreadable stats (L4) are remembered by link, so a
+-- cached result is rebuilt once any of them becomes readable.
+local function Recovered(links)
+    for _, link in ipairs(links) do
+        if Stats.Get(link) then
+            return true
+        end
+    end
+    return false
+end
+
 ItemFacts.OnLoaded(function(ids)
     local bump = {}
     for _, id in ipairs(ids) do
@@ -427,7 +438,7 @@ local function SelectPiece(list, excludeLink, count, identity, first)
 end
 
 local function BuildBaseline(key, loadout, group, evaluatedLevel)
-    local result = { scores = {}, levels = {}, first = {} }
+    local result = { scores = {}, levels = {}, first = {}, unreadable = {} }
     local pending = false
     for order, piece in ipairs(Owned(Roster.Entry(key))) do
         piece.order = order
@@ -457,9 +468,14 @@ local function BuildBaseline(key, loadout, group, evaluatedLevel)
                     piece.itemLevel = item.itemLevel
                     KeepBest(result.scores, piece, "score")
                     KeepBest(result.levels, piece, "itemLevel")
-                elseif AwaitOwned(item, key) then
+                else
                     -- Loaded but unreadable stats (L4): left out after 10 s.
-                    pending = true
+                    if AwaitOwned(item, key) then
+                        pending = true
+                    end
+                    if not Stats.Get(item.link) then
+                        result.unreadable[#result.unreadable + 1] = item.link
+                    end
                 end
             end
         end
@@ -490,7 +506,7 @@ function Scoring.Baseline(key, loadout, options)
     }, "|")
     local stamp = Stamp(key)
     local cached = baselines[cacheKey]
-    if not cached or cached.stamp ~= stamp then
+    if not cached or cached.stamp ~= stamp or Recovered(cached.result.unreadable) then
         local result = BuildBaseline(key, loadout, options.group, evaluatedLevel)
         if not result then
             baselines[cacheKey] = nil
@@ -527,8 +543,8 @@ function Scoring.Baseline(key, loadout, options)
             end
         end
     end
-    if best and (best.score > 0 or (count == 2 and top and top.score > 0)) then
-        result.score = best.score
+    if best and (best.score > 0 or (count == 2 and top and (top.score > 0 or best.score < 0))) then
+        result.score = math.max(0, best.score)
         result.item = best.item
         result.where = best.where
     end
@@ -545,10 +561,11 @@ local function WeaponPool(key, loadout, level)
         table.concat({ key, loadout.spec, tostring(Scoring.BestArmorOnly(loadout)), level }, "|")
     local stamp = Stamp(key)
     local cached = weaponPools[cacheKey]
-    if cached and cached.stamp == stamp then
-        return cached.pieces
+    if cached and cached.stamp == stamp and not Recovered(cached.unreadable) then
+        return cached.pieces, cached.unreadable
     end
     local pieces = {}
+    local unreadable = {}
     local pending = false
     for order, piece in ipairs(Owned(Roster.Entry(key))) do
         piece.order = order
@@ -574,8 +591,13 @@ local function WeaponPool(key, loadout, level)
                         pending = true
                     elseif usable then
                         piece[hand] = Scoring.Score(item, loadout.spec, hand)
-                        if piece[hand] == nil and AwaitOwned(item, key) then
-                            pending = true
+                        if piece[hand] == nil then
+                            if AwaitOwned(item, key) then
+                                pending = true
+                            end
+                            if not Stats.Get(item.link) then
+                                unreadable[#unreadable + 1] = item.link
+                            end
                         end
                     end
                 end
@@ -586,8 +608,8 @@ local function WeaponPool(key, loadout, level)
     if pending then
         return nil
     end
-    weaponPools[cacheKey] = { stamp = stamp, pieces = pieces }
-    return pieces
+    weaponPools[cacheKey] = { stamp = stamp, pieces = pieces, unreadable = unreadable }
+    return pieces, unreadable
 end
 
 local function WeaponSets(pieces)
@@ -713,6 +735,30 @@ local function WeaponBaseline(key, loadout, level, excludeLink, identity)
     return best
 end
 
+-- Whether a is strictly ahead of b: a higher score, or an equal score with a
+-- higher item level while itemLevelFallback is on (spec 8.4).
+local function Ahead(a, b)
+    if a.score ~= b.score then
+        return a.score > b.score
+    end
+    return DB.Data().settings.gear.itemLevelFallback and a.itemLevel > b.itemLevel
+end
+
+-- Slots left for identical copies of a piece: those not held by strictly
+-- better chosen pieces, and one at most for a unique item.
+local function CopySlots(chosen, piece, count)
+    local slots = count
+    for _, other in ipairs(chosen) do
+        if Ahead(other, piece) then
+            slots = slots - 1
+        end
+    end
+    if piece.item.unique then
+        slots = math.min(slots, 1)
+    end
+    return slots
+end
+
 local function ProtectionAt(key, loadout, group, level)
     local cacheKey = table.concat(
         { key, loadout.spec, tostring(Scoring.BestArmorOnly(loadout)), group, level },
@@ -720,16 +766,18 @@ local function ProtectionAt(key, loadout, group, level)
     )
     local stamp = Stamp(key)
     local cached = protections[cacheKey]
-    if cached and cached.stamp == stamp then
+    if cached and cached.stamp == stamp and not Recovered(cached.unreadable) then
         return cached.winners, cached.near
     end
+    local unreadable
     local winners = {}
     local near = {}
     if group == "mainHand" or group == "offHand" or group == "twoHand" then
-        local pieces = WeaponPool(key, loadout, level)
+        local pieces, missing = WeaponPool(key, loadout, level)
         if not pieces then
             return nil
         end
+        unreadable = missing
         local best = 0
         local bestLevel = 0
         local sets = {}
@@ -854,6 +902,7 @@ local function ProtectionAt(key, loadout, group, level)
             return nil
         end
         local list = baselines[cacheKey].result.scores
+        unreadable = baselines[cacheKey].result.unreadable
         local count = Slots.slotCount[group] or 1
         local chosen = {}
         local threshold
@@ -885,7 +934,7 @@ local function ProtectionAt(key, loadout, group, level)
                                 copies = copies + 1
                             end
                         end
-                        if copies < count then
+                        if copies < CopySlots(chosen, piece, count) then
                             winners[piece] = true
                         end
                     end
@@ -919,7 +968,7 @@ local function ProtectionAt(key, loadout, group, level)
                             )
                         if not duplicateUnique and (#selected < count or tied) then
                             copies[piece.link] = (copies[piece.link] or 0) + 1
-                            if copies[piece.link] <= count then
+                            if copies[piece.link] <= CopySlots(selected, piece, count) then
                                 if piece == target then
                                     return true
                                 end
@@ -961,7 +1010,8 @@ local function ProtectionAt(key, loadout, group, level)
             end
         end
     end
-    protections[cacheKey] = { stamp = stamp, winners = winners, near = near }
+    protections[cacheKey] =
+        { stamp = stamp, winners = winners, near = near, unreadable = unreadable }
     return winners, near
 end
 
@@ -984,7 +1034,9 @@ function Scoring.InUse(item, key, options)
             end
             for piece in pairs(winners) do
                 if IsCandidate(piece, identity) then
-                    winningLoadout = winningLoadout or loadout
+                    if not winningLoadout or (loadout.worn and not winningLoadout.worn) then
+                        winningLoadout = loadout
+                    end
                 end
             end
             if not better then
@@ -1079,6 +1131,14 @@ local function CompareWeapon(item, options, hand, pool, train)
     end
     local upgrade, gainPct =
         Scoring.IsUpgrade(candidate + partner, baseline, settings.minUpgradePct)
+    -- A unique item cannot join its own twin, which stays as the other hand.
+    local retained = pool.off
+    if hand == "offHand" then
+        retained = pool.main
+    end
+    if hand ~= "twoHand" and item.unique and retained and retained.item.itemID == item.itemID then
+        upgrade, gainPct = false, 0
+    end
     return {
         upgrade = upgrade,
         gainPct = gainPct,
@@ -1146,7 +1206,17 @@ function Scoring.Compare(item, key, options)
             })
             if usableOff then
                 local off = CompareWeapon(item, options, "offHand", pool, trainOff)
-                if off and (not result or off.gainPct > result.gainPct) then
+                -- A hand that is an upgrade beats one that is not, whatever
+                -- the gains: an empty baseline gives even a zero score an
+                -- infinite gain.
+                if
+                    off
+                    and (
+                        not result
+                        or (off.upgrade and not result.upgrade)
+                        or (off.upgrade == result.upgrade and off.gainPct > result.gainPct)
+                    )
+                then
                     result = off
                 end
             end

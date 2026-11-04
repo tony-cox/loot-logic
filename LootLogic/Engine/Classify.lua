@@ -45,6 +45,7 @@ local Scoring = ns.Scoring
 local Sets = ns.Sets
 local Slots = ns.Slots
 local Snapshot = ns.Snapshot
+local Util = ns.Util
 
 --- The time a full pass may take before the rest is spread over frames, in
 --- milliseconds (technical findings 15, Budget).
@@ -890,13 +891,15 @@ end
 
 -- The events are from memory (technical findings 15; live checks L40, L28).
 -- The snapshot of PLAYER_ENTERING_WORLD is debounced, so the initial
--- classification waits the same time: its timer is made after the snapshot's,
--- so it fires after it.
+-- classification is debounced the same way: it restarts with each event and
+-- its timer is made after the snapshot's, so it runs once, after the snapshot.
+local passLater = Util.Debounce(Snapshot.DEBOUNCE_SECONDS, function()
+    Log.Guard("engine", Classify.Pass, "bags")
+end)
+
 Events.Register("PLAYER_ENTERING_WORLD", function(_, isInitialLogin, isReloadingUi)
     if isInitialLogin or isReloadingUi then
-        C_Timer.After(Snapshot.DEBOUNCE_SECONDS, function()
-            Log.Guard("engine", Classify.Pass, "bags")
-        end)
+        passLater()
     end
 end)
 
