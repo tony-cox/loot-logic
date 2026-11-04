@@ -49,6 +49,35 @@ local function ExpectPlaceholder(message)
     h.Equal(#Stub.ChatLines(), 1, "nothing run for '" .. message .. "'")
 end
 
+local function LogCount(text)
+    local count = 0
+    for _, line in ipairs(LootLogicDB.debug.log or {}) do
+        if string.find(line, "] " .. text, 1, true) then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+local function DebugOnLine()
+    return string.format(L.debugOn, "300")
+end
+
+local function ExpectOnWith(message)
+    Load()
+    ns.Slash.Run(message)
+    h.Equal(LootLogicDB.debug.enabled, true, "enabled for '" .. message .. "'")
+    h.DeepEqual(Stub.ChatLines(), { PREFIX .. DebugOnLine() }, "chat for '" .. message .. "'")
+end
+
+local function ExpectUsage(message)
+    Load()
+    LootLogicDB.debug.enabled = true
+    ns.Slash.Run(message)
+    h.DeepEqual(Stub.ChatLines(), { PREFIX .. L.debugUsage }, "chat for '" .. message .. "'")
+    h.Equal(LootLogicDB.debug.enabled, true, "unchanged for '" .. message .. "'")
+end
+
 return {
     ["Slash: probe runs the probe"] = function()
         ExpectProbe("probe")
@@ -89,5 +118,197 @@ return {
         ns.Slash.Run("foo")
         h.DeepEqual(Stub.ChatLines(), { PREFIX .. L.slashPlaceholder }, "chat")
         Stub.Advance(11)
+    end,
+
+    ["Slash: debug on sets debug.enabled and prints the on line"] = function()
+        ExpectOnWith("debug on")
+    end,
+
+    ["Slash: DEBUG ON and a padded debug  on work (case-insensitive)"] = function()
+        ExpectOnWith("DEBUG ON")
+        ExpectOnWith(" debug  on ")
+    end,
+
+    ["Slash: debug off clears debug.enabled, prints the off line, keeps the log"] = function()
+        Load()
+        LootLogicDB.debug.enabled = true
+        LootLogicDB.debug.log = { "[00:00:00] old: line" }
+        ns.Slash.Run("debug off")
+        h.Equal(LootLogicDB.debug.enabled, false, "enabled")
+        h.DeepEqual(Stub.ChatLines(), { PREFIX .. L.debugOff }, "chat")
+        h.DeepEqual(LootLogicDB.debug.log, { "[00:00:00] old: line" }, "log kept")
+    end,
+
+    ["Slash: debug on while on prints the already-on line and registers once"] = function()
+        Load()
+        local original = ns.Events.Register
+        local merchantRegistrations = 0
+        ns.Events.Register = function(event, handler)
+            if event == "MERCHANT_SHOW" then
+                merchantRegistrations = merchantRegistrations + 1
+            end
+            return original(event, handler)
+        end
+        ns.Slash.Run("debug on")
+        ns.Slash.Run("debug on")
+        ns.Events.Register = original
+        h.DeepEqual(
+            Stub.ChatLines(),
+            { PREFIX .. DebugOnLine(), PREFIX .. L.debugAlreadyOn },
+            "chat"
+        )
+        h.Equal(LootLogicDB.debug.enabled, true, "still on")
+        h.Equal(merchantRegistrations, 1, "registered once")
+    end,
+
+    ["Slash: debug on after a hand-set enabled prints already-on and registers"] = function()
+        Load()
+        LootLogicDB.debug.enabled = true
+        ns.Slash.Run("debug on")
+        h.DeepEqual(Stub.ChatLines(), { PREFIX .. L.debugAlreadyOn }, "chat")
+        Stub.FireEvent("MERCHANT_SHOW")
+        h.Equal(LogCount("event: MERCHANT_SHOW"), 1, "merchant logged")
+    end,
+
+    ["Slash: debug on reports a changed maxLog"] = function()
+        Load()
+        LootLogicDB.debug.maxLog = 50
+        ns.Slash.Run("debug on")
+        h.DeepEqual(Stub.ChatLines(), { PREFIX .. string.format(L.debugOn, "50") }, "chat")
+    end,
+
+    ["Slash: debug off while off prints the already-off line and changes nothing"] = function()
+        Load()
+        ns.Slash.Run("debug off")
+        h.DeepEqual(Stub.ChatLines(), { PREFIX .. L.debugAlreadyOff }, "chat")
+        h.Equal(LootLogicDB.debug.enabled, false, "still off")
+    end,
+
+    ["Slash: debug on then off then off prints off and then the already-off line"] = function()
+        Load()
+        ns.Slash.Run("debug on")
+        Stub.ClearChat()
+        ns.Slash.Run("debug off")
+        ns.Slash.Run("debug off")
+        h.DeepEqual(Stub.ChatLines(), { PREFIX .. L.debugOff, PREFIX .. L.debugAlreadyOff }, "chat")
+    end,
+
+    ["Slash: a bare debug prints the usage and changes nothing"] = function()
+        ExpectUsage("debug")
+    end,
+
+    ["Slash: a bad debug word prints the usage and changes nothing"] = function()
+        ExpectUsage("debug maybe")
+    end,
+
+    ["Slash: extra words after debug on print the usage and change nothing"] = function()
+        ExpectUsage("debug on now")
+    end,
+
+    ["Slash: a read-only session refuses debug on and off and stays unchanged"] = function()
+        for _, word in ipairs({ "on", "off" }) do
+            LootLogicDB = h.Fixture("dbNewer")
+            Stub.FireEvent("ADDON_LOADED", "LootLogic")
+            Stub.ClearChat()
+            ns.Slash.Run("debug " .. word)
+            h.DeepEqual(Stub.ChatLines(), { PREFIX .. L.debugReadOnly }, "chat for " .. word)
+            h.DeepEqual(LootLogicDB, h.Fixture("dbNewer"), "saved data for " .. word)
+            Stub.FireEvent("MERCHANT_SHOW")
+            h.DeepEqual(LootLogicDB, h.Fixture("dbNewer"), "no event line for " .. word)
+        end
+    end,
+
+    ["Slash: events are logged after debug on and not after debug off"] = function()
+        Load()
+        ns.Slash.Run("debug on")
+        Stub.ClearChat()
+        Stub.FireEvent("BANKFRAME_OPENED")
+        h.Equal(LogCount("event: BANKFRAME_OPENED"), 1, "log line")
+        local entry
+        for _, line in ipairs(LootLogicDB.debug.log) do
+            if string.find(line, "] event: BANKFRAME_OPENED", 1, true) then
+                entry = line
+            end
+        end
+        h.True(entry, "the event line is in the log")
+        local echoed = false
+        for _, line in ipairs(Stub.ChatLines()) do
+            if line == L.debugPrefix .. " " .. entry then
+                echoed = true
+            end
+        end
+        h.True(echoed, "the event line is echoed to chat")
+        ns.Slash.Run("debug off")
+        local before = #LootLogicDB.debug.log
+        Stub.FireEvent("BANKFRAME_CLOSED")
+        h.Equal(#LootLogicDB.debug.log, before, "no line after off")
+    end,
+
+    ["Slash: debug on stays on, events registered, when ADDON_LOADED runs again"] = function()
+        Load()
+        ns.Slash.Run("debug on")
+        -- A reload keeps the saved table and loads the addon again; the
+        -- registered handlers stand in for the fresh session's.
+        Stub.FireEvent("ADDON_LOADED", "LootLogic")
+        h.Equal(LootLogicDB.debug.enabled, true, "still on")
+        Stub.FireEvent("MERCHANT_SHOW")
+        Stub.FireEvent("PLAYERBANKSLOTS_CHANGED", 4)
+        h.Equal(LogCount("event: MERCHANT_SHOW"), 1, "merchant")
+        h.Equal(LogCount("event: PLAYERBANKSLOTS_CHANGED: 4"), 1, "bank slots")
+    end,
+
+    ["Slash: saved debug on registers the debug-only events at ADDON_LOADED"] = function()
+        LootLogicDB = nil
+        Stub.FireEvent("ADDON_LOADED", "LootLogic")
+        LootLogicDB.debug.enabled = true
+        -- ADDON_LOADED for another addon registers nothing.
+        Stub.FireEvent("ADDON_LOADED", "SomethingElse")
+        Stub.FireEvent("MERCHANT_SHOW")
+        h.Equal(LogCount("event: MERCHANT_SHOW"), 0, "not registered yet")
+        Stub.FireEvent("ADDON_LOADED", "LootLogic")
+        Stub.FireEvent("MERCHANT_SHOW")
+        Stub.FireEvent("AUCTION_HOUSE_SHOW")
+        Stub.FireEvent("PLAYERBANKSLOTS_CHANGED", 1)
+        h.Equal(LogCount("event: MERCHANT_SHOW"), 1, "merchant")
+        h.Equal(LogCount("event: AUCTION_HOUSE_SHOW"), 1, "auction house")
+        h.Equal(LogCount("event: PLAYERBANKSLOTS_CHANGED: 1"), 1, "bank slots")
+    end,
+
+    ["Slash: saved debug off registers nothing at ADDON_LOADED"] = function()
+        Load()
+        -- Turned on directly, not through the command, so only a registration
+        -- made at load could write the lines.
+        LootLogicDB.debug.enabled = true
+        Stub.FireEvent("MERCHANT_SHOW")
+        Stub.FireEvent("PLAYERBANKSLOTS_CHANGED", 1)
+        h.Equal(LogCount("event: MERCHANT_SHOW"), 0, "merchant")
+        h.Equal(LogCount("event: PLAYERBANKSLOTS_CHANGED"), 0, "bank slots")
+    end,
+
+    ["Slash: autoOpenContents on skips MERCHANT_SHOW and AUCTION_HOUSE_SHOW"] = function()
+        Load()
+        LootLogicDB.ui.autoOpenContents = true
+        ns.Slash.Run("debug on")
+        Stub.FireEvent("MERCHANT_SHOW")
+        Stub.FireEvent("AUCTION_HOUSE_SHOW")
+        Stub.FireEvent("PLAYERBANKSLOTS_CHANGED", 2)
+        h.Equal(LogCount("event: MERCHANT_SHOW"), 0, "merchant skipped")
+        h.Equal(LogCount("event: AUCTION_HOUSE_SHOW"), 0, "auction house skipped")
+        h.Equal(LogCount("event: PLAYERBANKSLOTS_CHANGED: 2"), 1, "bank slots logged")
+    end,
+
+    ["Slash: an event the client refuses is an Errors entry and the others register"] = function()
+        Load()
+        Stub.SetUnknownEvents({ "PLAYERBANKSLOTS_CHANGED" })
+        ns.Slash.Run("debug on")
+        local errors = ns.Log.Errors()
+        h.Equal(#errors, 1, "one error")
+        h.Equal(errors[1].area, "events", "area")
+        h.True(string.find(errors[1].message, "PLAYERBANKSLOTS_CHANGED", 1, true), "names it")
+        Stub.FireEvent("MERCHANT_SHOW")
+        Stub.FireEvent("AUCTION_HOUSE_SHOW")
+        h.Equal(LogCount("event: MERCHANT_SHOW"), 1, "merchant")
+        h.Equal(LogCount("event: AUCTION_HOUSE_SHOW"), 1, "auction house")
+        h.Equal(LogCount("error: events: PLAYERBANKSLOTS_CHANGED"), 1, "error line")
     end,
 }

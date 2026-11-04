@@ -15,6 +15,8 @@ Setters of h.Stub (keep this list in step with the code below):
                           first, last, realm, faction, factionName, class
                           (token), className, race (name), raceToken, raceID,
                           level, version, build
+  SetUnknownEvents(names) event names RegisterEvent raises for (a name the
+                          client does not know; API guess)
   MakeSecret()            a new token that issecretvalue reports as true
   FireEvent(event, ...)   fire an event on every frame registered for it
   ChatLines()             list of the chat lines printed so far
@@ -309,12 +311,28 @@ C_AddOns = {
     end,
 }
 
+-- Event names RegisterEvent refuses (what a client may do with a name it does
+-- not know; from memory, unverified).
+local unknownEvents = {}
+
+--- Makes RegisterEvent raise for the given event names from now on.
+-- @param names table list of event names
+function Stub.SetUnknownEvents(names)
+    unknownEvents = {}
+    for _, name in ipairs(names) do
+        unknownEvents[name] = true
+    end
+end
+
 -- A frame that can take events and an OnEvent script, which is all the addon
 -- needs of one. Confidence: from memory; the names RegisterEvent and
 -- SetScript("OnEvent", fn) are an API guess, checked in game.
 function CreateFrame(frameType, name)
     local frame = { frameType = frameType, name = name, events = {}, scripts = {} }
     function frame:RegisterEvent(event)
+        if unknownEvents[event] then
+            error("Frame:RegisterEvent(): Unknown event: " .. event)
+        end
         self.events[event] = true
     end
     function frame:UnregisterEvent(event)
