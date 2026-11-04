@@ -539,14 +539,20 @@ function Scoring.Baseline(key, loadout, options)
             if piece.worn and piece.item.itemID == options.candidate.itemID then
                 best = piece.score > 0 and piece or nil
                 highest = piece
+                if piece.score < 0 then
+                    highest = nil
+                end
                 break
             end
         end
     end
-    if best and (best.score > 0 or (count == 2 and top and (top.score > 0 or best.score < 0))) then
-        result.score = math.max(0, best.score)
+    if best and best.score >= 0 and (best.score > 0 or (count == 2 and top and top.score > 0)) then
+        result.score = best.score
         result.item = best.item
         result.where = best.where
+    end
+    if best and best.score < 0 and count == 2 then
+        highest = nil
     end
     if highest then
         result.itemLevel = highest.itemLevel

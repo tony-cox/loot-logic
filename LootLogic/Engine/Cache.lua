@@ -129,8 +129,13 @@ end
 -- usable (no age). A price with a timestamp is too old once its age in whole
 -- days, rounded down, passes maxPriceAgeDays (spec 4). Auctionator's price has
 -- no timestamp, so it is checked when its day turns.
-local function PriceExpiry(price, maxPriceAgeDays)
+-- With byAge, a timestamped price is instead due when its whole-day age next
+-- changes, because Prices.Best ranks providers by that age.
+local function PriceExpiry(price, maxPriceAgeDays, byAge)
     if price.timestamp then
+        if byAge then
+            return price.timestamp + (price.ageDays + 1) * SECONDS_PER_DAY
+        end
         return price.timestamp + (maxPriceAgeDays + 1) * SECONDS_PER_DAY
     end
     if price.ageDays then
@@ -143,11 +148,13 @@ end
 --- (the entry's validUntil), or nil when none of them can.
 -- @param prices table list of provider prices ({ timestamp, ageDays, ... })
 -- @param maxPriceAgeDays number
+-- @param byAge boolean|nil expire at the next whole-day age change, for prices
+--   that competed to be the best
 -- @treturn number|nil epoch time
-function Cache.ValidUntil(prices, maxPriceAgeDays)
+function Cache.ValidUntil(prices, maxPriceAgeDays, byAge)
     local earliest
     for _, price in ipairs(prices) do
-        local expiry = PriceExpiry(price, maxPriceAgeDays)
+        local expiry = PriceExpiry(price, maxPriceAgeDays, byAge)
         if expiry and (not earliest or expiry < earliest) then
             earliest = expiry
         end

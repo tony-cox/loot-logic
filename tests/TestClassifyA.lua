@@ -725,6 +725,42 @@ return {
         Expect(later, "vendorah", "stale", "day 8: stale, Vendor/AH")
     end,
 
+    ["Classify: a provider tie is rechecked when the winner changes age (cache)"] = function()
+        Boot()
+        local now = GetServerTime()
+        local function Register(id, written, unit)
+            Prices.Register({
+                id = id,
+                label = id,
+                IsAvailable = function()
+                    return true
+                end,
+                GetPrice = function()
+                    local age = math.floor((GetServerTime() - written) / 86400)
+                    return { unit = unit, ageDays = age, timestamp = written }
+                end,
+                HasData = function()
+                    return true
+                end,
+                OnUpdate = function() end,
+            })
+        end
+        -- Both are one day old; the first turns two days old well before
+        -- the second.
+        Register("first", now - 86400 - 10000, 1000)
+        Register("second", now - 86400 - 100, 1)
+        Bag({ sellPrice = 100 })
+        Classified()
+        -- The first price seen schedules a price-changed notice; let it pass.
+        h.Stub.Advance(1)
+        local first = Classified()
+        Expect(first, "ah", "ah", "the earlier provider wins the tie")
+        h.Stub.Advance(1000)
+        h.True(Classified() == first, "still cached before either price changes age")
+        h.Stub.Advance(76000)
+        Expect(Classified(), "vendor", "vendor", "the fresher second provider now wins")
+    end,
+
     -- Errors
     ["Classify: an engine error gives the error result, which is cached (frame)"] = function()
         Boot()

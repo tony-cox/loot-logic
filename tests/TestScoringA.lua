@@ -553,6 +553,36 @@ return {
         h.Equal(result.gainPct, math.huge, "empty infinite")
         h.Equal(result.upgrade, true, "empty upgrade")
     end,
+    ["equal scores break on item level for both retained entries"] = function()
+        Boot()
+        local entry = LootLogicDB.characters.druid
+        local stats = { ITEM_MOD_AGILITY_SHORT = 10 }
+        local low = Item({ itemLevel = 10, stats = stats })
+        local high = Item({ itemLevel = 40, stats = stats })
+        local candidate = Item({ itemLevel = 20 })
+        for _, order in ipairs({ { low, high }, { high, low } }) do
+            entry.bags = { gear = { order[1].link, order[2].link } }
+            ns.Generations.Bump("gearOthers")
+            local result = Compare(candidate)
+            h.Equal(result.baseline, 40, "higher level wins the tie")
+            h.Equal(result.upgrade, false, "level 20 is no upgrade over level 40")
+        end
+        local same = Item({ itemLevel = 40, stats = stats })
+        entry.bags = { gear = { low.link, high.link, same.link } }
+        ns.Generations.Bump("gearOthers")
+        h.Equal(Compare(candidate).baseline, 40, "runner-up keeps the higher level")
+        LootLogicDB.settings.gear.itemLevelFallback = false
+        ns.Generations.Bump("settings")
+        entry.bags = { gear = { low.link, high.link } }
+        h.Equal(Compare(candidate).baselineItem.link, low.link, "setting off keeps first")
+    end,
+    ["fractional scores at the minimum gain boundary are an upgrade"] = function()
+        Boot()
+        h.Equal(Scoring.IsUpgrade(6.6, 6, 10), true, "exact ten percent of fractional scores")
+        h.Equal(Scoring.IsUpgrade(0.6 * 11, 0.6 * 10, 10), true, "weighted strength")
+        h.Equal(Scoring.IsUpgrade(6.5, 6, 10), false, "below boundary")
+        h.Equal(Scoring.IsUpgrade(6, 6, 0), false, "equal is never an upgrade")
+    end,
     ["owned containers count but imported set membership alone does not"] = function()
         Boot()
         local entry = LootLogicDB.characters.druid

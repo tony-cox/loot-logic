@@ -182,6 +182,25 @@ return {
         h.Equal(result.baseline, 40, "worn twin is baseline")
         h.Equal(result.upgrade, false, "duplicate does not replace weaker other ring")
     end,
+    ["a negative worn unique twin is empty for item-level fallback"] = function()
+        Boot()
+        local here = "Zugar Soulsour-Region"
+        local character = LootLogicDB.characters[here]
+        character.class = "DRUID"
+        ns.WeightTables["DRUID:harm"] = { weights = { STR = -1 }, percent = {} }
+        local loadout = { name = "Harm", spec = "DRUID:harm" }
+        character.loadouts = { loadout }
+        local twin =
+            Item({ unique = true, itemLevel = 30, stats = { ITEM_MOD_STRENGTH_SHORT = 5 } })
+        character.gear = { slots = { [11] = twin.link } }
+        local baseline = ns.Scoring.Baseline(here, loadout, {
+            group = "finger",
+            evaluatedLevel = character.level,
+            candidate = twin,
+        })
+        h.Equal(baseline.score, 0, "negative twin is empty")
+        h.Equal(baseline.highestItem, nil, "negative twin supplies no item-level reference")
+    end,
     ["a piece loses protection only after every scored loadout replaces it"] = function()
         local entry = Boot()
         entry.loadouts = { entry.loadouts[2], entry.loadouts[3] }
@@ -734,12 +753,12 @@ return {
         h.Equal(result.gainPct, math.huge, "empty slot gain")
         local unweighted = Item({ itemLevel = 40, stats = {} })
         local fallback = ns.Scoring.Compare(unweighted, "druid", { loadout = loadout })
-        h.Equal(fallback.baseline, 30, "item-level fallback keeps the weaker piece")
+        h.Equal(fallback.baseline, 0, "negative weaker piece is empty for item-level fallback")
         local lessHarmful = Item({ itemLevel = 10, stats = { ITEM_MOD_STRENGTH_SHORT = 2 } })
         entry.bags.gear = { lessHarmful.link, harmful.link }
         ns.Generations.Bump("gearOthers")
         fallback = ns.Scoring.Compare(unweighted, "druid", { loadout = loadout })
-        h.Equal(fallback.baseline, 30, "negative pair keeps the weaker score's item level")
+        h.Equal(fallback.baseline, 0, "negative pair is empty for item-level fallback")
     end,
     ["surplus identical rings are not protected beyond the free slots"] = function()
         local entry = Boot()
