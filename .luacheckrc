@@ -4,24 +4,40 @@ std = "lua51"
 max_line_length = 100
 max_comment_line_length = 80
 
--- The saved variable named in the TOC. Globals.lua adds the addon's other
--- globals in M1.
+-- The saved variable named in the TOC and the addon's own globals, which
+-- Globals.lua creates (style guide 3). The compartment
+-- function and the BINDING_ labels join in the stages that add them.
 globals = {
     "LootLogicDB",
+    "LootLogic",
+    "SLASH_LOOTLOGIC1",
+    "SLASH_LOOTLOGIC2",
 }
 
+-- SlashCmdList is the client's table: read-only except the one field the addon
+-- writes.
 read_globals = {
+    SlashCmdList = {
+        fields = {
+            LOOTLOGIC = { read_only = false },
+        },
+    },
     "ATTACHMENTS_MAX_RECEIVE",
     "ATTACHMENTS_MAX_SEND",
     "AuctionDB",
+    "Auctionator",
     "C_AddOns",
+    "C_Bank",
     "C_Container",
     "C_EquipmentSet",
     "C_Item",
     "C_PlayerInfo",
     "C_Timer",
     "C_TooltipInfo",
+    "ContainerFrame1",
+    "ContainerFrameCombinedBags",
     "CreateFrame",
+    "EUI_Bags",
     "Enum",
     "EquipmentManager_UnpackLocation",
     "GetBuildInfo",
@@ -29,10 +45,12 @@ read_globals = {
     "GetInboxItemLink",
     "GetInboxNumItems",
     "GetInventoryItemLink",
+    "GetNumTalentTabs",
     "GetRealmName",
     "GetSendMailItem",
     "GetSendMailItemLink",
     "GetServerTime",
+    "GetTalentTabInfo",
     "GetTime",
     "ITEM_CLASSES_ALLOWED",
     "ITEM_SET_BONUS",
@@ -47,6 +65,7 @@ read_globals = {
     "ItemLocation",
     "LOCALIZED_CLASS_NAMES_FEMALE",
     "LOCALIZED_CLASS_NAMES_MALE",
+    "LibStub",
     "Outfitter",
     "TOOLTIP_ITEM_STAT_CRIT_PERCENT_INCREASE",
     "TOOLTIP_ITEM_STAT_HIT_PERCENT_INCREASE",
@@ -56,6 +75,7 @@ read_globals = {
     "UnitLevel",
     "UnitName",
     "UnitRace",
+    "WEAPON_SPEED",
     "date",
     "debugprofilestop",
     "gOutfitter_GlobalSettings",
@@ -133,6 +153,7 @@ files["tests/stubs/Wow.lua"] = {
         "LOCALIZED_CLASS_NAMES_MALE",
         "Outfitter",
         "SendMail",
+        "SlashCmdList",
         "TOOLTIP_ITEM_STAT_CRIT_PERCENT_INCREASE",
         "TOOLTIP_ITEM_STAT_HIT_PERCENT_INCREASE",
         "TOOLTIP_ITEM_STAT_SPELL_POWER_INCREASE",
@@ -141,6 +162,7 @@ files["tests/stubs/Wow.lua"] = {
         "UnitLevel",
         "UnitName",
         "UnitRace",
+        "WEAPON_SPEED",
         "date",
         "debugprofilestop",
         "gOutfitter_GlobalSettings",

@@ -209,7 +209,7 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 
 ### M1 stage 1 probe decisions
 
-The owner's answers to questions 1 to 13 of the M1 stage 1 plan (`/ll probe`), D168 to D180, and to five follow-up points on the same plan and its consistency pass 62, D181 to D185.
+The owner's answers to questions 1 to 13 of the M1 stage 1 plan (`/ll probe`), D168 to D180, and to six follow-up points on the same plan, its consistency pass 62 and the review of its build, D181 to D186.
 
 | # | Raised in | Question | Answer | Date |
 |---|---|---|---|---|
@@ -231,6 +231,7 @@ The owner's answers to questions 1 to 13 of the M1 stage 1 plan (`/ll probe`), D
 | D183 | technical findings 18 (the late lines, L58); D176 | What does L58 show when `C_Item.DoesItemExistByID` exists but raises an error? | **FAIL with the error's own text,** by the rule that an error in a check is FAIL with its text (D178). A missing call stays FAIL "call missing". In both cases the fallback (every item ID accepted, D120) is built and L28 is SKIP. Amends D176, which gave "call missing" for both. Applied to technical findings 18 (the late lines). | 2026-11-04 |
 | D184 | technical findings 18 (L21); D178 | What is L21 when `C_Item.GetItemUniquenessByID` exists and item 20429's data is loaded, but every return is nil? | **FAIL "returned nothing".** Amends D178's L21 pass test, which gave FAIL only for a missing call. Applied to technical findings 18 (L21 rule). | 2026-11-04 |
 | D185 | `Core/Log.lua` (`Log.Chat`); technical findings 18 (L63); consistency pass 62 (N1) | What covers `print` writing the "LootLogic:" lines to the default chat frame? The `Log.Chat` comment named live check L63, whose test does not look at chat output. | **The manual M1 checklist, not a live check:** step 1 of `docs/TESTING.md` M1 (`/ll probe`), whose lines all print through `Log.Chat`. L63 is unchanged. Applied to the `Log.Chat` comment in `Core/Log.lua` (comment only). | 2026-11-04 |
+| D186 | technical findings 18 (Output, `debug.probe`); code review of M1 stage 1 (finding 4) | What does `/ll probe` do when `GetServerTime` or `GetBuildInfo` is missing, raises or gives no usable value? | **It records "unknown" and carries on.** Both calls run under `Util.Pcall`. A call that fails, or gives no number (`GetServerTime`) or no version and build text (`GetBuildInfo`), gives "unknown" for its part of the run (the run's key, or `build`), and the run prints one line saying which call was unavailable. Every check still runs, and no check row is added. The "no usable value" case was added in review 28 and confirmed by the owner (2026-11-05). Applied to spec 6 (Probe runs) and technical findings 14 (Saved data) and 18 (Output). | 2026-11-04 |
 
 ### Spec questions
 

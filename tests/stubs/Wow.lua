@@ -27,7 +27,9 @@ Setters of h.Stub (keep this list in step with the code below):
                           the link C_Container.GetContainerItemLink gives
   SetTooltipLines(link, lines)
                           the lines C_TooltipInfo.GetHyperlink(link) gives (a
-                          list of strings); no call, no tooltip (nil)
+                          list; each entry is a string, the left text, or
+                          { left = <text>, right = <text> }); no call, no
+                          tooltip (nil)
   SetItemSpellKnown(text)
                           the global ITEM_SPELL_KNOWN (nil removes it)
   TooltipCalls()          how many times C_TooltipInfo.GetHyperlink was called
@@ -78,8 +80,42 @@ Setters of h.Stub (keep this list in step with the code below):
   ItemRequests(itemID)    how many times GetItemInfo was called for the item
                           while its data was missing
   SetUniquenessApi(on)    whether C_Item.GetItemUniquenessByID exists
+  SetLoadOnRequest(itemID)
+                          the next C_Item.GetItemInfo call for the item fires
+                          ITEM_DATA_LOAD_RESULT (itemID, true) inside the call,
+                          then returns as usual (nil while the item is pending;
+                          L28, an event before the wait)
   SetString(name, value)  a client global string such as ITEM_UNIQUE (nil
                           removes it)
+  SetNewTimer(on)         whether C_Timer.NewTimer exists (default true; L63)
+  SetCancelStops(on)      whether a timer's Cancel stops it (default true; false
+                          lets a cancelled timer still fire, L63)
+  SetItemExists(itemID, answer)
+                          what C_Item.DoesItemExistByID gives for an item
+                          (default: true for an item the stub knows, else false)
+  SetExistsApi(mode)      "on" (default), "off" (the call is missing) or "raise"
+                          (the call raises an error; L58)
+  SetAccountBoundApi(on)  whether C_Item.IsBoundToAccountUntilEquip exists (L24)
+  SetUniquenessNothing(on)
+                          GetItemUniquenessByID returns no value (L21)
+  SetGlobal(name, value)  set or clear (nil) any global, such as EUI_Bags,
+                          Auctionator, AuctionDB, ContainerFrame1,
+                          GetNumTalentTabs
+  MakeAuctionatorV1(prices, ages)
+                          an Auctionator.API.v1 fake: price and age per item ID;
+                          its calls are listed by AuctionatorCalls()
+  SetAuctionator(v1)      install the Auctionator global with API.v1 = v1 (nil:
+                          API has no v1)
+  AuctionatorCalls()      list of { name, callerID, itemID } of the fake's calls
+  SetLibStub(betterBags)  install LibStub with an AceAddon-3.0 fake; betterBags
+                          is nil (no BetterBags) or { categories = <table>,
+                          raises = <text> } (GetModule gives it or raises)
+  SetBankApi(canUse)      install C_Bank.CanUseBank (giving canUse) and
+                          Enum.BankType; nil removes both (L33)
+  SetTalentTabs(tabs)     install GetNumTalentTabs and GetTalentTabInfo; tabs is
+                          a list of lists of the values GetTalentTabInfo returns
+                          for each tab (a list may set n to hold trailing nils);
+                          nil removes both (L48)
   SetInbox(mails)         the inbox, a list of { items = { { link, count } } }
   SetSendMailItems(items) the attachments of the mail being written, a list of
                           { link, count }
@@ -223,24 +259,47 @@ TimerHandle.__index = TimerHandle
 -- The timer record of each handle, out of reach of other files.
 local handleTimers = {}
 
+local cancelStops = true
+
 function TimerHandle:Cancel()
-    handleTimers[self].cancelled = true
+    if cancelStops then
+        handleTimers[self].cancelled = true
+    end
 end
 
 function TimerHandle:IsCancelled()
     return handleTimers[self].cancelled
 end
 
+local function NewTimer(seconds, fn)
+    local handle = setmetatable({}, TimerHandle)
+    handleTimers[handle] = AddTimer(seconds, fn)
+    return handle
+end
+
 C_Timer = {
     After = function(seconds, fn)
         AddTimer(seconds, fn)
     end,
-    NewTimer = function(seconds, fn)
-        local handle = setmetatable({}, TimerHandle)
-        handleTimers[handle] = AddTimer(seconds, fn)
-        return handle
-    end,
+    NewTimer = NewTimer,
 }
+
+--- Sets whether C_Timer.NewTimer exists (the client may lack it, L63).
+-- @param on boolean
+function Stub.SetNewTimer(on)
+    if on then
+        C_Timer.NewTimer = NewTimer
+    else
+        C_Timer.NewTimer = nil
+    end
+end
+
+--- Sets whether a timer's Cancel stops it. False lets a cancelled timer fire,
+--- the failure L63 reports.
+-- @param on boolean
+function Stub.SetCancelStops(on)
+    cancelStops = on
+end
 
 C_AddOns = {
     GetAddOnMetadata = function(addon, field)
@@ -773,9 +832,53 @@ local function LoadedItem(item, countRequest)
     return nil, itemID
 end
 
+local loadOnRequest = {}
+
+--- The next GetItemInfo call for the item fires ITEM_DATA_LOAD_RESULT (itemID,
+--- true) inside the call, then returns as usual (nil while the item is
+--- pending).
+-- @param itemID number
+function Stub.SetLoadOnRequest(itemID)
+    loadOnRequest[itemID] = true
+end
+
+local uniquenessNothing = false
+
 local function GetItemUniquenessByID(item)
+    if uniquenessNothing then
+        return
+    end
     local fields = LoadedItem(item, false)
     return fields and fields.unique or false
+end
+
+--- Makes GetItemUniquenessByID return no value at all (live check L21).
+-- @param on boolean
+function Stub.SetUniquenessNothing(on)
+    uniquenessNothing = on
+end
+
+-- C_Item.DoesItemExistByID answers at once, without the item being loaded
+-- (from memory, technical findings 13; live check L58).
+local existsAnswers = {}
+local existsMode = "on"
+
+local function DoesItemExistByID(itemID)
+    if existsMode == "raise" then
+        error("DoesItemExistByID failed", 0)
+    end
+    local answer = existsAnswers[itemID]
+    if answer ~= nil then
+        return answer
+    end
+    return itemFields[itemID] ~= nil
+end
+
+--- Scripts the answer of C_Item.DoesItemExistByID for one item.
+-- @param itemID number
+-- @param answer boolean
+function Stub.SetItemExists(itemID, answer)
+    existsAnswers[itemID] = answer
 end
 
 local itemClassNames = { [0] = "Consumable", [4] = "Armor", [7] = "Trade Goods" }
@@ -807,6 +910,10 @@ C_Item = {
     end,
     GetItemInfo = function(item)
         local fields, itemID = LoadedItem(item, true)
+        if loadOnRequest[itemID] then
+            loadOnRequest[itemID] = nil
+            Stub.FireEvent("ITEM_DATA_LOAD_RESULT", itemID, true)
+        end
         if not fields then
             return nil
         end
@@ -851,7 +958,32 @@ C_Item = {
         return fields and fields.accountBound or false
     end,
     GetItemUniquenessByID = GetItemUniquenessByID,
+    DoesItemExistByID = DoesItemExistByID,
 }
+
+local isBoundToAccountUntilEquip = C_Item.IsBoundToAccountUntilEquip
+
+--- Sets whether C_Item.IsBoundToAccountUntilEquip exists (live check L24).
+-- @param on boolean
+function Stub.SetAccountBoundApi(on)
+    if on then
+        C_Item.IsBoundToAccountUntilEquip = isBoundToAccountUntilEquip
+    else
+        C_Item.IsBoundToAccountUntilEquip = nil
+    end
+end
+
+--- Chooses how C_Item.DoesItemExistByID behaves: "on", "off" (missing) or
+--- "raise" (raises an error).
+-- @param mode string
+function Stub.SetExistsApi(mode)
+    existsMode = mode
+    if mode == "off" then
+        C_Item.DoesItemExistByID = nil
+    else
+        C_Item.DoesItemExistByID = DoesItemExistByID
+    end
+end
 
 --- Sets whether C_Item.GetItemUniquenessByID exists (it is optional, live
 --- check L21).
@@ -977,6 +1109,10 @@ local tooltipCalls = 0
 
 ITEM_SPELL_KNOWN = "Already known"
 
+-- The weapon speed format of the tooltip's "Speed 2.60" line. The wording is
+-- the stub's own (from memory, Classic's); live check L22.
+WEAPON_SPEED = "Speed %s"
+
 -- Item tooltip strings. The names are source-read or from memory (live checks
 -- L21, L51 and L56); the wording of the TOOLTIP_ITEM_STAT_* formats is the
 -- stub's own invention, since the client's text is not known yet. The
@@ -1005,6 +1141,14 @@ LOCALIZED_CLASS_NAMES_MALE = {
 }
 LOCALIZED_CLASS_NAMES_FEMALE = LOCALIZED_CLASS_NAMES_MALE
 
+--- Sets or clears any global (a frame, another addon's table, a client
+--- function) the test needs to appear or vanish.
+-- @param name string
+-- @param value any nil removes it
+function Stub.SetGlobal(name, value)
+    _G[name] = value
+end
+
 --- Sets a client global string; nil removes it.
 -- @param name string
 -- @param value string|nil
@@ -1012,10 +1156,17 @@ function Stub.SetString(name, value)
     _G[name] = value
 end
 
+-- Each line of the list is a string (the left text) or { left, right }.
 function Stub.SetTooltipLines(link, lines)
     local built = {}
     for index, text in ipairs(lines) do
-        built[index] = { leftText = text }
+        -- A secret token is also a table: only a table with a left or right
+        -- text is a two-sided line.
+        if type(text) == "table" and (text.left or text.right) then
+            built[index] = { leftText = text.left, rightText = text.right }
+        else
+            built[index] = { leftText = text }
+        end
     end
     tooltips[link] = { lines = built }
 end
@@ -1105,5 +1256,110 @@ function Stub.SetCanUseAPI(enabled)
         C_PlayerInfo.CanUseItem = nil
     end
 end
+
+-- The Auctionator fake of technical findings 11.1: Auctionator.API.v1 with
+-- GetAuctionPriceByItemID(callerID, itemID) and GetAuctionAgeByItemID(callerID,
+-- itemID). Source-read on the beta client; live check L9.
+local auctionatorCalls = {}
+
+--- Builds an Auctionator.API.v1 fake that answers from the two tables and
+--- records each call.
+-- @param prices table item ID to copper
+-- @param ages table item ID to age in days
+-- @treturn table
+function Stub.MakeAuctionatorV1(prices, ages)
+    return {
+        GetAuctionPriceByItemID = function(callerID, itemID)
+            auctionatorCalls[#auctionatorCalls + 1] =
+                { name = "price", callerID = callerID, itemID = itemID }
+            return prices[itemID]
+        end,
+        GetAuctionAgeByItemID = function(callerID, itemID)
+            auctionatorCalls[#auctionatorCalls + 1] =
+                { name = "age", callerID = callerID, itemID = itemID }
+            return ages[itemID]
+        end,
+    }
+end
+
+--- Installs the Auctionator global with API.v1 = v1 (nil: no v1).
+-- @param v1 table|nil
+function Stub.SetAuctionator(v1)
+    _G.Auctionator = { API = { v1 = v1 } }
+end
+
+--- The calls the Auctionator fake received.
+-- @treturn table
+function Stub.AuctionatorCalls()
+    return auctionatorCalls
+end
+
+-- LibStub with an AceAddon-3.0 fake. LibStub(name, silent) gives the library or
+-- nil with silent (from memory; live check L15).
+function Stub.SetLibStub(betterBags)
+    local addon
+    if betterBags then
+        addon = {
+            GetModule = function(_, name)
+                if betterBags.raises then
+                    error(betterBags.raises, 0)
+                end
+                if name == "Categories" then
+                    return betterBags.categories
+                end
+                return nil
+            end,
+        }
+    end
+    local ace = {
+        GetAddon = function(_, name)
+            if name == "BetterBags" then
+                return addon
+            end
+            return nil
+        end,
+    }
+    _G.LibStub = function(name)
+        if name == "AceAddon-3.0" then
+            return ace
+        end
+        return nil
+    end
+end
+
+-- C_Bank.CanUseBank(Enum.BankType.Account) (from memory; live check L33).
+function Stub.SetBankApi(canUse)
+    if canUse == nil then
+        _G.C_Bank = nil
+        Enum.BankType = nil
+        return
+    end
+    _G.C_Bank = {
+        CanUseBank = function()
+            return canUse
+        end,
+    }
+    Enum.BankType = { Account = 2 }
+end
+
+-- GetNumTalentTabs and GetTalentTabInfo (from memory; live check L48). The
+-- values GetTalentTabInfo returns for a tab are the test's choice.
+function Stub.SetTalentTabs(tabs)
+    if tabs == nil then
+        _G.GetNumTalentTabs = nil
+        _G.GetTalentTabInfo = nil
+        return
+    end
+    _G.GetNumTalentTabs = function()
+        return #tabs
+    end
+    _G.GetTalentTabInfo = function(index)
+        return unpack(tabs[index], 1, tabs[index].n or #tabs[index])
+    end
+end
+
+-- Slash commands: the client's table, which Globals.lua fills (not loaded
+-- offline).
+SlashCmdList = {}
 
 return Stub
