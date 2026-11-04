@@ -35,7 +35,8 @@ function Log.LockDebug(locked)
 end
 
 --- Prints one "LootLogic:" line to the chat frame with print, which writes to
---- the default chat frame (from memory; live check L63 covers the chat output).
+--- the default chat frame (from memory; covered by step 1 of the manual M1
+--- checklist in docs/TESTING.md: every /ll probe line prints through here).
 -- @param text string
 function Log.Chat(text)
     print(L.chatPrefix .. " " .. text)
