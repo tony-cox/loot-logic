@@ -314,6 +314,35 @@ return {
         )
     end,
 
+    ["Probe: a GetBuildInfo with an empty build text is recorded as unknown"] = function()
+        Load()
+        Stub.SetGlobal("GetBuildInfo", function()
+            return "1.60.1", ""
+        end)
+        local key = tostring(GetServerTime())
+        Probe.Run()
+        h.Equal(Stub.ChatLines()[1], PREFIX .. L.probeNoBuild, "one notice first")
+        h.Equal(Runs()[key].build, "unknown", "build")
+        h.Equal(
+            Count(function(line)
+                return line == PREFIX .. L.probeNoBuild
+            end),
+            1,
+            "notice once"
+        )
+    end,
+
+    ["Probe: a GetBuildInfo with an empty version text is recorded as unknown"] = function()
+        Load()
+        Stub.SetGlobal("GetBuildInfo", function()
+            return "", "70532"
+        end)
+        local key = tostring(GetServerTime())
+        Probe.Run()
+        h.Equal(Stub.ChatLines()[1], PREFIX .. L.probeNoBuild, "one notice first")
+        h.Equal(Runs()[key].build, "unknown", "build")
+    end,
+
     ["Probe: a GetBuildInfo with a number build is recorded as unknown"] = function()
         Load()
         Stub.SetGlobal("GetBuildInfo", function()
@@ -574,6 +603,29 @@ return {
         h.Nil(Result(28), "no L28 line")
         Stub.Advance(10)
         h.Equal((Result(28)), "FAIL", "FAIL at 10 s")
+    end,
+
+    ["Probe: an event after 10 s but before the overdue callback fails L28"] = function()
+        Load()
+        SetCandidates()
+        Probe.Run()
+        Stub.JumpClock(10.5)
+        Stub.FireEvent("ITEM_DATA_LOAD_RESULT", 17182, true)
+        local status, value = Result(28)
+        h.Equal(status, "FAIL", "status")
+        h.Equal(value, L.probeNoEvent, "value")
+        Stub.Advance(0)
+        h.Equal((Result(28)), "FAIL", "still FAIL after the callback")
+        h.Equal(Count(IsDone), 1, "probe done once, after the overdue callbacks")
+    end,
+
+    ["Probe: an event at exactly 10 s still passes L28"] = function()
+        Load()
+        SetCandidates()
+        Probe.Run()
+        Stub.JumpClock(10)
+        Stub.FireEvent("ITEM_DATA_LOAD_RESULT", 17182, true)
+        h.Equal((Result(28)), "PASS", "status")
     end,
 
     ["Probe: the success argument does not matter for L28"] = function()

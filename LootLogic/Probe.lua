@@ -812,7 +812,16 @@ local function OnItemData(_, itemID, success)
     if not mark or mark.itemID ~= itemID or mark.receivedAt then
         return
     end
-    mark.receivedAt = GetTime()
+    local now = GetTime()
+    if now - mark.requestedAt > ITEM_WAIT_SECONDS then
+        -- Past the 10 seconds: the timeout path, whichever callback runs first
+        -- (technical findings 18, the late lines; D121).
+        if mark.waiting then
+            FinishItemWait(mark, FAIL, L.probeNoEvent)
+        end
+        return
+    end
+    mark.receivedAt = now
     mark.success = success
     if mark.waiting then
         FinishItemWait(mark, PASS, ItemLoadedValue(mark))
@@ -1030,7 +1039,7 @@ local function NewRun()
     -- (docs/TESTING.md, M1 step 1).
     local buildOk, version, build = Util.Pcall(GetBuildInfo)
     local buildText = UNKNOWN
-    if buildOk and type(version) == "string" and type(build) == "string" then
+    if buildOk and Filled(version) and Filled(build) then
         buildText = version .. "." .. build
     else
         Log.Chat(L.probeNoBuild)

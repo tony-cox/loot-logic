@@ -5,6 +5,8 @@ control table that tests receive as h.Stub.
 
 Setters of h.Stub (keep this list in step with the code below):
   Advance(seconds)        move the one manual clock forward, running due timers
+  JumpClock(seconds)      move the manual clock forward without running timers
+                          (a frame that stalled; the next Advance runs them)
   SetTimeOffset(seconds)  zone offset used by date() and time(dateTable)
                           (default 0, UTC)
   SetAddOnMetadata(addon, field, value)
@@ -481,6 +483,13 @@ function Stub.Advance(seconds)
     local targetMs = elapsedMs + ToMs(seconds)
     RunDueTimers(targetMs)
     elapsedMs = targetMs
+end
+
+--- Moves the manual clock forward without running any timer, as a client frame
+-- that stalled would; a later Advance runs the timers that fell due.
+-- @param seconds number
+function Stub.JumpClock(seconds)
+    elapsedMs = elapsedMs + ToMs(seconds)
 end
 
 --- Sets the zone offset used by date() and time(dateTable).
