@@ -539,6 +539,9 @@ function Scoring.Baseline(key, loadout, options)
             if piece.worn and piece.item.itemID == options.candidate.itemID then
                 best = piece.score > 0 and piece or nil
                 highest = piece
+                if piece.score < 0 then
+                    highest = nil
+                end
                 break
             end
         end
@@ -547,6 +550,9 @@ function Scoring.Baseline(key, loadout, options)
         result.score = best.score
         result.item = best.item
         result.where = best.where
+    end
+    if best and best.score < 0 and count == 2 then
+        highest = nil
     end
     if highest then
         result.itemLevel = highest.itemLevel
@@ -1206,7 +1212,17 @@ function Scoring.Compare(item, key, options)
             })
             if usableOff then
                 local off = CompareWeapon(item, options, "offHand", pool, trainOff)
-                if off and (not result or off.gainPct > result.gainPct) then
+                -- A hand that is an upgrade beats one that is not, whatever
+                -- the gains: an empty baseline gives even a zero score an
+                -- infinite gain.
+                if
+                    off
+                    and (
+                        not result
+                        or (off.upgrade and not result.upgrade)
+                        or (off.upgrade == result.upgrade and off.gainPct > result.gainPct)
+                    )
+                then
                     result = off
                 end
             end
