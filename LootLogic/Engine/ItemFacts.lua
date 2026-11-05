@@ -396,9 +396,10 @@ function ItemFacts.FromSlot(bag, slot, holdings)
 end
 
 --- The facts of an item known only by its link (a link-only result, a mailbox
---- attachment: spec 7.5). It has no bound state, stack count or holding, so it
---- counts as unbound, a stack of 1, and not a quest item or a refundable
---- purchase.
+--- attachment: spec 7.5). It has no instance bound state, stack count or
+--- holding, so it counts as a stack of 1 and not a quest item or a refundable
+--- purchase. Its bind type can still rule out routing a permanently bound
+--- item to another character.
 -- @param link string
 -- @treturn table|nil facts, nil when the text holds no item
 function ItemFacts.FromLink(link)

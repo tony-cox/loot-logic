@@ -10,7 +10,12 @@ ns.Tooltip = Tooltip
 
 local API = ns.API
 local DB = ns.DB
+local Events = ns.Events
 local Util = ns.Util
+
+local itemRefTooltipHooked = false
+local itemRefHyperlinkHooked = false
+local itemRefClickHooked = false
 
 local function IsUsableLink(link)
     return type(link) == "string" and link ~= "" and Util.ParseLink(link) ~= nil
@@ -77,6 +82,20 @@ local function ItemLink(tooltip)
     end
 end
 
+local function HasLine(tooltip, text)
+    local name = tooltip:GetName()
+    if not name or type(tooltip.NumLines) ~= "function" then
+        return false
+    end
+    for index = 1, tooltip:NumLines() do
+        local left = _G[name .. "TextLeft" .. index]
+        if left and type(left.GetText) == "function" and left:GetText() == text then
+            return true
+        end
+    end
+    return false
+end
+
 local function AddLine(tooltip, info)
     if IsComparison(tooltip) then
         return
@@ -98,7 +117,13 @@ local function AddLine(tooltip, info)
             result = API.ClassifyLink(link, info and info.getterName == "GetInboxItem")
         end
     end
-    if not result or (result.reasonCode == "nobody" and not display.tooltipNoWant) then
+    if not result then
+        return
+    end
+    if result.reasonCode == "nobody" and not display.tooltipNoWant then
+        return
+    end
+    if HasLine(tooltip, result.line) then
         return
     end
     local color = result.color
@@ -110,3 +135,78 @@ TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tool
     local info = tooltip:GetPrimaryTooltipInfo()
     AddLine(tooltip, info)
 end)
+
+-- Forever's ItemRefTooltip does not run TooltipDataProcessor post-calls when
+-- a chat link opens it (live check L60). The global SetItemRef hook showed the
+-- line in the live test; retry registration as client frames become available.
+local function HookItemRefTooltip()
+    local itemRefTooltip = _G.ItemRefTooltip
+    local function AddItemRefLine(tooltip, link)
+        if not IsUsableLink(link) then
+            link = ItemLink(tooltip)
+        end
+        if IsUsableLink(link) then
+            AddLine(tooltip, {
+                getterName = "SetHyperlink",
+                getterArgs = { link },
+                hyperlink = link,
+            })
+            return
+        end
+
+        local info
+        if type(tooltip.GetPrimaryTooltipInfo) == "function" then
+            local ok, primaryInfo = pcall(tooltip.GetPrimaryTooltipInfo, tooltip)
+            if ok then
+                info = primaryInfo
+            end
+        end
+        AddLine(tooltip, info)
+    end
+
+    if
+        not itemRefTooltipHooked
+        and itemRefTooltip
+        and type(itemRefTooltip.HookScript) == "function"
+    then
+        local ok = pcall(
+            itemRefTooltip.HookScript,
+            itemRefTooltip,
+            "OnTooltipSetItem",
+            function(tooltip)
+                AddItemRefLine(tooltip, nil)
+            end
+        )
+        itemRefTooltipHooked = ok
+    end
+
+    if
+        not itemRefHyperlinkHooked
+        and itemRefTooltip
+        and type(hooksecurefunc) == "function"
+        and type(itemRefTooltip.SetHyperlink) == "function"
+    then
+        local ok = pcall(hooksecurefunc, itemRefTooltip, "SetHyperlink", function(tooltip, link)
+            AddItemRefLine(tooltip, link)
+        end)
+        itemRefHyperlinkHooked = ok
+    end
+
+    if
+        not itemRefClickHooked
+        and type(hooksecurefunc) == "function"
+        and type(_G.SetItemRef) == "function"
+    then
+        local ok = pcall(hooksecurefunc, "SetItemRef", function(link)
+            local tooltip = _G.ItemRefTooltip
+            if tooltip and type(tooltip.IsShown) == "function" and tooltip:IsShown() then
+                AddItemRefLine(tooltip, link)
+            end
+        end)
+        itemRefClickHooked = ok
+    end
+end
+
+HookItemRefTooltip()
+Events.Register("ADDON_LOADED", HookItemRefTooltip)
+Events.Register("PLAYER_LOGIN", HookItemRefTooltip)

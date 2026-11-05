@@ -304,11 +304,17 @@ local function Use(context, name)
 end
 
 -- Soulbound: bound to the character (spec 4). An account-bound item counts as
--- tradable, so it is not soulbound. This relies on the game reporting an item
--- in the loot trade window as bound (unverified; confirm live, L7).
+-- tradable, so it is not soulbound. Bag slots rely on the game reporting items
+-- in the loot trade window as bound (unverified; L7); link-only facts also use
+-- item bind types when they prove the item cannot be traded (D195).
 local function IsSoulbound(facts)
     if facts.isAccountBound then
         return false
+    end
+    -- A link has no instance bound flag, but its item data can still prove
+    -- that it cannot be mailed to another character (spec 7.5, D195).
+    if facts.linkOnly and (facts.bindType == 1 or facts.bindType == 4) then
+        return true
     end
     return facts.bound
 end
@@ -821,9 +827,10 @@ local function Steps(context, facts)
 end
 
 -- The order for an item with no bag slot (spec 7.5): only step 2's include
--- rule for a grey item, then step 3 and step 4, with the item treated as
--- tradable. It is never AH, Vendor or Vendor/AH; when nobody wants it the
--- result is none with reason `nobody`.
+-- rule for a grey item, then step 3 and step 4. Known bind-on-pickup and
+-- quest-bound items are not routed to other characters. It is never AH,
+-- Vendor or Vendor/AH; when nobody wants it the result is none with reason
+-- `nobody`.
 local function LinkSteps(context, facts)
     context.wantFacts = WantFacts(facts)
     if facts.quality == 0 then
