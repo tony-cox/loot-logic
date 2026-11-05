@@ -45,12 +45,11 @@ local STEP_ITEMS = {
 }
 local UNIQUE_RING = 20429
 
--- L58 and L28 (technical findings 18, the candidate list). Unverified: the IDs
--- are the Classic ones or another session's read of the beta data, and none has
--- been seen on the Forever client; 99999999 is the "does not exist" half of
--- L58.
+-- L58 and L28 (technical findings 18, the candidate list). The candidate IDs
+-- are the Classic ones or another session's read of the beta data. -1 is the
+-- live-confirmed "does not exist" half of L58; 99999999 returns true here.
 local CANDIDATES = { 19019, 17182, 13262, 18608, 17204 }
-local MISSING_ITEM = 99999999
+local MISSING_ITEM = -1
 local ITEM_WAIT_SECONDS = 10
 local CANCEL_WAIT_SECONDS = 1.5
 

@@ -663,7 +663,7 @@ return {
     ["Probe: L58 fails when the missing ID answers true"] = function()
         Load()
         SetCandidates()
-        Stub.SetItemExists(99999999, true)
+        Stub.SetItemExists(-1, true)
         Probe.Run()
         h.Equal((Result(58)), "FAIL", "status")
     end,
