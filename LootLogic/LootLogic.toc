@@ -27,12 +27,15 @@ Model\Sets.lua
 Model\Asks.lua
 Model\Recipes.lua
 Prices\Prices.lua
+Prices\Auctionator.lua
 Prices\Vendor.lua
 Engine\Cache.lua
 Engine\Stats.lua
 Engine\ItemFacts.lua
 Engine\Scoring.lua
 Engine\Classify.lua
+API.lua
+Display\Tooltip.lua
 Probe.lua
 Slash.lua
 Globals.lua

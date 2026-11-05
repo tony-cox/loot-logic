@@ -46,7 +46,7 @@ return {
                 display = {
                     tooltip = true,
                     overlay = true,
-                    tooltipNoWant = false,
+                    tooltipNoWant = true,
                     badge = {
                         enabled = true,
                         position = "TOPRIGHT",

@@ -306,7 +306,6 @@ return {
         end
         h.Equal(Classify.Link(candidate.link), nil, "owned stats pending")
         h.Stub.Advance(10)
-        passes = 0
         local generation = Generations.Get("gearHere")
         Classify.Pass = function(scope)
             passes = passes + 1
