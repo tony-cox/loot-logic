@@ -189,20 +189,21 @@ end
 
 --- A function that waits `seconds` after its last call, then calls fn with the
 --- arguments of that last call. Each call restarts the wait.
--- C_Timer.NewTimer and its Cancel are from memory (live check L63; fallback:
--- C_Timer.After with a token the callback compares, used here when NewTimer is
--- missing).
+-- Live check L63 found that C_Timer.NewTimer:Cancel does not prevent the
+-- callback from firing on Forever. C_Timer.After with a token check keeps only
+-- the latest call's callback active.
 -- @param seconds number
 -- @param fn function
 -- @treturn function
 function Util.Debounce(seconds, fn)
     local args = {}
     local count = 0
-    local timer
     local token = 0
 
-    local function Run()
-        timer = nil
+    local function Run(mine)
+        if mine ~= token then
+            return
+        end
         fn(unpack(args, 1, count))
     end
 
@@ -216,23 +217,12 @@ function Util.Debounce(seconds, fn)
         end
     end
 
-    if C_Timer.NewTimer then
-        return function(...)
-            Keep(...)
-            if timer then
-                timer:Cancel()
-            end
-            timer = C_Timer.NewTimer(seconds, Run)
-        end
-    end
     return function(...)
         Keep(...)
         token = token + 1
         local mine = token
         C_Timer.After(seconds, function()
-            if mine == token then
-                Run()
-            end
+            Run(mine)
         end)
     end
 end

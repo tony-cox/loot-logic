@@ -1,12 +1,12 @@
 ---
 name: lootlogic-spec
-description: "LootLogic: specification for a shared, standalone WoW Forever addon that sorts every bag item into a destination category (another character, Equip, AH, Vendor, Vendor/AH, or none) and fills those categories in the player's bag addon. Design, data model, algorithm, gear ranking with loadouts, sets, price and bag adapters, UI, tests, build plan and live-client checks. Nothing has run on a live Forever client."
+description: "LootLogic: specification for a shared, standalone WoW Forever addon that sorts every bag item into a destination category (another character, Equip, AH, Vendor, Vendor/AH, or none) and fills those categories in the player's bag addon. Design, data model, algorithm, gear ranking with loadouts, sets, price and bag adapters, UI, tests, build plan and live-client checks."
 
 ---
 
 # LootLogic: specification
 
-**Status:** v1 is under implementation: milestone M0 is implemented and passes its offline checks, with the final stages awaiting merge (section 19), and this spec is the source of truth for the code in `LootLogic/`. The live client arrives 2026-11-05, so every runtime claim below is graded by evidence, not by test.
+**Status:** v1 is under implementation: milestone M0 is implemented, passes its offline checks and is merged (section 19); M1 is under way, with `/ll probe` and `/ll debug` built. Live-client checks are under way on Forever build `1.60.1.70790`; results are in `docs/technical-findings.md` section 18. This spec is the source of truth for the code in `LootLogic/`.
 
 **Related:**
 - `docs/ux.md`: the UX and workflow design: journeys, tab layouts, the Wants editor, wording and accessibility. This spec says what LootLogic does; the UX document says how it looks and flows.
@@ -960,7 +960,7 @@ BetterBags is first because it has a real category API and an open (MIT) reposit
 | Type number the client gives no name (`7:99`, `99:1`) | "Item type 7:99 does not exist." |
 | Ambiguous type (`cloth`) | "'cloth' matches Armor: Cloth (4:1) and Trade Goods: Cloth (7:5). Type the full name." |
 | `/ll types xyz` with no match | "No item type contains 'xyz'." |
-| Item ID the client says is not an item | "Item 99999999 does not exist." The client answers at once, without the item being loaded (from memory; technical findings 13, L58); when it cannot answer, the ID is accepted and named "item 99999999" |
+| Item ID the client says is not an item | "Item -1 does not exist." The client answers at once, without the item being loaded (live-checked; technical findings 18, L58); when it cannot answer, the ID is accepted and named "item -1" |
 | Missing or extra arguments | The usage line and an example: "/ll want <name> <type or item> [on\|off\|clear]. Example: /ll want Zugar Trade Goods: Cloth" |
 | Bad `on`/`off` word, or a bad word in `/ll gear`, `/ll debug`, `/ll protect global`, `/ll loadout ... armor` | The usage line for that command |
 | Unknown spec in `/ll loadout` | "Unknown spec 'bare'. Specs for Druid: Bear, Cat, Restoration, Balance." (before M4 only specs with a table are listed, with "in this build": M1 "Specs for Druid in this build: Bear.", M2 and M3 "Specs for Druid in this build: Bear, Cat.") |
