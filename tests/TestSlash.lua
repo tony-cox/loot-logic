@@ -44,7 +44,10 @@ end
 local function ExpectPlaceholder(message)
     Load()
     ns.Slash.Run(message)
-    h.DeepEqual(Stub.ChatLines(), { PREFIX .. L.slashPlaceholder }, "chat for '" .. message .. "'")
+    local word = string.match(message, "(%S+)") or ""
+    local expected = word == "probes" and string.format(L.slashUnknownSuggested, word, "probe")
+        or string.format(L.slashUnknown, word)
+    h.DeepEqual(Stub.ChatLines(), { PREFIX .. expected }, "chat for '" .. message .. "'")
     h.Nil(RunsSaved(), "nothing saved for '" .. message .. "'")
     h.Equal(#Stub.ChatLines(), 1, "nothing run for '" .. message .. "'")
 end
@@ -92,6 +95,52 @@ local function WhyBoot()
     Stub.FireEvent("PLAYER_LOGIN")
 end
 
+local function Copy(value)
+    if type(value) ~= "table" then return value end
+    local result = {}
+    for key, inner in pairs(value) do result[key] = Copy(inner) end
+    return result
+end
+
+local function GenerationSnapshot()
+    local names = { "asks", "gearHere", "gearOthers", "loadouts", "prices", "roster", "settings" }
+    local snapshot = { total = ns.Generations.Total() }
+    for _, name in ipairs(names) do snapshot[name] = ns.Generations.Get(name) end
+    return snapshot
+end
+
+local function ReadOnlyFixture()
+    local database = h.Fixture("dbNewer")
+    database.characters = {
+        ["Local Test-Realm"] = {
+            first = "Local",
+            last = "Test",
+            class = "WARLOCK",
+            faction = "Alliance",
+            region = "Realm",
+            receivesGear = true,
+            asks = { types = {}, items = {} },
+            protect = {},
+            loadouts = {
+                { name = "Affliction", spec = "WARLOCK:affliction", worn = true },
+                { name = "Tank", spec = "WARLOCK:demonology" },
+            },
+        },
+        ["Alt Test-Realm"] = {
+            first = "Alt",
+            last = "Test",
+            class = "PRIEST",
+            faction = "Alliance",
+            region = "Realm",
+            asks = { types = {}, items = {} },
+            protect = {},
+            loadouts = {},
+        },
+    }
+    database.order = { "Local Test-Realm", "Alt Test-Realm" }
+    return database
+end
+
 local function WhyItem(itemID, suffix)
     local link = "item:" .. itemID
     if suffix then
@@ -131,12 +180,951 @@ return {
         ExpectProbe("probe extra words")
     end,
 
-    ["Slash: bare /ll prints the placeholder and runs nothing"] = function()
-        ExpectPlaceholder("")
+    ["Slash: bare /ll and help print the M1 help list"] = function()
+        h.Equal(
+            L.helpMultiPC,
+            "LootLogic data is local to this computer. Log in on each character here to add it; "
+                .. "its data is as fresh as its last login here. Characters played only on another "
+                .. "computer are unseen here.",
+            "help explains computer-local roster data and freshness"
+        )
+        for _, command in ipairs({ "", "help" }) do
+            Load()
+            ns.Slash.Run(command)
+            h.Equal(Stub.ChatLines()[1], PREFIX .. L.helpHeader, "help header")
+            h.Equal(Stub.ChatLines()[#Stub.ChatLines()], PREFIX .. L.helpMultiPC, "help footer")
+            h.Equal(#Stub.ChatLines(), 14, "help line count")
+        end
     end,
 
-    ["Slash: help prints the placeholder and runs nothing"] = function()
-        ExpectPlaceholder("help")
+    ["Slash: want accepts a numeric type and gear uses the roster setter"] = function()
+        WhyBoot()
+        ns.Slash.Run("want Local 7:5")
+        h.True(LootLogicDB.characters["Local Test-Realm"].asks.types["7:5"] ~= nil, "type saved")
+        ns.Slash.Run("gear Local off")
+        h.Equal(LootLogicDB.characters["Local Test-Realm"].receivesGear, false, "gear off")
+    end,
+
+    ["Slash: type want on, off and clear replies match each mutation"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.asks = { types = {}, items = {} }
+        ns.Slash.Run("want Local 7:5 on")
+        h.True(entry.asks.types["7:5"] ~= nil, "type on")
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.wantTypeChanged, "Local", "Trade Goods: Cloth"),
+            "on reply"
+        )
+        Stub.ClearChat()
+        ns.Slash.Run("want Local 7:5 off")
+        h.Nil(entry.asks.types["7:5"], "type off clears")
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.wantTypeRemoved, "Local", "Trade Goods: Cloth"),
+            "off reply"
+        )
+        Stub.ClearChat()
+        ns.Slash.Run("want Local 7:5 clear")
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.wantTypeAbsent, "Local", "Trade Goods: Cloth"),
+            "clear reply"
+        )
+    end,
+
+    ["Slash: repeating a type want reports unchanged and preserves its quality"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.asks = { types = { ["7:5"] = { minQuality = 3 } }, items = {} }
+        local before = ns.Generations.Get("asks")
+        ns.Slash.Run("want Local 7:5 on")
+        h.Equal(entry.asks.types["7:5"].minQuality, 3, "quality preserved")
+        h.Equal(ns.Generations.Get("asks"), before, "unchanged call did not bump")
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.wantTypeUnchanged, "Local", "Trade Goods: Cloth"),
+            "unchanged reply"
+        )
+    end,
+
+    ["Slash: item want on, off and clear replies match each mutation"] = function()
+        WhyBoot()
+        WhyItem(199092)
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.asks = { types = {}, items = {} }
+        ns.Slash.Run("want Local 199092 on")
+        h.Equal(entry.asks.items[199092], "include", "item on")
+        h.True(
+            string.find(Stub.ChatLines()[1], "now wants item 199092", 1, true) ~= nil,
+            "on reply"
+        )
+        Stub.ClearChat()
+        ns.Slash.Run("want Local 199092 off")
+        h.Equal(entry.asks.items[199092], "exclude", "item off")
+        h.True(
+            string.find(Stub.ChatLines()[1], "excludes item 199092", 1, true) ~= nil,
+            "off reply"
+        )
+        Stub.ClearChat()
+        ns.Slash.Run("want Local 199092 clear")
+        h.Nil(entry.asks.items[199092], "item cleared")
+        h.True(
+            string.find(Stub.ChatLines()[1], "removed from Local's wants", 1, true) ~= nil,
+            "clear reply"
+        )
+    end,
+
+    ["Slash: invalid signed item ID is rejected, unavailable validator accepts it"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.asks = { types = {}, items = {} }
+        Stub.SetItemExists(-1, false)
+        ns.Slash.Run("want Local -1")
+        h.Nil(entry.asks.items[-1], "false validation no mutation")
+        h.Equal(Stub.ChatLines()[1], PREFIX .. string.format(L.itemNotExist, -1), "signed ID error")
+        Stub.SetExistsApi("off")
+        Stub.ClearChat()
+        ns.Slash.Run("want Local -1")
+        h.Equal(entry.asks.items[-1], "include", "missing validator fallback")
+        entry.asks.items[-2] = nil
+        Stub.SetExistsApi("raise")
+        Stub.ClearChat()
+        ns.Slash.Run("want Local -2")
+        h.Equal(entry.asks.items[-2], "include", "raising validator fallback")
+    end,
+
+    ["Slash: unknown item class and subclass errors list the ordered catalogue"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.asks = { types = {}, items = {} }
+        ns.Slash.Run("want Local Armr: Cloth")
+        h.True(
+            string.find(Stub.ChatLines()[1], "Classes: Consumable, Armor, Trade Goods", 1, true)
+                ~= nil,
+            "all classes"
+        )
+        Stub.ClearChat()
+        ns.Slash.Run("want Local Armor: Clth")
+        h.True(
+            string.find(Stub.ChatLines()[1], "Armor subclasses: Cloth", 1, true) ~= nil,
+            "subclasses"
+        )
+        h.Nil(entry.asks.types["4:1"], "errors leave wants unchanged")
+    end,
+
+    ["Slash: unavailable item type API fails safely without mutation"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.asks = { types = {}, items = {} }
+        local original = C_Item.GetItemClassInfo
+        _G.C_Item.GetItemClassInfo = nil
+        ns.Slash.Run("want Local Armor")
+        _G.C_Item.GetItemClassInfo = original
+        h.DeepEqual(entry.asks.types, {}, "no mutation")
+        h.Equal(Stub.ChatLines()[1], PREFIX .. L.typeCatalogueUnavailable, "safe failure")
+    end,
+
+    ["Slash: item type enumeration errors fail safely without mutation"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.asks = { types = {}, items = {} }
+        local original = C_Item.GetItemClassInfo
+        _G.C_Item.GetItemClassInfo = function() error("enumeration failed") end
+        ns.Slash.Run("want Local Armor")
+        _G.C_Item.GetItemClassInfo = original
+        h.DeepEqual(entry.asks.types, {}, "no mutation")
+        h.Equal(Stub.ChatLines()[1], PREFIX .. L.typeCatalogueUnavailable, "safe failure")
+    end,
+
+    ["Slash: missing or raising subclass APIs leave the full DB unchanged"] = function()
+        for _, failure in ipairs({ "missing", "raising" }) do
+            WhyBoot()
+            local original = C_Item.GetItemSubClassInfo
+            if failure == "missing" then
+                _G.C_Item.GetItemSubClassInfo = nil
+            else
+                _G.C_Item.GetItemSubClassInfo = function()
+                    error("subclass enumeration failed")
+                end
+            end
+            local before = Copy(LootLogicDB)
+            local generations = GenerationSnapshot()
+            ns.Slash.Run("want Local Armor: Cloth")
+            _G.C_Item.GetItemSubClassInfo = original
+            h.DeepEqual(LootLogicDB, before, failure .. " subclass API leaves DB unchanged")
+            h.DeepEqual(
+                GenerationSnapshot(),
+                generations,
+                failure .. " subclass API leaves generations unchanged"
+            )
+            h.Equal(
+                Stub.ChatLines()[1],
+                PREFIX .. L.typeCatalogueUnavailable,
+                failure .. " subclass API reply"
+            )
+        end
+    end,
+
+    ["Slash: type reply uses its validated label without repeating client API lookups"] = function()
+        WhyBoot()
+        local originalClass = C_Item.GetItemClassInfo
+        local originalSubclass = C_Item.GetItemSubClassInfo
+        local expectedSubclasses = 0
+        for class = 0, 20 do
+            if originalClass(class) then
+                for subclass = 0, 20 do
+                    originalSubclass(class, subclass)
+                    expectedSubclasses = expectedSubclasses + 1
+                end
+            end
+        end
+        local classCalls, subclassCalls = 0, 0
+        _G.C_Item.GetItemClassInfo = function(class)
+            classCalls = classCalls + 1
+            if classCalls > 21 then error("repeated class lookup failed") end
+            return originalClass(class)
+        end
+        _G.C_Item.GetItemSubClassInfo = function(class, subclass)
+            subclassCalls = subclassCalls + 1
+            if subclassCalls > expectedSubclasses then error("repeated subclass lookup failed") end
+            return originalSubclass(class, subclass)
+        end
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        local generation = ns.Generations.Get("asks")
+        ns.Slash.Run("want Local Armor: Cloth")
+        _G.C_Item.GetItemClassInfo = originalClass
+        _G.C_Item.GetItemSubClassInfo = originalSubclass
+        h.Equal(classCalls, 21, "catalogue looked up each class once")
+        h.Equal(subclassCalls, expectedSubclasses, "catalogue looked up subclasses once")
+        h.True(entry.asks.types["4:1"] ~= nil, "validated type was saved")
+        h.Equal(ns.Generations.Get("asks"), generation + 1, "one want generation bump")
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.wantTypeChanged, "Local", "Armor: Cloth"),
+            "reply uses the validated catalogue label"
+        )
+    end,
+
+    ["Slash: exact class beats a same-named subclass and holes stay numeric"] = function()
+        WhyBoot()
+        Stub.SetItemTypeNames(
+            { [0] = "Trade Goods", [4] = "Armor" },
+            { [0] = { [0] = "Potion" }, [4] = { [1] = "Trade Goods", [3] = "Plate" } }
+        )
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.asks = { types = {}, items = {} }
+        ns.Slash.Run("want Local Trade Goods")
+        h.True(entry.asks.types["0:*"] ~= nil, "class selected")
+        h.Nil(entry.asks.types["4:1"], "same-named subclass not selected")
+        ns.Slash.Run("want Local 4:3")
+        h.True(entry.asks.types["4:3"] ~= nil, "named subclass after hole selected")
+        Stub.ClearChat()
+        ns.Slash.Run("want Local 4:2")
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.itemTypeMissing, "4:2"),
+            "hole rejected"
+        )
+    end,
+
+    ["Slash: item wants for ineligible characters explain faction and region"] = function()
+        WhyBoot()
+        WhyItem(199093)
+        local alt = {
+            first = "Alt",
+            last = "Test",
+            class = "PRIEST",
+            faction = "Horde",
+            region = "Realm",
+            loadouts = {},
+            asks = { types = {}, items = {} },
+        }
+        LootLogicDB.characters["Alt Test-Realm"] = alt
+        LootLogicDB.order = { "Local Test-Realm", "Alt Test-Realm" }
+        ns.Slash.Run("want Alt 199093 on")
+        h.Equal(alt.asks.items[199093], "include", "ineligible include saved")
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.wantIneligible, "Alt", L.ineligibleFaction),
+            "faction reply"
+        )
+        alt.faction = "Alliance"
+        alt.region = "Other"
+        Stub.ClearChat()
+        ns.Slash.Run("want Alt 199093 clear")
+        h.Nil(alt.asks.items[199093], "ineligible clear saved")
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.wantIneligible, "Alt", L.ineligibleRegion),
+            "region reply"
+        )
+    end,
+
+    ["Slash: malformed protect quotes and extra refresh arguments do not mutate"] = function()
+        WhyBoot()
+        local link = WhyItem(199094)
+        local tooltip = Stub.MakeTooltip(
+            "GameTooltip",
+            { getterName = "SetHyperlink", getterArgs = { link }, hyperlink = link },
+            nil,
+            link
+        )
+        Stub.SetGlobal("GameTooltip", tooltip)
+        local before = ns.Generations.Total()
+        ns.Slash.Run('protect "')
+        h.Equal(ns.Generations.Total(), before, "malformed quote does not mutate")
+        h.Nil(LootLogicDB.characters["Local Test-Realm"].protect, "hovered item not protected")
+        h.Equal(Stub.ChatLines()[1], PREFIX .. L.protectUsage, "protect usage")
+        Stub.ClearChat()
+        ns.Slash.Run('protect ""')
+        h.Equal(ns.Generations.Total(), before, "empty quoted item does not mutate")
+        h.Nil(LootLogicDB.characters["Local Test-Realm"].protect, "empty item not protected")
+        h.Equal(Stub.ChatLines()[1], PREFIX .. L.protectUsage, "empty item usage")
+        Stub.ClearChat()
+        ns.Slash.Run('protect global ""')
+        h.Equal(ns.Generations.Total(), before, "empty global item does not mutate")
+        h.Nil(LootLogicDB.protectGlobal["199094"], "empty global item not protected")
+        h.Equal(Stub.ChatLines()[1], PREFIX .. L.protectUsage, "empty global item usage")
+        for _, message in ipairs({ "protect 199094 extra", "protect global 199094 extra" }) do
+            Stub.ClearChat()
+            ns.Slash.Run(message)
+            h.Equal(Stub.ChatLines()[1], PREFIX .. L.protectUsage, "invalid explicit input usage")
+            h.Equal(ns.Generations.Total(), before, "invalid explicit input does not mutate")
+        end
+        Stub.SetGlobal("GameTooltip", nil)
+        Stub.ClearChat()
+        ns.Slash.Run("protect 199094 extra")
+        h.Equal(Stub.ChatLines()[1], PREFIX .. L.protectUsage, "invalid input without hover usage")
+        h.Equal(ns.Generations.Total(), before, "invalid input without hover does not mutate")
+        Stub.ClearChat()
+        ns.Slash.Run("refresh extra")
+        h.Equal(ns.Generations.Total(), before, "extra arg does not refresh")
+        h.Equal(Stub.ChatLines()[1], PREFIX .. L.refreshUsage, "refresh usage")
+    end,
+
+    ["Slash: want missing value and empty loadout name print usage without mutation"] = function()
+        WhyBoot()
+        local before = Copy(LootLogicDB)
+        local generation = ns.Generations.Total()
+        for _, message in ipairs({
+            'want "Local Test"',
+            'want "Local Test" on',
+            'want "Local Test" off',
+            'want "Local Test" clear',
+            'want "Local Test" " "',
+        }) do
+            Stub.ClearChat()
+            ns.Slash.Run(message)
+            h.Equal(Stub.ChatLines()[1], PREFIX .. L.wantUsage, "missing want value usage")
+            h.DeepEqual(LootLogicDB, before, "missing want value leaves DB unchanged")
+            h.Equal(
+                ns.Generations.Total(),
+                generation,
+                "missing want value leaves generations unchanged"
+            )
+        end
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.class = "WARLOCK"
+        before = Copy(LootLogicDB)
+        Stub.ClearChat()
+        ns.Slash.Run('loadout Local "" Affliction')
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.loadoutUsage, L.helpLoadoutExample),
+            "empty loadout name usage"
+        )
+        h.DeepEqual(LootLogicDB, before, "empty loadout name leaves DB unchanged")
+        h.Equal(
+            ns.Generations.Total(),
+            generation,
+            "empty loadout name leaves generations unchanged"
+        )
+    end,
+
+    ["Slash: near matches cover short types, specs and loadouts with tie handling"] = function()
+        WhyBoot()
+        ns.Slash.Run("want Local Armor: Cltoh")
+        h.True(string.find(Stub.ChatLines()[1], "Did you mean Cloth?", 1, true) ~= nil,
+            "short subclass typo suggestion")
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.class = "WARLOCK"
+        entry.loadouts = { { name = "Affliction", spec = "WARLOCK:affliction" } }
+        Stub.ClearChat()
+        ns.Slash.Run("loadout Local Tank afflicton")
+        h.True(string.find(Stub.ChatLines()[1], "Did you mean Affliction?", 1, true) ~= nil,
+            "loadout spec typo suggestion")
+        Stub.ClearChat()
+        ns.Slash.Run("loadout Local Afflictio remove")
+        h.True(string.find(Stub.ChatLines()[1], "Did you mean Affliction?", 1, true) ~= nil,
+            "loadout name typo suggestion")
+        entry.loadouts = {
+            { name = "Cat", spec = "WARLOCK:affliction" },
+            { name = "Bat", spec = "WARLOCK:affliction" },
+        }
+        Stub.ClearChat()
+        ns.Slash.Run("loadout Local Hat remove")
+        h.True(string.find(Stub.ChatLines()[1], "Loadouts: Bat, Cat", 1, true) ~= nil,
+            "choices remain when near-match tie")
+        h.True(string.find(Stub.ChatLines()[1], "Did you mean", 1, true) == nil,
+            "no suggestion on tie")
+    end,
+
+    ["Slash: picking an assumed spec reports the picked suffix only once"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.class = "WARLOCK"
+        entry.loadouts = {
+            { name = "Affliction", spec = "WARLOCK:affliction", worn = true, assumed = true },
+        }
+        ns.Slash.Run("loadout Local Affliction Affliction")
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(
+                L.loadoutChanged,
+                "Local",
+                "Affliction",
+                "Affliction",
+                L.loadoutPickedSuffix
+            ),
+            "assumed spec acceptance reply"
+        )
+        h.Equal(entry.loadouts[1].assumed, false, "assumed flag cleared")
+        Stub.ClearChat()
+        ns.Slash.Run("loadout Local Affliction Affliction")
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.loadoutUnchanged, "Local", "Affliction", "Affliction"),
+            "picked spec unchanged reply"
+        )
+    end,
+
+    ["Slash: read-only commands preserve the full DB and generations"] = function()
+        local calls = 0
+        local wrapped = {}
+        local methods = {
+            { ns.Asks, "SetType" },
+            { ns.Asks, "SetItem" },
+            { ns.Roster, "SetOrder" },
+            { ns.Roster, "SetReceivesGear" },
+            { ns.Loadouts, "Set" },
+            { ns.Loadouts, "SetArmor" },
+            { ns.Loadouts, "Remove" },
+            { ns.Sets, "ToggleProtect" },
+            { ns.Sets, "ToggleProtectGlobal" },
+        }
+        for _, method in ipairs(methods) do
+            local target, name = method[1], method[2]
+            local original = target[name]
+            wrapped[#wrapped + 1] = { target = target, name = name, original = original }
+            target[name] = function(...)
+                calls = calls + 1
+                return original(...)
+            end
+        end
+        for _, command in ipairs({
+            "want Local 7:5",
+            "want Local 199097",
+            "gear Local off",
+            "order Alt Local",
+            "loadout Local Tank Affliction",
+            "loadout Local Tank armor best",
+            "loadout Local Tank remove",
+            "protect 199097",
+            "protect global 199098",
+            "refresh",
+            "reset",
+        }) do
+            WhyBoot()
+            LootLogicDB = ReadOnlyFixture()
+            Stub.FireEvent("ADDON_LOADED", "LootLogic")
+            Stub.ClearChat()
+            WhyItem(199097)
+            WhyItem(199098)
+            local before = Copy(LootLogicDB)
+            local generations = GenerationSnapshot()
+            calls = 0
+            ns.Slash.Run(command)
+            h.DeepEqual(LootLogicDB, before, "read-only DB for " .. command)
+            h.DeepEqual(GenerationSnapshot(), generations, "read-only generations for " .. command)
+            h.Equal(calls, 0, "read-only model calls for " .. command)
+            h.Equal(
+                Stub.ChatLines()[1],
+                PREFIX .. L.debugReadOnly,
+                "read-only refusal for " .. command
+            )
+        end
+        for _, method in ipairs(wrapped) do
+            method.target[method.name] = method.original
+        end
+    end,
+
+    ["Slash: settings reset preserves other saved data and first-run state"] = function()
+        for _, firstRunDone in ipairs({ true, false }) do
+            WhyBoot()
+            LootLogicDB.ui.firstRunDone = firstRunDone
+            LootLogicDB.debug.enabled = false
+            LootLogicDB.protectGlobal = { ["199098"] = true }
+            LootLogicDB.order = { "Local Test-Realm" }
+            local roster = Copy(LootLogicDB.characters)
+            local debug = Copy(LootLogicDB.debug)
+            local protectGlobal = Copy(LootLogicDB.protectGlobal)
+            local order = Copy(LootLogicDB.order)
+            ns.Slash.Run("reset")
+            ns.Slash.Run("reset confirm")
+            h.DeepEqual(LootLogicDB.characters, roster, "roster preserved")
+            h.DeepEqual(LootLogicDB.debug, debug, "debug preserved")
+            h.DeepEqual(LootLogicDB.protectGlobal, protectGlobal, "global protection preserved")
+            h.DeepEqual(LootLogicDB.order, order, "order preserved")
+            h.Equal(LootLogicDB.ui.firstRunDone, firstRunDone, "firstRunDone preserved")
+        end
+    end,
+
+    ["Slash: help, perf and refresh reject trailing arguments"] = function()
+        Load()
+        ns.Slash.Run("help extra")
+        h.DeepEqual(Stub.ChatLines(), { PREFIX .. L.helpUsage }, "help usage")
+        Stub.ClearChat()
+        ns.Slash.Run("perf extra")
+        h.DeepEqual(Stub.ChatLines(), { PREFIX .. L.perfUsage }, "perf usage")
+    end,
+
+    ["Slash: read-only reset preview and confirm preserve saved data"] = function()
+        local before = h.Fixture("dbNewer")
+        LootLogicDB = h.Fixture("dbNewer")
+        Stub.FireEvent("ADDON_LOADED", "LootLogic")
+        ns.Slash.Run("reset")
+        ns.Slash.Run("reset confirm")
+        h.DeepEqual(LootLogicDB, before, "read-only data unchanged")
+    end,
+
+    ["Slash: protect toggles the current character item key"] = function()
+        WhyBoot()
+        WhyItem(199088)
+        ns.Slash.Run("protect 199088")
+        h.Equal(LootLogicDB.characters["Local Test-Realm"].protect["199088"], true, "protected")
+    end,
+
+    ["Slash: protect refuses a roll toggle when every roll is protected"] = function()
+        WhyBoot()
+        WhyItem(199089, -12)
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.protect = { ["199089"] = true }
+        ns.Slash.Run("protect 199089:-12")
+        h.Equal(entry.protect["199089"], true, "all rolls preserved")
+        h.Nil(entry.protect["199089:-12"], "roll not added")
+    end,
+
+    ["Slash: protect global zero suffix and hovered context use the right keys"] = function()
+        WhyBoot()
+        local link = WhyItem(199096, -3)
+        ns.Slash.Run("protect global 199096:0")
+        h.Equal(LootLogicDB.protectGlobal["199096"], true, "zero suffix uses plain global key")
+        local tooltip = Stub.MakeTooltip(
+            "GameTooltip",
+            { getterName = "GetBagItem", getterArgs = { 0, 1 } },
+            nil,
+            link
+        )
+        Stub.SetBagSize(0, 1)
+        Stub.SetBagItem(0, 1, { itemID = 199096, link = link, count = 1, quality = 1 })
+        Stub.SetGlobal("GameTooltip", tooltip)
+        ns.Slash.Run("protect")
+        h.Equal(
+            LootLogicDB.characters["Local Test-Realm"].protect["199096:-3"],
+            true,
+            "hovered roll protected locally"
+        )
+    end,
+
+    ["Slash: quoted loadout names parse, and worn removal is refused"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.class = "WARLOCK"
+        ns.Slash.Run('loadout Local "Tank set" Affliction worn')
+        h.Equal(entry.loadouts[#entry.loadouts].name, "Tank set", "quoted name")
+        h.Equal(entry.loadouts[#entry.loadouts].worn, true, "worn flag")
+        ns.Slash.Run('loadout Local "Tank set" remove')
+        h.Equal(entry.loadouts[#entry.loadouts].name, "Tank set", "worn loadout kept")
+        h.Equal(
+            Stub.ChatLines()[#Stub.ChatLines()],
+            PREFIX .. string.format(L.loadoutWornNamed, "Local", "Tank set"),
+            "worn refusal reply"
+        )
+    end,
+
+    ["Slash: setting an assumed spec clears assumed and armor default restores nil"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.class = "WARLOCK"
+        entry.loadouts = {
+            { name = "Affliction", spec = "WARLOCK:affliction", worn = true, assumed = true },
+            { name = "Other", spec = "WARLOCK:affliction" },
+        }
+        ns.Slash.Run("loadout Local Affliction affliction")
+        h.Equal(entry.loadouts[1].assumed, false, "picked spec clears assumed")
+        entry.loadouts[2].armor = "best"
+        ns.Slash.Run("loadout Local Other armor default")
+        h.Nil(entry.loadouts[2].armor, "default armor follows settings")
+    end,
+
+    ["Slash: unknown loadout names include available choices"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.loadouts = {
+            { name = "Affliction", spec = "WARLOCK:affliction", worn = true },
+            { name = "Demonology", spec = "WARLOCK:demonology" },
+        }
+        entry.class = "WARLOCK"
+        ns.Slash.Run("loadout Local Missing remove")
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.noLoadoutNamed, "Local", "Missing", "Affliction, Demonology"),
+            "missing loadout choices"
+        )
+    end,
+
+    ["Slash: loadout argument and spec errors differ"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.displayName = "Local Hero"
+        entry.class = "WARLOCK"
+        ns.Slash.Run('loadout "Local Hero"')
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.loadoutUsage, L.helpLoadoutExample),
+            "missing argument usage"
+        )
+        Stub.ClearChat()
+        ns.Slash.Run('loadout "Local Hero" Tank Wrong')
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.loadoutSpecs, "Wrong", "Warlock", "Affliction"),
+            "spec choices"
+        )
+        entry.class = "MAGE"
+        Stub.ClearChat()
+        ns.Slash.Run('loadout "Local Hero" Tank Fire')
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.loadoutNoSpecs, "Mage"),
+            "unsupported class"
+        )
+    end,
+
+    ["Slash: name parsing uses longest prefixes and display-name precedence"] = function()
+        WhyBoot()
+        local here = LootLogicDB.characters["Local Test-Realm"]
+        local alt = {
+            first = "Alt",
+            last = "Test",
+            displayName = "Local Test",
+            class = "PRIEST",
+            faction = here.faction,
+            region = here.region,
+            asks = { types = {}, items = {} },
+            loadouts = {},
+        }
+        LootLogicDB.characters["Alt Test-Realm"] = alt
+        LootLogicDB.order = { "Local Test-Realm", "Alt Test-Realm" }
+        ns.Slash.Run("want Alt Test 7:5")
+        h.True(
+            alt.asks.types["7:5"] ~= nil,
+            "full name consumes its longest matching prefix"
+        )
+        ns.Slash.Run('want "Local Test" 7:5 off')
+        h.Nil(alt.asks.types["7:5"], "display name beats another character full name")
+        Stub.ClearChat()
+        ns.Slash.Run("want LocalHero 7:5")
+        h.True(
+            string.find(Stub.ChatLines()[1], "does not know LocalHero", 1, true) ~= nil,
+            "word boundary"
+        )
+    end,
+
+    ["Slash: ambiguous shared first name lists display names"] = function()
+        WhyBoot()
+        local here = LootLogicDB.characters["Local Test-Realm"]
+        for _, surname in ipairs({ "H", "W" }) do
+            local key = "Boneset " .. surname .. "-Realm"
+            LootLogicDB.characters[key] = {
+                first = "Boneset",
+                last = surname,
+                class = "PRIEST",
+                faction = here.faction,
+                region = here.region,
+                loadouts = {},
+                asks = { types = {}, items = {} },
+            }
+            LootLogicDB.order[#LootLogicDB.order + 1] = key
+        end
+        h.Equal(ns.Roster.Entry("Boneset H-Realm").first, "Boneset", "registered first name")
+        h.True(ns.Roster.Keys()[2] ~= nil, "the second roster key is present")
+        ns.Slash.Run("gear Boneset off")
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. string.format(L.ambiguousCharacter, "Boneset", "Boneset H or Boneset W"),
+            "ambiguous first name"
+        )
+    end,
+
+    ["Slash: an invalid late order name leaves priority order unchanged"] = function()
+        WhyBoot()
+        local here = LootLogicDB.characters["Local Test-Realm"]
+        LootLogicDB.characters["Alt Test-Realm"] = {
+            first = "Alt",
+            last = "Test",
+            class = "PRIEST",
+            faction = here.faction,
+            region = here.region,
+            asks = { types = {}, items = {} },
+            loadouts = {},
+        }
+        LootLogicDB.order = { "Alt Test-Realm", "Local Test-Realm" }
+        ns.Slash.Run("order Local Alt Missing")
+        h.DeepEqual(LootLogicDB.order, { "Alt Test-Realm", "Local Test-Realm" }, "order unchanged")
+    end,
+
+    ["Slash: order accepts a partial list and ignores repeated names"] = function()
+        WhyBoot()
+        local here = LootLogicDB.characters["Local Test-Realm"]
+        for _, first in ipairs({ "Alt", "Third" }) do
+            local key = first .. " Test-Realm"
+            LootLogicDB.characters[key] = {
+                first = first,
+                last = "Test",
+                class = "PRIEST",
+                faction = here.faction,
+                region = here.region,
+                loadouts = {},
+                asks = { types = {}, items = {} },
+            }
+        end
+        LootLogicDB.order = { "Alt Test-Realm", "Third Test-Realm", "Local Test-Realm" }
+        ns.Slash.Run("order Local Alt Local")
+        h.DeepEqual(
+            LootLogicDB.order,
+            { "Local Test-Realm", "Alt Test-Realm", "Third Test-Realm" },
+            "partial reordered list and duplicate"
+        )
+    end,
+
+    ["Slash: reset preview leaves saved state unchanged until confirmation"] = function()
+        WhyBoot()
+        LootLogicDB.settings.staleDays = 3
+        ns.Slash.Run("reset")
+        h.Equal(LootLogicDB.settings.staleDays, 3, "preview did not reset")
+        ns.Slash.Run("reset confirm")
+        h.Equal(LootLogicDB.settings.staleDays, 14, "confirmed reset")
+    end,
+
+    ["Slash: quoted reserved reset names and preview replacement"] = function()
+        WhyBoot()
+        local here = LootLogicDB.characters["Local Test-Realm"]
+        local namedAll = {
+            first = "Alt",
+            last = "All",
+            displayName = "all",
+            class = "PRIEST",
+            faction = here.faction,
+            region = here.region,
+            asks = { types = { ["7:5"] = {} }, items = {} },
+            loadouts = {},
+        }
+        LootLogicDB.characters["Alt All-Realm"] = namedAll
+        LootLogicDB.order[#LootLogicDB.order + 1] = "Alt All-Realm"
+        ns.Slash.Run('reset "all"')
+        ns.Slash.Run("reset")
+        ns.Slash.Run("reset confirm")
+        h.True(
+            LootLogicDB.characters["Alt All-Realm"] ~= nil,
+            "later settings preview replaced character target"
+        )
+        h.True(namedAll.asks.types["7:5"] ~= nil, "replacement did not reset character")
+        ns.Slash.Run('reset "all"')
+        ns.Slash.Run("reset confirm")
+        h.DeepEqual(
+            namedAll.asks,
+            { types = {}, items = {} },
+            "quoted reserved name selected character"
+        )
+    end,
+
+    ["Slash: reset confirm without a pending preview changes nothing"] = function()
+        WhyBoot()
+        local staleDays = LootLogicDB.settings.staleDays
+        local generation = ns.Generations.Total()
+        ns.Slash.Run("reset confirm")
+        h.Equal(LootLogicDB.settings.staleDays, staleDays, "no pending reset did not mutate")
+        h.Equal(ns.Generations.Total(), generation, "no generation bump")
+        h.Equal(Stub.ChatLines()[1], PREFIX .. L.resetNothing, "no pending reply")
+    end,
+
+    ["Slash: an invalid reset command preserves the pending preview"] = function()
+        WhyBoot()
+        LootLogicDB.settings.staleDays = 3
+        ns.Slash.Run("reset")
+        ns.Slash.Run("reset Unknown")
+        ns.Slash.Run("reset confirm")
+        h.Equal(LootLogicDB.settings.staleDays, 14, "pending preview applied")
+    end,
+
+    ["Slash: reset confirmation remains valid at exactly 30 seconds"] = function()
+        WhyBoot()
+        LootLogicDB.settings.staleDays = 3
+        ns.Slash.Run("reset")
+        Stub.Advance(30)
+        ns.Slash.Run("reset confirm")
+        h.Equal(LootLogicDB.settings.staleDays, 14, "boundary confirmation applied")
+    end,
+
+    ["Slash: expired reset confirmation does nothing"] = function()
+        WhyBoot()
+        LootLogicDB.settings.staleDays = 3
+        ns.Slash.Run("reset")
+        Stub.Advance(30.1)
+        ns.Slash.Run("reset confirm")
+        h.Equal(LootLogicDB.settings.staleDays, 3, "expired target preserved")
+    end,
+
+    ["Slash: character reset preserves identity and snapshots"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.displayName = "Local Hero"
+        entry.importedSets = { marker = true }
+        entry.gear = { marker = true }
+        entry.bags = { marker = true }
+        entry.bank = { marker = true }
+        entry.inbox = { marker = true }
+        entry.inbound = { marker = true }
+        entry.proficiency = { marker = true }
+        entry.receivesGear = false
+        local asksGeneration = ns.Generations.Get("asks")
+        local loadoutGeneration = ns.Generations.Get("loadouts")
+        local rosterGeneration = ns.Generations.Get("roster")
+        ns.Slash.Run('reset "Local Hero"')
+        ns.Slash.Run("reset confirm")
+        h.Equal(entry.displayName, "Local Hero", "display name")
+        h.Equal(entry.importedSets.marker, true, "imported equipment")
+        h.Equal(entry.gear.marker, true, "gear snapshot")
+        h.Equal(entry.bags.marker, true, "bag snapshot")
+        h.Equal(entry.bank.marker, true, "bank snapshot")
+        h.Equal(entry.inbox.marker, true, "inbox snapshot")
+        h.Equal(entry.inbound.marker, true, "inbound mail")
+        h.Equal(entry.proficiency.marker, true, "proficiency snapshot")
+        h.Equal(entry.receivesGear, nil, "receives gear restored to default")
+        h.DeepEqual(entry.asks, { types = {}, items = {} }, "wants cleared")
+        h.Equal(ns.Generations.Get("asks"), asksGeneration + 1, "asks generation")
+        h.Equal(ns.Generations.Get("loadouts"), loadoutGeneration + 1, "loadouts generation")
+        h.Equal(ns.Generations.Get("roster"), rosterGeneration + 1, "roster generation")
+    end,
+
+    ["Slash: ambiguous type words do not mutate wants"] = function()
+        WhyBoot()
+        LootLogicDB.characters["Local Test-Realm"].asks = { types = {}, items = {} }
+        ns.Slash.Run("want Local cloth")
+        h.Nil(LootLogicDB.characters["Local Test-Realm"].asks.types["4:1"], "armor cloth untouched")
+        h.Nil(LootLogicDB.characters["Local Test-Realm"].asks.types["7:5"], "trade cloth untouched")
+        h.True(
+            string.find(Stub.ChatLines()[1], "Armor: Cloth (4:1)", 1, true) ~= nil,
+            "first choice"
+        )
+        h.True(
+            string.find(Stub.ChatLines()[1], "Trade Goods: Cloth (7:5)", 1, true) ~= nil,
+            "second choice"
+        )
+    end,
+
+    ["Slash: a one-edit type match is suggested without mutating wants"] = function()
+        WhyBoot()
+        LootLogicDB.characters["Local Test-Realm"].asks = { types = {}, items = {} }
+        ns.Slash.Run("want Local Armor: Clth")
+        h.Nil(LootLogicDB.characters["Local Test-Realm"].asks.types["4:1"], "no type set")
+        h.True(
+            string.find(Stub.ChatLines()[1], "Did you mean Cloth?", 1, true) ~= nil,
+            "suggestion"
+        )
+    end,
+
+    ["Slash: colored item links with spaces stay one item argument"] = function()
+        WhyBoot()
+        WhyItem(199090)
+        local colored = "|cnIQ4:|Hitem:199090:0:0:0:0:0:0|h[Why Item]|h|r"
+        ns.Slash.Run("want Local " .. colored)
+        h.Equal(
+            LootLogicDB.characters["Local Test-Realm"].asks.items[199090],
+            "include",
+            "linked item included"
+        )
+    end,
+
+    ["Slash: perf reads a completed classifier pass"] = function()
+        WhyBoot()
+        ns.Classify.Pass("bags")
+        ns.Slash.Run("perf")
+        h.True(
+            string.find(Stub.ChatLines()[1], "Last classification: bags,", 1, true) ~= nil,
+            "pass output"
+        )
+    end,
+
+    ["Slash: perf reports count and time without starting a pass"] = function()
+        WhyBoot()
+        Stub.SetBagSize(0, 50)
+        Stub.SetProfileStep(2)
+        ns.Classify.Pass("bags")
+        h.Nil(ns.Classify.LastPass(), "first pass still batched")
+        Stub.SetProfileStep(0)
+        ns.Slash.Run("perf")
+        h.Nil(ns.Classify.LastPass(), "perf did not start a pass")
+        for _ = 1, 5 do
+            if ns.Classify.LastPass() then break end
+            Stub.Advance(0.1)
+        end
+        local pass = ns.Classify.LastPass()
+        h.Equal(pass.scope, "bags", "scope")
+        h.Equal(pass.count, 0, "item count")
+        h.True(pass.ms > 0, "classification time measured")
+        Stub.ClearChat()
+        ns.Slash.Run("perf")
+        h.True(
+            string.find(Stub.ChatLines()[1], "Last classification: bags, 0 items in", 1, true)
+                ~= nil,
+            "perf includes count"
+        )
+        h.True(string.find(Stub.ChatLines()[1], "ms.", 1, true) ~= nil, "perf includes time")
+    end,
+
+    ["Slash: perf does not report a deferred pass before combat ends"] = function()
+        WhyBoot()
+        Stub.SetCombat(true)
+        ns.Classify.Pass("bags")
+        h.Nil(ns.Classify.LastPass(), "deferred pass not completed")
+        ns.Slash.Run("perf")
+        h.Equal(Stub.ChatLines()[1], PREFIX .. L.perfNone, "no completed-pass reply")
+        Stub.SetCombat(false)
+        Stub.FireEvent("PLAYER_REGEN_ENABLED")
+        h.Equal(ns.Classify.LastPass().scope, "bags", "deferred pass completed")
+    end,
+
+    ["Slash: reset all preserves firstRunDone and restores the current character"] = function()
+        WhyBoot()
+        LootLogicDB.ui.firstRunDone = true
+        ns.Slash.Run("reset all")
+        ns.Slash.Run("reset confirm")
+        h.Equal(LootLogicDB.ui.firstRunDone, true, "welcome state")
+        h.True(LootLogicDB.characters["Local Test-Realm"] ~= nil, "current character restored")
+        h.True(LootLogicDB.characters["Local Test-Realm"].loadouts[1].worn, "default loadout worn")
+    end,
+
+    ["Slash: reset all uses the localized name for an unsupported class"] = function()
+        WhyBoot()
+        Stub.SetPlayer({ class = "MAGE", className = "Mage" })
+        ns.Slash.Run("reset all")
+        ns.Slash.Run("reset confirm")
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        h.Equal(entry.class, "MAGE", "current class refreshed")
+        h.Equal(entry.loadouts[1].name, "Mage", "localized default loadout")
     end,
 
     ["Slash: an unknown word prints the placeholder and runs nothing"] = function()
@@ -147,12 +1135,22 @@ return {
         ExpectPlaceholder("probes")
     end,
 
+    ["Slash: one adjacent transposition suggests a command"] = function()
+        Load()
+        ns.Slash.Run("debgu")
+        h.DeepEqual(
+            Stub.ChatLines(),
+            { PREFIX .. string.format(L.slashUnknownSuggested, "debgu", "debug") },
+            "suggestion"
+        )
+    end,
+
     ["Slash: an unknown word during a probe prints the placeholder"] = function()
         Load()
         ns.Slash.Run("probe")
         Stub.ClearChat()
         ns.Slash.Run("foo")
-        h.DeepEqual(Stub.ChatLines(), { PREFIX .. L.slashPlaceholder }, "chat")
+        h.DeepEqual(Stub.ChatLines(), { PREFIX .. string.format(L.slashUnknown, "foo") }, "chat")
         Stub.Advance(11)
     end,
 

@@ -1009,6 +1009,7 @@ local deferred = {}
 -- dirty[scope] is true when item data loaded while a pass for the scope was
 -- running; the pass runs once more when it finishes.
 local dirty = {}
+local lastFullPass
 
 local function SlotList(range)
     local list = {}
@@ -1022,10 +1023,24 @@ end
 
 local function Finish(run)
     runs[run.scope] = nil
+    lastFullPass = { scope = run.scope, count = run.count, ms = run.ms }
     Log.Debug("classify", string.format(L.classifyPass, run.scope, run.count, run.ms))
     if dirty[run.scope] then
         Classify.Pass(run.scope)
     end
+end
+
+--- The most recently completed full pass, or nil before the first completion.
+-- @treturn table|nil copied { scope, count, ms }
+function Classify.LastPass()
+    if not lastFullPass then
+        return nil
+    end
+    return {
+        scope = lastFullPass.scope,
+        count = lastFullPass.count,
+        ms = lastFullPass.ms,
+    }
 end
 
 local Continue

@@ -15,8 +15,7 @@ local COPPER_PER_GOLD = 10000
 
 --- Names a client item type, qualifying a subclass when another class or
 --- subclass has the same name (spec 7.6). The 0 to 20 ranges and client
---- names are from memory and unverified; live checks L8 and L61; fallback:
---- the built-in table described in technical findings 5.
+--- names are from memory and unverified; live checks L8 and L61.
 -- @param classID number
 -- @param subclassID number|nil nil for a whole class
 -- @treturn string

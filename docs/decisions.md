@@ -22,6 +22,16 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 
 ## Answered decisions
 
+### M1 stage 5 commands
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D201 | spec 13; ux 2.3 | Which near matches are suggested? | Suggest a unique candidate one insertion, deletion, substitution or adjacent transposition away; suggest none on a tie. Applied to spec 13 and ux 2.3. | 2026-11-06 |
+| D202 | spec 13; ux 2.3 | What does character reset preserve? | Reset `receivesGear` to its default along with loadouts, wants and protect; preserve display name, imported equipment and outfitter membership, identity and snapshots. Applied to spec 13 and ux 2.3. | 2026-11-06 |
+| D203 | spec 13; ux 2.3 | How do reset previews and confirmation interact? | A valid preview replaces the pending preview; invalid commands leave it pending. Exactly 30 seconds is valid. Unquoted `all` and `confirm` are reserved, and quotes select a character of that name. Applied to spec 13 and ux 2.3. | 2026-11-06 |
+| D204 | spec 13; ux 2.3 | What does `/ll perf` show? | Show the latest completed full classification's scope, item count and elapsed time, or a message when none has completed. Applied to spec 13 and ux 2.3. | 2026-11-06 |
+| D205 | spec 13; ux 2.3; technical findings 5 and 18 (L61) | What happens if the client type-name API is unavailable? | Use client names only. If the API is missing or fails, report that item types are unavailable and leave saved data unchanged. Remove the built-in fallback, whose referenced table contains examples rather than client names. Applied to spec 13, ux 2.3 and technical findings 5 and 18. | 2026-11-06 |
+
 ### M1 Stage 4 detail
 
 | # | Raised in | Question | Answer | Date |
