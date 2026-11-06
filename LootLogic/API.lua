@@ -224,8 +224,8 @@ end
 -- @treturn table|nil result, nil while pending, empty or a closed bank
 function API.ClassifyBagSlot(bag, slot)
     local result = Decorate(Classify.BagSlot(bag, slot))
-    if result then
-        Detail.Attach(result, { bag = bag, slot = slot })
+    if result and result.reasonCode ~= "error" then
+        Log.Guard("engine", Detail.Attach, result, { bag = bag, slot = slot })
     end
     return result
 end
@@ -240,8 +240,8 @@ function API.ClassifyLink(link, fromInbox)
         mail = "inbox"
     end
     local result = Decorate(Classify.Link(link, mail))
-    if result then
-        Detail.Attach(result, { link = link, fromInbox = fromInbox == true })
+    if result and result.reasonCode ~= "error" then
+        Log.Guard("engine", Detail.Attach, result, { link = link, fromInbox = fromInbox == true })
     end
     return result
 end

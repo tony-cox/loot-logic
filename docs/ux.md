@@ -799,7 +799,7 @@ Gear upgrade percentages in reasons and runner-up clauses use one decimal place,
 | Adapter failed | `pcall` | No sections or badges from it; the tooltip carries on | | Notice "BetterBags sections are off" | Bags row; checklist NEED | Once per session, at login |
 | Bag addon with no adapter (Baganator) | detection | Tooltip line only | | Footer: "Your bags show tooltips only; this tab is the full list." | Bags row, info | none |
 | Item data not loaded | item data not available | No result until it loads | none | "3 items still loading." | | none |
-| Engine error on an item | `pcall` per item | No category for that item | "LootLogic: error on an item, see /ll status." | Count | Errors | Once per session |
+| Engine error on an item | `pcall` per item | A classification error gives no category; an error while adding detail keeps the classified category | Classification error: "LootLogic: error on an item, see /ll status." A detail error keeps the category line. | Count | Errors | Once per session |
 
 **Chat lines** (each once per session unless stated; the scan summary comes after each scan and the mail-recorded line after each recorded mail; all start "LootLogic:"):
 - Provider error: "<provider> failed (<error>); using <other provider>." or, with no other provider, "<provider> failed (<error>); no prices until it works."

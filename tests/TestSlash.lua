@@ -480,6 +480,27 @@ return {
         ns.API.ClassifyLink = original
         h.True(inboxSeen, "hovered inbox retains inbox origin")
     end,
+    ["Slash: why accepts token colors and falls back from malformed hover links"] = function()
+        WhyBoot()
+        local item = WhyItem(199099)
+        local link = "|cnIQ4:|Hitem:199099:0:0:0:0:0:0|h[Why Item]|h|r"
+        Stub.SetTooltipLines(link, {})
+        ns.Slash.Run("why " .. link)
+        h.True(
+            string.find(Stub.ChatLines()[1], "nobody wants this", 1, true) ~= nil,
+            "token link accepted"
+        )
+        Stub.ClearChat()
+        Stub.SetGlobal(
+            "GameTooltip",
+            Stub.MakeTooltip("GameTooltip", { hyperlink = "bad" }, nil, item)
+        )
+        ns.Slash.Run("why")
+        h.True(
+            string.find(Stub.ChatLines()[1], "nobody wants this", 1, true) ~= nil,
+            "valid GetItem fallback"
+        )
+    end,
     ["Slash: why preserves pending matching-bag results without link fallback"] = function()
         WhyBoot()
         local link = WhyItem(199012)

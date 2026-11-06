@@ -1278,6 +1278,17 @@ function Stub.MakeTooltip(name, info, owner, itemLink)
         itemLink = itemLink,
         lines = {},
         shown = false,
+        scripts = {},
+        HookScript = function(self, event, callback)
+            self.scripts[event] = self.scripts[event] or {}
+            table.insert(self.scripts[event], callback)
+        end,
+        Hide = function(self)
+            self.shown = false
+            for _, callback in ipairs(self.scripts.OnHide or {}) do
+                callback(self)
+            end
+        end,
         GetName = function(self)
             return self.name
         end,
@@ -1304,6 +1315,9 @@ function Stub.MakeTooltip(name, info, owner, itemLink)
         end,
         ClearLines = function(self)
             self.lines = {}
+            for _, callback in ipairs(self.scripts.OnTooltipCleared or {}) do
+                callback(self)
+            end
         end,
         SetBagItem = function(self, bag, slot)
             self.info = { getterName = "GetBagItem", getterArgs = { bag, slot } }

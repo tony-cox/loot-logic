@@ -21,6 +21,21 @@ local itemRefClickHooked = false
 local tracked = {}
 local refreshing = false
 local rebuildingContext = {}
+local hooked = {}
+
+local function TrackLifecycle(tooltip)
+    if hooked[tooltip] or type(tooltip.HookScript) ~= "function" then
+        return
+    end
+    local function ClearTracking()
+        if not refreshing then
+            tracked[tooltip] = nil
+        end
+    end
+    pcall(tooltip.HookScript, tooltip, "OnHide", ClearTracking)
+    pcall(tooltip.HookScript, tooltip, "OnTooltipCleared", ClearTracking)
+    hooked[tooltip] = true
+end
 
 local function ShiftDown()
     return type(IsShiftKeyDown) == "function" and IsShiftKeyDown()
@@ -151,6 +166,7 @@ local function AddLine(tooltip, info, bagResult, matchesBag, savedContext)
         return
     end
     if info or savedContext or classificationLink then
+        TrackLifecycle(tooltip)
         tracked[tooltip] = {
             info = info,
             bagResult = bagResult,
@@ -249,7 +265,16 @@ local function RefreshShownTooltips(_, key)
                     and (context.getterArgs or (context.info and context.info.getterArgs))
                 or {}
             local rebuild
-            if context and context.bag and type(tooltip.SetBagItem) == "function" then
+            if
+                tooltip:GetName() == "ItemRefTooltip"
+                and context
+                and context.link
+                and type(tooltip.SetHyperlink) == "function"
+            then
+                rebuild = function()
+                    tooltip:SetHyperlink(context.link)
+                end
+            elseif context and context.bag and type(tooltip.SetBagItem) == "function" then
                 rebuild = function()
                     tooltip:SetBagItem(context.bag, context.slot)
                 end

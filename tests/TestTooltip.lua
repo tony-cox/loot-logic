@@ -77,6 +77,42 @@ local function Bag(item)
 end
 
 return {
+    ["hidden or cleared tooltip does not revive an old item on Shift"] = function()
+        Boot()
+        local item = Define()
+        Include(item)
+        for _, action in ipairs({ "Hide", "ClearLines" }) do
+            local tooltip = Tooltip("GameTooltip", {
+                getterName = "GetHyperlink",
+                getterArgs = { item.link },
+                hyperlink = item.link,
+            }, nil, item.link)
+            tooltip[action](tooltip)
+            tooltip.shown = true
+            tooltip.info = { getterName = "GetUnit" }
+            tooltip.itemLink = nil
+            h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+            h.Equal(tooltip.info.getterName, "GetUnit", "old item is not restored")
+        end
+    end,
+    ["Shift rebuilds a chat popup from its link after the bag changes"] = function()
+        Boot()
+        local item, replacement = Define(), Define()
+        Bag(item)
+        Include(item)
+        local popup = Tooltip("ItemRefTooltip", {
+            getterName = "SetHyperlink",
+            getterArgs = { item.link },
+            hyperlink = item.link,
+        }, nil, item.link)
+        Bag(replacement)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+        h.Equal(popup.itemLink, item.link, "popup still shows clicked item")
+        h.True(
+            string.find(popup.lines[1].text, "not in your bags", 1, true) ~= nil,
+            "new bag match is checked"
+        )
+    end,
     ["chat link hooks retry and add only one line when the item script fails"] = function()
         Boot()
         local item = Define()

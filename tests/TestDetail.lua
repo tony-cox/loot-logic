@@ -65,6 +65,33 @@ local function Item()
 end
 
 return {
+    ["current character is eligible as another wanter"] = function()
+        Boot()
+        local item = Item()
+        item.quality = 0
+        h.Stub.SetItem(item.itemID, item)
+        LootLogicDB.characters[OTHER].asks.items[item.itemID] = "include"
+        LootLogicDB.characters[HERE].asks = { types = { ["7:5"] = { minQuality = 0 } }, items = {} }
+        local result = API.ClassifyLink(item.link)
+        h.Equal(result.detail.wants.winner, OTHER, "explicit alt want wins grey item")
+        h.Equal(result.detail.wants.others[1].key, HERE, "current character also wants it")
+        h.True(
+            result.detail.wants.others[1].why ~= L.detailWantIneligible,
+            "current character is eligible"
+        )
+    end,
+    ["detail failures preserve the classification verdict"] = function()
+        Boot()
+        local item = Item()
+        local original = ns.Detail.Attach
+        ns.Detail.Attach = function()
+            error("detail failed")
+        end
+        local result = API.ClassifyLink(item.link)
+        ns.Detail.Attach = original
+        h.True(result ~= nil and result.reasonCode ~= "error", "verdict remains available")
+        h.Equal(result.detail, nil, "failed detail is absent")
+    end,
     ["detail exposes ordered wants and shared lines without changing saved data"] = function()
         Boot()
         local item = Item()

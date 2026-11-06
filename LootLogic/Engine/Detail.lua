@@ -182,7 +182,9 @@ function Detail.Attach(result, context)
         for _, key in ipairs(wanters) do
             if key ~= winner then
                 local kind = Asks.MatchKind(key, wantFacts)
-                local why = not Roster.IsEligible(key) and L.detailWantIneligible
+                local why = key ~= Roster.HereKey()
+                        and not Roster.IsEligible(key)
+                        and L.detailWantIneligible
                     or not tradable and L.detailWantBound
                     or kind == "item" and L.detailWantItem
                     or kind and Util.TypeName(facts.classID, facts.subclassID)

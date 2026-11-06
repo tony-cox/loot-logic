@@ -119,7 +119,10 @@ local function Hovered()
         end
     end
     local link = info and (info.hyperlink or (info.getterArgs or {})[1])
-    if type(link) ~= "string" and type(tooltip.GetItem) == "function" then
+    if
+        (type(link) ~= "string" or not Util.ParseLink(link))
+        and type(tooltip.GetItem) == "function"
+    then
         local ok, _, itemLink = pcall(tooltip.GetItem, tooltip)
         if ok then
             link = itemLink
@@ -140,11 +143,12 @@ end
 
 local function HyperlinkArgument(argument)
     local raw = argument
-    if string.match(raw, "^|c%x%x%x%x%x%x%x%x") then
+    local prefix = string.match(raw, "^(|c%x%x%x%x%x%x%x%x)") or string.match(raw, "^(|cn[%w_]+:)")
+    if prefix then
         if string.sub(raw, -2) ~= "|r" then
             return nil
         end
-        raw = string.sub(raw, 11, -3)
+        raw = string.sub(raw, #prefix + 1, -3)
     end
     if string.sub(raw, 1, 7) ~= "|Hitem:" or string.sub(raw, -3) ~= "]|h" then
         return nil
