@@ -6,6 +6,7 @@ creates LootLogicDB from the TOC and Core/DB.lua fills it.
 local _, ns = ...
 
 LootLogic = {
+    API = ns.API,
     Slash = ns.Slash,
 }
 

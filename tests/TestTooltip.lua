@@ -100,6 +100,9 @@ return {
             _G["ItemRefTooltipTextLeft" .. #self.lines] = { GetText = function() return text end }
         end
         _G.ItemRefTooltip = popup
+        _G.IsModifiedClick = function()
+            return false
+        end
         _G.SetItemRef = function(link)
             popup.itemLink = link
         end
@@ -119,6 +122,42 @@ return {
         popup:SetHyperlink(item.link)
         _G.SetItemRef(item.link)
         h.Equal(#popup.lines, 1, "repeated notifications do not duplicate the line")
+    end,
+
+    ["click hook checks the displayed item and falls back without its link"] = function()
+        Boot()
+        local displayed = Define()
+        local clicked = Define()
+        Include(clicked)
+        local popup = h.Stub.MakeTooltip("ItemRefTooltip", nil, nil, displayed.link)
+        popup.shown = true
+        popup.IsShown = function(self)
+            return self.shown
+        end
+        _G.ItemRefTooltip = popup
+        local modified = false
+        _G.IsModifiedClick = function()
+            return modified
+        end
+        _G.SetItemRef = function() end
+        h.Stub.FireEvent("PLAYER_LOGIN")
+
+        _G.SetItemRef(clicked.link)
+        h.Equal(#popup.lines, 0, "different displayed item stays unchanged")
+        popup.itemLink = nil
+        modified = true
+        _G.SetItemRef(clicked.link)
+        h.Equal(#popup.lines, 0, "modified click without displayed link is ignored")
+        modified = false
+        _G.SetItemRef(clicked.link)
+        h.Equal(#popup.lines, 1, "clicked link fallback")
+        popup.lines = {}
+        _G.IsModifiedClick = nil
+        _G.SetItemRef(clicked.link)
+        h.Equal(#popup.lines, 0, "unknown modifier state does not use fallback")
+        popup.itemLink = clicked.link .. ":"
+        _G.SetItemRef(clicked.link)
+        h.Equal(#popup.lines, 1, "equivalent item fields match")
     end,
 
     ["bag getter adds one result line"] = function()
@@ -406,6 +445,24 @@ return {
         h.Equal(#characterSlot.lines, 0, "character pane owner")
         h.Equal(#infoMissingOnCharacterPane.lines, 0, "character pane with missing info")
         h.Equal(#comparison.lines, 0, "comparison")
+    end,
+
+    ["other unit inventory is classified while unknown inventory owner is excluded"] = function()
+        Boot()
+        local item = Define()
+        Include(item)
+        local other = Tooltip("GameTooltip", {
+            getterName = "GetInventoryItem",
+            getterArgs = { "target", 1 },
+            hyperlink = item.link,
+        })
+        local unknown = Tooltip("GameTooltip", {
+            getterName = "GetInventoryItem",
+            getterArgs = {},
+            hyperlink = item.link,
+        })
+        h.Equal(#other.lines, 1, "other unit gets a line")
+        h.Equal(#unknown.lines, 0, "unknown unit is excluded")
     end,
 
     ["item link popup is included and error line is kept"] = function()

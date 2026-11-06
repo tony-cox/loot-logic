@@ -23,7 +23,10 @@ end
 
 local function IsCharacterEquipment(tooltip, info)
     if info and info.getterName == "GetInventoryItem" then
-        return true
+        local unit = info.getterArgs and info.getterArgs[1]
+        if type(unit) ~= "string" or unit == "" or unit == "player" then
+            return true
+        end
     end
     local owner = tooltip:GetOwner()
     local name = owner and owner.GetName and owner:GetName()
@@ -199,7 +202,34 @@ local function HookItemRefTooltip()
     then
         local ok = pcall(hooksecurefunc, "SetItemRef", function(link)
             local tooltip = _G.ItemRefTooltip
-            if tooltip and type(tooltip.IsShown) == "function" and tooltip:IsShown() then
+            if
+                IsUsableLink(link)
+                and tooltip
+                and type(tooltip.IsShown) == "function"
+                and tooltip:IsShown()
+            then
+                local displayedLink = ItemLink(tooltip)
+                local modified
+                if type(_G.IsModifiedClick) == "function" then
+                    local ok, result = pcall(_G.IsModifiedClick)
+                    if ok and type(result) == "boolean" then
+                        modified = result
+                    end
+                end
+                if modified then
+                    return
+                end
+                if IsUsableLink(displayedLink) then
+                    local displayedItem = string.match(displayedLink, "item:([%-%d:]*)")
+                    local clickedItem = string.match(link, "item:([%-%d:]*)")
+                    displayedItem = string.gsub(displayedItem, ":+$", "")
+                    clickedItem = string.gsub(clickedItem, ":+$", "")
+                    if displayedItem ~= clickedItem then
+                        return
+                    end
+                elseif modified ~= false then
+                    return
+                end
                 AddItemRefLine(tooltip, link)
             end
         end)

@@ -22,6 +22,12 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 
 ## Answered decisions
 
+### Character badge abbreviation collisions
+
+| # | Raised in | Question | Answer | Date |
+|---|---|---|---|---|
+| D196 | ux 7; PR 25 review | Should the positional badge abbreviation rule change when it gives characters the same letters? | **Keep the current rule for v1.** Collisions are an accepted minor gap; a collision-free rule is a possible later enhancement. Applied to ux 7 and the spec's later-version list. | 2026-11-06 |
+
 ### Gear reason percentage format
 
 | # | Raised in | Question | Answer | Date |

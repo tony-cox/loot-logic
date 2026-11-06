@@ -72,6 +72,11 @@ local function Include(item)
 end
 
 return {
+    ["global API exposes the namespace API"] = function()
+        local chunk = assert(loadfile("LootLogic/Globals.lua"))
+        chunk("LootLogic", ns)
+        h.Equal(LootLogic.API, API, "public API")
+    end,
     ["bag and link results use the same verdict with the link-only flag"] = function()
         Boot()
         local item = Define()
