@@ -802,6 +802,8 @@ The copied chat text begins at `4:5 Cosmetic`, partway through L61's 137-name ou
 
 **L59 Shift events, 2026-11-06:** `MODIFIER_STATE_CHANGED` reported `LSHIFT 1 true`, `LSHIFT 0 false`, `RSHIFT 1 true` and `RSHIFT 0 false` on press and release. The event and `IsShiftKeyDown()` behavior match the expected values for both keys. The tooltip refresh and detail portion remains to be checked after Stage 4 implements it.
 
+**Chat popup retest, 2026-11-06:** after the PR 25 popup fix, the owner confirmed that clicking an upgrade link showed its LootLogic line and that Shift-clicking a different link while the popup remained open did not add the other item's verdict to it.
+
 **Linen Cloth AH threshold, 2026-11-06:** 11 Linen Cloth had a 13c vendor price and a 24c Auctionator unit price. The saved AH settings are a 5% cut, a 100c minimum total gain, and a 10% minimum per-unit gain. LootLogic floors the after-cut unit price: `floor(24 * 0.95) = 22c`; net gain is 9c each and `9 * 11 = 99c`, one copper below the total-gain threshold. The `Vendor (AH gain below threshold)` result is expected; the 121c estimate omits the AH cut and per-unit floor.
 
 ---
