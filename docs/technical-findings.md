@@ -40,7 +40,7 @@ Confidence labels are as in the spec: **confirmed**, **source-read**, **from mem
 | Class | Subclasses present (examples) |
 |---|---|
 | 0 Consumable | 0 explosives/devices, 1 Potion, 2 Elixir (Elixir of Wisdom), 3 Flask, 4 Scroll, 5 Food and Drink, 6 Item Enhancement, 7 Bandage, 8 Other, 14, 15 |
-| 1 Container | 0 Bag, 1 Soul, 2 Herb, 3 Enchanting, 6 Mining, 7 Skinning, 11 Reagent bag (Linen Reagent Bag) |
+| 1 Container | 0 Bag, 1 Soul, 2 Herb, 3 Enchanting, 6 Mining, 7 Leatherworking, 11 Reagent bag (Linen Reagent Bag) |
 | 2 Weapon | 0 to 10, 13 to 20. 14 Miscellaneous = profession tools; 19 Wand; 20 Fishing pole. Subclasses 9 and 17 have no entry in `subclassSpell`: L8 confirms what they hold, and each is given its spell or marked unusable. |
 | 4 Armor | 0 Miscellaneous (rings, trinkets, necks, shirts), 1 Cloth, 2 Leather, 3 Mail, 4 Plate, 5 Cosmetic, 6 Shield, 7 Libram, 8 Idol, 9 Totem |
 | 5 Reagent | 0 (Ankh and others) |
@@ -53,7 +53,7 @@ Confidence labels are as in the spec: **confirmed**, **source-read**, **from mem
 | 15 Miscellaneous | 0 Junk (Hearthstone too), 1 Reagent (Soul Shard, Light Feather), 2 Pet, 3 Holiday, 4 Other (crates), 5 Mount |
 | 18 | WoW Token |
 
-**Enumerating the types the client names** (the class list and subclass lists in the `/ll want` errors, and short-name matching such as `cloth` for 4:1 and 7:5; spec 13): class IDs 0 to 20 with `C_Item.GetItemClassInfo(classID)`, and for every class ID, subclass IDs 0 to 20 with `C_Item.GetItemSubClassInfo(classID, subclassID)`. Every ID with a non-nil name is kept, and the loop does not stop at the first nil, because the numbering has gaps (class 2 has no subclasses 11 and 12). Lists are printed in numeric order: classes by class ID, a class's subclasses by subclass ID. That an unused ID returns nil and that no ID above 20 is named are from memory (L61). If L61 fails, the classes and subclasses come from a built-in table of the known ones (the table above).
+**Enumerating the types the client names** (the class list and subclass lists in the `/ll want` errors, and short-name matching such as `cloth` for 4:1 and 7:5; spec 13): class IDs 0 to 20 with `C_Item.GetItemClassInfo(classID)`, and for every class ID, subclass IDs 0 to 20 with `C_Item.GetItemSubClassInfo(classID, subclassID)`. Every ID with a non-nil name is kept, and the loop does not stop at the first nil, because the numbering has gaps. Live L61 returned names for weapon subclasses 11 and 12, contrary to the earlier data-dump assumption. Lists are printed in numeric order: classes by class ID, a class's subclasses by subclass ID. That an unused ID returns nil and that no ID above 20 is named are from memory (L61). If L61 fails, the classes and subclasses come from a built-in table of the known ones (the table above).
 
 ---
 
@@ -803,6 +803,16 @@ The copied chat text begins at `4:5 Cosmetic`, partway through L61's 137-name ou
 **L59 Shift events, 2026-11-06:** `MODIFIER_STATE_CHANGED` reported `LSHIFT 1 true`, `LSHIFT 0 false`, `RSHIFT 1 true` and `RSHIFT 0 false` on press and release. The event and `IsShiftKeyDown()` behavior match the expected values for both keys. The tooltip refresh and detail portion remains to be checked after Stage 4 implements it.
 
 **Chat popup retest, 2026-11-06:** after the PR 25 popup fix, the owner confirmed that clicking an upgrade link showed its LootLogic line and that Shift-clicking a different link while the popup remained open did not add the other item's verdict to it.
+
+**Chat popup bag match, 2026-11-06:** after receiving Furred Belt, the owner observed Equip on the bag item and no LootLogic line on its chat popup. The link-only comparison can count the owned copy as the baseline. D197 changes the popup to show the first bag match's verdict with a label, matching item ID and suffix. The owner retested in game and confirmed the change works.
+
+**L6 level 5 Tauren Druid, 2026-11-06:** `IsPlayerSpell` returned true for 9078, 9077, 198 and 227; false for 8737, 750, 9116, 674, 199 and 1180. The Warrior probe also passed earlier. Results for other classes and a before-and-after training comparison remain to be collected.
+
+**L7 container fields, 2026-11-06:** a Hearthstone in bag 0 slot 1 returned item ID 6948, `isBound=true`, `hasNoValue=true`, `stackCount=1`, `quality=1` and a hyperlink. Its `GetContainerItemQuestInfo(0,1)` returned `isQuestItem=false` and `isActive=false`. A separate quest item in that slot returned `isQuestItem=true` and `isActive=false`; its item name and link were not recorded. Whether `isQuestItem` can change for the same item link as quest state changes remains open.
+
+**L61 enumeration, 2026-11-06:** the owner's pasted output starts at `1:2`, so its beginning is missing. The captured portion includes all required subclasses 2:13–2:20 and 7:0–7:2 and 7:5–7:12. Weapon subclasses 2:11 and 2:12 returned `One-Handed Exotics` and `Two-Handed Exotics`, and 2:9 and 2:17 returned `Warglaives` and `Spears`. Subclasses 17:10–17:20 printed blank names. The complete saved probe was compared with the class and subclass IDs in the section 5 example table: each listed ID has a client name. L61 passes; the table gives item examples, so its descriptions are not all the client's display names.
+
+**Chest item instant info, 2026-11-06:** on the same Druid, `select(6, C_Item.GetItemInfoInstant(GetInventoryItemLink("player", 5)))` printed `4 2` (class and subclass IDs). The corresponding `select(4, ...)` printed `INVTYPE_CHEST 132721 4 2`, confirming the equipment location followed by icon, class and subclass for that chest item. L8's specific helmet check remains open.
 
 **Linen Cloth AH threshold, 2026-11-06:** 11 Linen Cloth had a 13c vendor price and a 24c Auctionator unit price. The saved AH settings are a 5% cut, a 100c minimum total gain, and a 10% minimum per-unit gain. LootLogic floors the after-cut unit price: `floor(24 * 0.95) = 22c`; net gain is 9c each and `9 * 11 = 99c`, one copper below the total-gain threshold. The `Vendor (AH gain below threshold)` result is expected; the 121c estimate omits the AH cut and per-unit floor.
 

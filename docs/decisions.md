@@ -27,6 +27,7 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 | # | Raised in | Question | Answer | Date |
 |---|---|---|---|---|
 | D196 | ux 7; PR 25 review | Should the positional badge abbreviation rule change when it gives characters the same letters? | **Keep the current rule for v1.** Collisions are an accepted minor gap; a collision-free rule is a possible later enhancement. Applied to ux 7 and the spec's later-version list. | 2026-11-06 |
+| D197 | spec 13; ux 5.4; L60 | What should a chat item popup show when the same item is in the player's bags? | **Show the bag item's verdict**, labelled as matching an item in the bags. Match item ID and random suffix; when multiple bag slots match, use the first in bag and slot order. Other item links retain their link-only verdict. Applied to spec 13 and ux 5.4. | 2026-11-06 |
 
 ### Gear reason percentage format
 

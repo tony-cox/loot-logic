@@ -748,7 +748,7 @@ A docked "trip strip" (a slim panel beside the merchant, mail or AH frame with t
 
 ### 5.4 Shift detail and `/ll why`
 
-Holding Shift over an item adds the detail under the tooltip line; `/ll why` prints the same lines in chat, the first starting "LootLogic:". Pressing or releasing Shift while the tooltip is shown adds or removes the detail without a new hover: LootLogic reads `IsShiftKeyDown()` and, on the `MODIFIER_STATE_CHANGED` event, sets the tooltip again from its owner (from memory; live check L59, technical findings 12.2). If L59 fails, the detail is shown only by `/ll why`. At most 8 lines, in the order below, each part only when it applies (spec section 13). A long line wraps in the tooltip and still counts as one.
+An item-link popup that matches an item ID and random suffix in the player's bags shows the first matching bag item's verdict, followed by " (matches an item in your bags)". Without a match it shows the link-only verdict. Holding Shift over an item adds the detail under the tooltip line; `/ll why` prints the same lines in chat, the first starting "LootLogic:". Pressing or releasing Shift while the tooltip is shown adds or removes the detail without a new hover: LootLogic reads `IsShiftKeyDown()` and, on the `MODIFIER_STATE_CHANGED` event, sets the tooltip again from its owner (from memory; live check L59, technical findings 12.2). If L59 fails, the detail is shown only by `/ll why`. At most 8 lines, in the order below, each part only when it applies (spec section 13). A long line wraps in the tooltip and still counts as one.
 
 | Part | Lines | Shown when |
 |---|---|---|

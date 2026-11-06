@@ -11,6 +11,7 @@ ns.Tooltip = Tooltip
 local API = ns.API
 local DB = ns.DB
 local Events = ns.Events
+local L = ns.L
 local Util = ns.Util
 
 local itemRefTooltipHooked = false
@@ -99,7 +100,7 @@ local function HasLine(tooltip, text)
     return false
 end
 
-local function AddLine(tooltip, info)
+local function AddLine(tooltip, info, bagResult, matchesBag)
     if IsComparison(tooltip) then
         return
     end
@@ -110,8 +111,8 @@ local function AddLine(tooltip, info)
     if not display.tooltip then
         return
     end
-    local result, hasInput
-    if info then
+    local result, hasInput = bagResult, matchesBag
+    if info and not matchesBag then
         result, hasInput = Classify(info)
     end
     if not result and not hasInput then
@@ -126,17 +127,65 @@ local function AddLine(tooltip, info)
     if result.reasonCode == "nobody" and not display.tooltipNoWant then
         return
     end
-    if HasLine(tooltip, result.line) then
+    local line = result.line .. (matchesBag and L.tooltipMatchesBag or "")
+    if HasLine(tooltip, line) then
         return
     end
     local color = result.color
-    tooltip:AddLine(result.line, color.r, color.g, color.b)
+    tooltip:AddLine(line, color.r, color.g, color.b)
     tooltip:Show()
+end
+
+local function MatchingBagSlot(link)
+    local key = Util.InstanceKey(link)
+    if not key then
+        return nil
+    end
+    for bag = 0, 5 do
+        for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+            local bagLink = C_Container.GetContainerItemLink(bag, slot)
+            if bagLink and Util.InstanceKey(bagLink) == key then
+                return bag, slot
+            end
+        end
+    end
+end
+
+local function AddItemRefLine(tooltip, link)
+    if not IsUsableLink(link) then
+        link = ItemLink(tooltip)
+    end
+    if IsUsableLink(link) then
+        local bag, slot = MatchingBagSlot(link)
+        if bag then
+            AddLine(tooltip, nil, API.ClassifyBagSlot(bag, slot), true)
+        else
+            AddLine(tooltip, {
+                getterName = "SetHyperlink",
+                getterArgs = { link },
+                hyperlink = link,
+            })
+        end
+        return
+    end
+    local info
+    if type(tooltip.GetPrimaryTooltipInfo) == "function" then
+        local ok, primaryInfo = pcall(tooltip.GetPrimaryTooltipInfo, tooltip)
+        if ok then
+            info = primaryInfo
+        end
+    end
+    AddLine(tooltip, info)
 end
 
 TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip)
     local info = tooltip:GetPrimaryTooltipInfo()
-    AddLine(tooltip, info)
+    if tooltip:GetName() == "ItemRefTooltip" then
+        local link = info and (info.hyperlink or (info.getterArgs or {})[1])
+        AddItemRefLine(tooltip, link)
+    else
+        AddLine(tooltip, info)
+    end
 end)
 
 -- Forever's ItemRefTooltip does not run TooltipDataProcessor post-calls when
@@ -144,28 +193,6 @@ end)
 -- line in the live test; retry registration as client frames become available.
 local function HookItemRefTooltip()
     local itemRefTooltip = _G.ItemRefTooltip
-    local function AddItemRefLine(tooltip, link)
-        if not IsUsableLink(link) then
-            link = ItemLink(tooltip)
-        end
-        if IsUsableLink(link) then
-            AddLine(tooltip, {
-                getterName = "SetHyperlink",
-                getterArgs = { link },
-                hyperlink = link,
-            })
-            return
-        end
-
-        local info
-        if type(tooltip.GetPrimaryTooltipInfo) == "function" then
-            local ok, primaryInfo = pcall(tooltip.GetPrimaryTooltipInfo, tooltip)
-            if ok then
-                info = primaryInfo
-            end
-        end
-        AddLine(tooltip, info)
-    end
 
     if
         not itemRefTooltipHooked
