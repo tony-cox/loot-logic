@@ -78,6 +78,42 @@ local function ExpectUsage(message)
     h.Equal(LootLogicDB.debug.enabled, true, "unchanged for '" .. message .. "'")
 end
 
+local function WhyBoot()
+    Stub.SetPlayer({
+        first = "Local",
+        last = "Test",
+        realm = "Realm",
+        faction = "Alliance",
+        class = "WARRIOR",
+        level = 60,
+    })
+    LootLogicDB = nil
+    Stub.FireEvent("ADDON_LOADED", "LootLogic")
+    Stub.FireEvent("PLAYER_LOGIN")
+end
+
+local function WhyItem(itemID, suffix)
+    local link = "item:" .. itemID
+    if suffix then
+        link = link .. ":0:0:0:0:0:" .. suffix
+    end
+    local item = {
+        itemID = itemID,
+        name = "Why Item",
+        link = link,
+        quality = 1,
+        itemLevel = 1,
+        reqLevel = 0,
+        sellPrice = 100,
+        bindType = 0,
+        classID = 7,
+        subclassID = 5,
+    }
+    Stub.SetItem(itemID, item)
+    Stub.SetTooltipLines(link, {})
+    return link
+end
+
 return {
     ["Slash: probe runs the probe"] = function()
         ExpectProbe("probe")
@@ -310,5 +346,204 @@ return {
         h.Equal(LogCount("event: MERCHANT_SHOW"), 1, "merchant")
         h.Equal(LogCount("event: AUCTION_HOUSE_SHOW"), 1, "auction house")
         h.Equal(LogCount("error: events: PLAYERBANKSLOTS_CHANGED"), 1, "error line")
+    end,
+
+    ["Slash: why prints shared lines for an explicit link and a bare item ID"] = function()
+        WhyBoot()
+        WhyItem(199001)
+        local hyperlink = "|cffa335ee|Hitem:199001:0:0:0:0:0:0|h[Why Item]|h|r"
+        Stub.SetTooltipLines(hyperlink, {})
+        ns.Slash.Run("why " .. hyperlink)
+        h.Equal(#Stub.ChatLines(), 1, "link line count")
+        h.True(
+            string.find(Stub.ChatLines()[1], "nobody wants this", 1, true) ~= nil,
+            "explicit link result"
+        )
+        Stub.ClearChat()
+        ns.Slash.Run("why 199001")
+        h.Equal(#Stub.ChatLines(), 1, "ID line count")
+        h.True(
+            string.find(Stub.ChatLines()[1], "nobody wants this", 1, true) ~= nil,
+            "constructed link result"
+        )
+        WhyItem(199006)
+        local uncolored = "|Hitem:199006:0:0:0:0:0:0|h[Why Item]|h"
+        Stub.SetTooltipLines(uncolored, {})
+        Stub.ClearChat()
+        ns.Slash.Run("why " .. uncolored)
+        h.Equal(#Stub.ChatLines(), 1, "uncolored hyperlink accepted")
+        h.True(
+            string.find(Stub.ChatLines()[1], "nobody wants this", 1, true) ~= nil,
+            "uncolored link result"
+        )
+    end,
+
+    ["Slash: why matches a bag item and preserves suffix identity"] = function()
+        WhyBoot()
+        local link = WhyItem(199002, -17)
+        LootLogicDB.characters["Local Test-Realm"].asks = {
+            types = {},
+            items = { [199002] = "include" },
+        }
+        Stub.SetBagSize(0, 2)
+        Stub.SetBagItem(0, 1, { itemID = 199002, link = link, count = 1, quality = 1 })
+        ns.Slash.Run("why 199002:-17")
+        h.Equal(#Stub.ChatLines(), 2, "category and wants explanation")
+        h.True(
+            string.find(Stub.ChatLines()[1], "wanted by you", 1, true) ~= nil,
+            "exact matching bag result"
+        )
+    end,
+
+    ["Slash: why rejects extra text and reports missing IDs and hover"] = function()
+        WhyBoot()
+        WhyItem(199003)
+        WhyItem(199005)
+        local link = "|cffa335ee|Hitem:199003:0:0:0:0:0:0|h[Why Item]|h|r"
+        local secondLink = "|Hitem:199005:0:0:0:0:0:0|h[Why Item]|h"
+        Stub.SetTooltipLines(link, {})
+        Stub.SetTooltipLines(secondLink, {})
+        for _, argument in ipairs({
+            "199003 extra",
+            "prefix " .. link,
+            link .. " extra",
+            link .. " " .. link,
+            link .. " " .. secondLink,
+        }) do
+            Stub.ClearChat()
+            ns.Slash.Run("why " .. argument)
+            h.DeepEqual(
+                Stub.ChatLines(),
+                { PREFIX .. L.detailUsage },
+                "rejected argument: " .. argument
+            )
+        end
+        Stub.SetItemExists(199004, false)
+        Stub.ClearChat()
+        ns.Slash.Run("why 199004")
+        h.DeepEqual(Stub.ChatLines(), { PREFIX .. L.detailNotFound }, "missing item")
+        Stub.ClearChat()
+        ns.Slash.Run("why")
+        h.DeepEqual(Stub.ChatLines(), { PREFIX .. L.detailNoHover }, "no hovered item")
+    end,
+    ["Slash: why uses hovered bag, link and inbox contexts"] = function()
+        WhyBoot()
+        local bagItem = WhyItem(199010)
+        LootLogicDB.characters["Local Test-Realm"].asks = {
+            types = {},
+            items = { [199010] = "include" },
+        }
+        Stub.SetBagSize(0, 1)
+        Stub.SetBagItem(0, 1, { itemID = 199010, link = bagItem, count = 1, quality = 1 })
+        local tooltip = Stub.MakeTooltip(
+            "GameTooltip",
+            { getterName = "GetBagItem", getterArgs = { 0, 1 } },
+            nil,
+            bagItem
+        )
+        Stub.SetGlobal("GameTooltip", tooltip)
+        ns.Slash.Run("why")
+        h.True(
+            string.find(Stub.ChatLines()[1], "wanted by you", 1, true) ~= nil,
+            "hovered bag item"
+        )
+        local linkItem = WhyItem(199011)
+        Stub.ClearChat()
+        tooltip = Stub.MakeTooltip(
+            "GameTooltip",
+            { getterName = "SetHyperlink", getterArgs = { linkItem }, hyperlink = linkItem },
+            nil,
+            linkItem
+        )
+        Stub.SetGlobal("GameTooltip", tooltip)
+        ns.Slash.Run("why")
+        h.True(
+            string.find(Stub.ChatLines()[1], "nobody wants this", 1, true) ~= nil,
+            "hovered link"
+        )
+        h.Stub.SetInbox({ { items = { { link = linkItem, count = 1 } } } })
+        Stub.ClearChat()
+        tooltip = Stub.MakeTooltip(
+            "GameTooltip",
+            { getterName = "GetInboxItem", getterArgs = { 1, 1 } },
+            nil,
+            linkItem
+        )
+        Stub.SetGlobal("GameTooltip", tooltip)
+        local original = ns.API.ClassifyLink
+        local inboxSeen = false
+        ns.API.ClassifyLink = function(link, fromInbox)
+            inboxSeen = inboxSeen or fromInbox == true
+            return original(link, fromInbox)
+        end
+        ns.Slash.Run("why")
+        ns.API.ClassifyLink = original
+        h.True(inboxSeen, "hovered inbox retains inbox origin")
+    end,
+    ["Slash: why preserves pending matching-bag results without link fallback"] = function()
+        WhyBoot()
+        local link = WhyItem(199012)
+        Stub.SetBagSize(0, 1)
+        Stub.SetBagItem(0, 1, { itemID = 199012, link = link, count = 1, quality = 1 })
+        Stub.SetItemPending(199012, { itemID = 199012, name = "Why Item", link = link })
+        local original = ns.API.ClassifyLink
+        local linkCalls = 0
+        ns.API.ClassifyLink = function(...)
+            linkCalls = linkCalls + 1
+            return original(...)
+        end
+        ns.Slash.Run("why 199012")
+        ns.API.ClassifyLink = original
+        h.Equal(#Stub.ChatLines(), 0, "pending bag has no classification")
+        h.Equal(linkCalls, 0, "no link-only fallback")
+    end,
+    ["Slash: zero suffix selects the first stack and ID lookup failures are tolerated"] = function()
+        WhyBoot()
+        local link = WhyItem(199013, -17)
+        local zeroLink = "item:199013:0:0:0:0:0:0"
+        Stub.SetTooltipLines(zeroLink, {})
+        local here = LootLogicDB.characters["Local Test-Realm"]
+        here.asks = { types = {}, items = {} }
+        LootLogicDB.characters["Alt Test-Realm"] = {
+            first = "Alt",
+            last = "Test",
+            class = "PRIEST",
+            level = 60,
+            faction = here.faction,
+            region = here.region,
+            loadouts = {},
+            asks = { types = {}, items = { [199013] = "include" } },
+        }
+        LootLogicDB.order = { "Alt Test-Realm", "Local Test-Realm" }
+        Stub.SetBagSize(0, 2)
+        Stub.SetBagItem(0, 1, {
+            itemID = 199013,
+            link = zeroLink,
+            count = 1,
+            quality = 1,
+            bound = true,
+        })
+        Stub.SetBagItem(0, 2, { itemID = 199013, link = link, count = 1, quality = 1 })
+        ns.Slash.Run("why 199013:0")
+        h.True(
+            string.find(Stub.ChatLines()[1], "Alt", 1, true) == nil,
+            "zero suffix uses bound first stack"
+        )
+        Stub.ClearChat()
+        ns.Slash.Run("why 199013:-17")
+        h.True(
+            string.find(Stub.ChatLines()[1], "Alt", 1, true) ~= nil,
+            "negative suffix uses its matching stack"
+        )
+        WhyItem(199014)
+        WhyItem(199015)
+        Stub.SetExistsApi("off")
+        Stub.ClearChat()
+        ns.Slash.Run("why 199014")
+        h.Equal(#Stub.ChatLines(), 1, "missing lookup API does not block a loaded item")
+        Stub.SetExistsApi("raise")
+        Stub.ClearChat()
+        ns.Slash.Run("why 199015")
+        h.Equal(#Stub.ChatLines(), 1, "failing lookup API does not block a loaded item")
     end,
 }

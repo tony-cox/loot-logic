@@ -34,6 +34,7 @@ Engine\Stats.lua
 Engine\ItemFacts.lua
 Engine\Scoring.lua
 Engine\Classify.lua
+Engine\Detail.lua
 API.lua
 Display\Tooltip.lua
 Probe.lua
