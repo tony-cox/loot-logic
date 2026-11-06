@@ -22,6 +22,12 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 
 ## Answered decisions
 
+### Reused character names
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D206 | spec 6; ux 1 | How should an incompatible loadout on a same-name replacement be handled? | Check the character's class and keep loadouts appropriate to it. Remove known incompatible specs, create a default when none remain, and retain other saved data. A same-name replacement with the same class is not detected by this check. Applied to spec 6 and ux 1. | 2026-11-06 |
+
 ### M1 stage 5 commands
 
 | # | Where | Question | Answer | Date |
