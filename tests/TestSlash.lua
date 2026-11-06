@@ -1127,6 +1127,342 @@ return {
         h.Equal(entry.loadouts[1].name, "Mage", "localized default loadout")
     end,
 
+    ["Slash: reset all restores current live data before classification"] = function()
+        local function LiveLink(itemID)
+            return string.format("item:%d:0:0:0:0:0:0", itemID)
+        end
+        local hereKey = "Local Test-Realm"
+        local otherKey = "Other Test-Realm"
+        local wornID, bagID, bankID, inboxID = 199110, 199111, 199112, 199113
+        local equipID, outfitID = 199114, 199115
+        local allItems = { wornID, bagID, bankID, inboxID }
+
+        for _, bankOpen in ipairs({ false, true }) do
+            WhyBoot()
+            local entry = LootLogicDB.characters[hereKey]
+            LootLogicDB.characters[otherKey] = {
+                first = "Other",
+                last = "Test",
+                region = "Realm",
+                faction = "Alliance",
+                class = "PRIEST",
+                importedSets = { ["equipmentset:stale"] = { items = {} } },
+            }
+            LootLogicDB.order[#LootLogicDB.order + 1] = otherKey
+            entry.gear = { updatedAt = 1, slots = { [1] = "stale" } }
+            entry.proficiency = { updatedAt = 1, spells = { [1] = true } }
+            entry.bags = { updatedAt = 1, gear = { "stale" }, ids = { [1] = 1 } }
+            entry.bank = { updatedAt = 1, gear = { "stale" }, ids = { [1] = 1 } }
+            entry.inbox = { updatedAt = 1, gear = { "stale" }, ids = { [1] = 1 } }
+            entry.inbound = { { id = 1, count = 1 } }
+            entry.importedSets = {
+                ["equipmentset:stale"] = { source = "equipmentset", name = "stale", items = {} },
+                ["outfitter:stale"] = { source = "outfitter", name = "stale", items = {} },
+            }
+
+            local itemInstant = {
+                equipLoc = "INVTYPE_CHEST",
+                classID = 4,
+                subclassID = 1,
+            }
+            for _, itemID in ipairs(allItems) do
+                Stub.SetItemInstant(itemID, itemInstant)
+            end
+            Stub.SetWornLink(1, LiveLink(wornID))
+            Stub.SetKnownSpells({ 9077 })
+            Stub.SetBagSize(0, 1)
+            Stub.SetBagItem(0, 1, {
+                itemID = bagID,
+                link = LiveLink(bagID),
+                count = 2,
+            })
+            Stub.SetBagSize(6, 1)
+            Stub.SetBagItem(6, 1, {
+                itemID = bankID,
+                link = LiveLink(bankID),
+                count = 1,
+            })
+            Stub.SetInbox({
+                { items = { { link = LiveLink(inboxID), count = 3 } } },
+            })
+            Stub.SetEquipmentSets({
+                { id = 1, name = "Live Equipment", items = { [1] = equipID }, places = {} },
+            })
+            Stub.SetOutfitter({
+                Outfits = {
+                    Complete = {
+                        {
+                            Name = "Live Outfit",
+                            Items = { Head = { Code = outfitID } },
+                        },
+                    },
+                },
+            })
+            if bankOpen then Stub.OpenBank() end
+
+            local lifecycle = {}
+            local registered = false
+            local classified = false
+            local function Wrap(target, method, name, before, after)
+                local original = target[method]
+                target[method] = function(...)
+                    lifecycle[#lifecycle + 1] = name
+                    if before then before(...) end
+                    local result = original(...)
+                    if after then after(...) end
+                    return result
+                end
+                return function() target[method] = original end
+            end
+            local restore = {}
+            restore[#restore + 1] = Wrap(ns.Roster, "RegisterNow", "register", nil, function()
+                registered = true
+            end)
+            local function CheckRegistered()
+                h.True(registered, "capture follows current-character registration")
+                local current = LootLogicDB.characters[hereKey]
+                h.True(current ~= nil, "current roster entry exists before capture")
+                h.Equal(#current.loadouts, 1, "default loadout exists before capture")
+                h.Equal(current.loadouts[1].worn, true, "default loadout is worn before capture")
+            end
+            for _, method in ipairs({
+                { ns.Snapshot, "TakeAll", "snapshot all" },
+                { ns.Sets, "RefreshEquipmentSets", "refresh equipment sets" },
+                { ns.Sets, "RefreshOutfitter", "refresh outfitter" },
+            }) do
+                restore[#restore + 1] = Wrap(
+                    method[1],
+                    method[2],
+                    method[3],
+                    CheckRegistered
+                )
+            end
+            if bankOpen then
+                restore[#restore + 1] = Wrap(
+                    ns.Snapshot,
+                    "TakeBank",
+                    "snapshot bank",
+                    CheckRegistered
+                )
+            end
+            local originalClassify = ns.Classify.Pass
+            ns.Classify.Pass = function(scope)
+                lifecycle[#lifecycle + 1] = "classify " .. scope
+                local current = LootLogicDB.characters[hereKey]
+                if scope == "bags" then
+                    h.Equal(
+                        current.gear.slots[1],
+                        LiveLink(wornID),
+                        "gear captured before classification"
+                    )
+                    h.Equal(current.bags.ids[bagID], 2, "bags captured before classification")
+                    h.Nil(current.inbox, "closed inbox remains uncaptured")
+                    h.Equal(current.bank ~= nil, bankOpen, "bank follows current availability")
+                    h.True(
+                        current.importedSets["equipmentset:Live Equipment"],
+                        "equipment set restored"
+                    )
+                    h.True(
+                        current.importedSets["outfitter:Live Outfit"],
+                        "Outfitter set restored"
+                    )
+                    h.Nil(current.importedSets["equipmentset:stale"], "stale equipment set deleted")
+                    h.Nil(current.importedSets["outfitter:stale"], "stale Outfitter set deleted")
+                    h.Nil(current.inbound, "old inbound mail is not restored")
+                    h.Nil(LootLogicDB.characters[otherKey], "other roster entry stays deleted")
+                    h.DeepEqual(
+                        LootLogicDB.order,
+                        { hereKey },
+                        "only current character is registered"
+                    )
+                else
+                    h.True(classified, "bank classification follows bag classification")
+                end
+                local result = originalClassify(scope)
+                if scope == "bags" then classified = true end
+                return result
+            end
+            restore[#restore + 1] = function() ns.Classify.Pass = originalClassify end
+            restore[#restore + 1] = Wrap(ns.Tooltip, "RefreshShown", "refresh tooltip", function()
+                h.True(classified, "tooltip refresh follows classification")
+            end)
+
+            local getInboxNumItems = GetInboxNumItems
+            local getInboxItemLink = GetInboxItemLink
+            _G.GetInboxNumItems = function()
+                error("inbox APIs must not be read before MAIL_SHOW")
+            end
+            _G.GetInboxItemLink = function()
+                error("inbox APIs must not be read before MAIL_SHOW")
+            end
+            ns.Slash.Run("reset all")
+            ns.Slash.Run("reset confirm")
+            _G.GetInboxNumItems = getInboxNumItems
+            _G.GetInboxItemLink = getInboxItemLink
+            for index = #restore, 1, -1 do restore[index]() end
+
+            local expected = {
+                "register",
+                "snapshot all",
+            }
+            if bankOpen then expected[#expected + 1] = "snapshot bank" end
+            expected[#expected + 1] = "refresh equipment sets"
+            expected[#expected + 1] = "refresh outfitter"
+            expected[#expected + 1] = "classify bags"
+            if bankOpen then expected[#expected + 1] = "classify bank" end
+            expected[#expected + 1] = "refresh tooltip"
+            h.DeepEqual(lifecycle, expected, "reset lifecycle order")
+            local current = LootLogicDB.characters[hereKey]
+            h.Equal(current.gear.slots[1], LiveLink(wornID), "current gear restored")
+            h.Equal(current.proficiency.spells[9077], true, "current proficiency restored")
+            h.Equal(current.bags.ids[bagID], 2, "current bags restored")
+            h.Nil(current.inbox, "closed inbox snapshot remains deleted")
+            h.Equal(current.bank ~= nil, bankOpen, "closed bank snapshot is not restored")
+            if bankOpen then h.Equal(current.bank.ids[bankID], 1, "open bank restored") end
+            h.True(
+                current.importedSets["equipmentset:Live Equipment"],
+                "live Equipment Manager set"
+            )
+            h.True(current.importedSets["outfitter:Live Outfit"], "live Outfitter set")
+            h.Nil(current.inbound, "deleted inbound data stays deleted")
+            h.DeepEqual(
+                LootLogicDB.order,
+                { hereKey },
+                "reset roster contains current character only"
+            )
+            Stub.FireEvent("MAIL_SHOW")
+            h.Equal(current.inbox.ids[inboxID], 3, "mail event captures inbox after reset")
+            if bankOpen then Stub.CloseBank() end
+        end
+    end,
+
+    ["Slash: reset known character with extra arguments preserves the pending reset"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.asks = { types = { ["7:5"] = { minQuality = 2 } }, items = {} }
+        ns.Slash.Run("reset Local")
+        Stub.ClearChat()
+        ns.Slash.Run("reset Local extra")
+        h.Equal(Stub.ChatLines()[1], PREFIX .. L.resetUsage, "extra arguments show reset usage")
+        h.True(
+            entry.asks.types["7:5"] ~= nil,
+            "invalid command leaves saved preview target untouched"
+        )
+        Stub.ClearChat()
+        ns.Slash.Run("reset confirm")
+        h.Nil(entry.asks.types["7:5"], "original pending character reset still applies")
+        h.Equal(
+            Stub.ChatLines()[1],
+            PREFIX .. L.resetDone,
+            "confirmation completes the original preview"
+        )
+    end,
+
+    ["Slash: reset all isolates capture failures and still invalidates and classifies"] = function()
+        WhyBoot()
+        local hereKey = "Local Test-Realm"
+        local bankID, outfitID = 199118, 199119
+        Stub.SetItemInstant(bankID, {
+            equipLoc = "INVTYPE_CHEST",
+            classID = 4,
+            subclassID = 1,
+        })
+        Stub.SetBagSize(6, 1)
+        Stub.SetBagItem(6, 1, {
+            itemID = bankID,
+            link = "item:" .. bankID,
+            count = 1,
+        })
+        Stub.SetEquipmentSets({
+            { id = 1, name = "Failed Equipment", items = { [1] = outfitID }, places = {} },
+        })
+        Stub.SetOutfitter({
+            Outfits = {
+                Complete = {
+                    { Name = "Surviving Outfit", Items = { Head = { Code = outfitID } } },
+                },
+            },
+        })
+        Stub.OpenBank()
+
+        local originalTakeAll = ns.Snapshot.TakeAll
+        local originalTakeBank = ns.Snapshot.TakeBank
+        local originalRefreshEquipmentSets = ns.Sets.RefreshEquipmentSets
+        local originalRefreshOutfitter = ns.Sets.RefreshOutfitter
+        local originalClassify = ns.Classify.Pass
+        local originalRefreshTooltip = ns.Tooltip.RefreshShown
+        local scopes = {}
+        local outfitterCalls, tooltipCalls = 0, 0
+        ns.Snapshot.TakeAll = function()
+            error("injected full snapshot failure")
+        end
+        ns.Snapshot.TakeBank = function(...)
+            return originalTakeBank(...)
+        end
+        ns.Sets.RefreshEquipmentSets = function()
+            error("injected equipment set failure")
+        end
+        ns.Sets.RefreshOutfitter = function(...)
+            outfitterCalls = outfitterCalls + 1
+            return originalRefreshOutfitter(...)
+        end
+        ns.Classify.Pass = function(scope)
+            scopes[#scopes + 1] = scope
+            return originalClassify(scope)
+        end
+        ns.Tooltip.RefreshShown = function(...)
+            tooltipCalls = tooltipCalls + 1
+            return originalRefreshTooltip(...)
+        end
+
+        local errorsBefore = #ns.Log.Errors()
+        local gearBefore = ns.Generations.Get("gearHere")
+        local gearOthersBefore = ns.Generations.Get("gearOthers")
+        local settingsBefore = ns.Generations.Get("settings")
+        ns.Slash.Run("reset all")
+        ns.Slash.Run("reset confirm")
+
+        ns.Snapshot.TakeAll = originalTakeAll
+        ns.Snapshot.TakeBank = originalTakeBank
+        ns.Sets.RefreshEquipmentSets = originalRefreshEquipmentSets
+        ns.Sets.RefreshOutfitter = originalRefreshOutfitter
+        ns.Classify.Pass = originalClassify
+        ns.Tooltip.RefreshShown = originalRefreshTooltip
+
+        local entry = LootLogicDB.characters[hereKey]
+        h.Nil(entry.gear, "failed full snapshot remains absent")
+        h.Nil(entry.bags, "failed full snapshot does not restore stale bags")
+        h.Equal(entry.bank.ids[bankID], 1, "independent bank snapshot still runs")
+        h.True(
+            entry.importedSets["outfitter:Surviving Outfit"],
+            "Outfitter refresh follows equipment import failure"
+        )
+        h.Nil(
+            entry.importedSets["equipmentset:Failed Equipment"],
+            "failed equipment import is absent"
+        )
+        h.Equal(outfitterCalls, 1, "Outfitter refresh still runs")
+        h.DeepEqual(scopes, { "bags", "bank" }, "classification still runs for both scopes")
+        h.Equal(tooltipCalls, 1, "tooltip refresh still runs")
+        h.Equal(ns.Generations.Get("gearHere"), gearBefore + 2, "bank and reset invalidate gear")
+        h.Equal(
+            ns.Generations.Get("gearOthers"),
+            gearOthersBefore + 1,
+            "reset invalidates other gear"
+        )
+        h.Equal(
+            ns.Generations.Get("settings"),
+            settingsBefore + 1,
+            "reset invalidates settings"
+        )
+        local errors = ns.Log.Errors()
+        h.Equal(#errors, errorsBefore + 2, "both injected failures are recorded")
+        h.Equal(errors[#errors - 1].area, "events", "snapshot failure area")
+        h.Equal(errors[#errors].area, "events", "set refresh failure area")
+        h.Equal(Stub.ChatLines()[#Stub.ChatLines()], PREFIX .. L.resetDone, "reset completes")
+        Stub.CloseBank()
+    end,
+
     ["Slash: an unknown word prints the placeholder and runs nothing"] = function()
         ExpectPlaceholder("foo")
     end,

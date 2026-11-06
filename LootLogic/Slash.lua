@@ -1075,6 +1075,10 @@ local function ResetApply(target)
             local className = UnitClass("player")
             entry.loadouts = { Loadouts.NewDefault(entry.class, className) }
         end
+        Log.Guard("events", Snapshot.TakeAll)
+        if Snapshot.IsBankOpen() then Log.Guard("events", Snapshot.TakeBank) end
+        Log.Guard("events", Sets.RefreshEquipmentSets, true)
+        Log.Guard("events", Sets.RefreshOutfitter)
         for _, generation in ipairs({
             "asks", "gearHere", "gearOthers", "loadouts", "prices", "settings",
         }) do
@@ -1110,7 +1114,11 @@ local function RunReset(rest)
         target = { kind = "all" }
     else
         local key, count, matches = ResolveName(args)
-        if not key or count ~= #args then
+        if key and count ~= #args then
+            Log.Chat(L.resetUsage)
+            return
+        end
+        if not key then
             Log.Chat(NameError(args, count, matches))
             return
         end
