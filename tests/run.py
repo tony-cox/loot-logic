@@ -4,8 +4,11 @@ Usage: python tests/run.py [filter]
 
 The filter is a case-sensitive substring of "<file>: <case>". Each case gets a fresh
 runtime: stubs/Wow.lua, then Harness.lua (which builds h), then the .lua lines of
-LootLogic/LootLogic.toc in order (except Globals.lua), each called as chunk("LootLogic", ns) with one shared ns, then the test file,
-then the one case. See docs/technical-findings.md section 17.1.
+LootLogic/LootLogic.toc in order (except Globals.lua), each called as
+chunk("LootLogic", ns) with one shared ns, then the test file, then the one case.
+TestPrices omits Prices/Auctionator.lua because it registers fake providers with
+the same id; TestAuctionator loads and tests the built-in provider. See
+docs/technical-findings.md section 17.1.
 """
 
 import sys
@@ -18,6 +21,9 @@ ROOT = TESTS_DIR.parent
 TOC_PATH = ROOT / "LootLogic" / "LootLogic.toc"
 ADDON_NAME = "LootLogic"
 SKIPPED_FILES = {"Globals.lua"}
+TEST_FILE_SKIPPED_ADDON_FILES = {
+    "TestPrices.lua": {"Prices/Auctionator.lua"},
+}
 
 LOADER = """
 return function(source, name)
@@ -40,14 +46,15 @@ end
 """
 
 
-def toc_lua_files():
+def toc_lua_files(test_file=None):
     files = []
+    skipped = TEST_FILE_SKIPPED_ADDON_FILES.get(test_file.name, set()) if test_file else set()
     for line in TOC_PATH.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or not line.endswith(".lua"):
             continue
         name = line.replace("\\", "/")
-        if Path(name).name in SKIPPED_FILES:
+        if Path(name).name in SKIPPED_FILES or name in skipped:
             continue
         files.append(name)
     return files
@@ -70,7 +77,7 @@ def build_runtime(test_file):
         stub, TESTS_DIR.as_posix()
     )
     ns = lua.table()
-    for name in toc_lua_files():
+    for name in toc_lua_files(test_file):
         load_file(ROOT / "LootLogic" / name, "LootLogic/" + name)(ADDON_NAME, ns)
     cases = load_file(test_file, "tests/" + test_file.name)(ADDON_NAME, ns, harness)
     if lua_type(cases) != "table":

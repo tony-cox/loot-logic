@@ -17,6 +17,14 @@ ns.L = L
 L.chatPrefix = "LootLogic:"
 L.debugPrefix = "LootLogic debug:"
 
+-- Category labels used by the public result API (spec 12.4, UX 7).
+L.categoryEquip = "Equip"
+L.categoryAH = "AH"
+L.categoryVendor = "Vendor"
+L.categoryVendorAH = "Vendor/AH"
+L.categoryStays = "stays"
+L.categoryNoCategory = "No category"
+
 -- The engine error chat line, without the prefix (docs/ux.md 6).
 L.errorEngine = "error on an item, see /ll status."
 
@@ -81,6 +89,7 @@ L.reasonLoadout = " (%s)"
 L.reasonRefundable = "; refundable"
 L.reasonNoVendorValue = "; no vendor value"
 L.reasonNotInBags = "; not in your bags"
+L.tooltipMatchesBag = " (matches an item in your bags)"
 L.reasonEffect = "; effect not scored"
 L.reasonTrain = "; train %s first"
 L.skillDualWield = "Dual Wield"

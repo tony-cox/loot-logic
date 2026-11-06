@@ -22,6 +22,13 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 
 ## Answered decisions
 
+### Character badge abbreviation collisions
+
+| # | Raised in | Question | Answer | Date |
+|---|---|---|---|---|
+| D196 | ux 7; PR 25 review | Should the positional badge abbreviation rule change when it gives characters the same letters? | **Keep the current rule for v1.** Collisions are an accepted minor gap; a collision-free rule is a possible later enhancement. Applied to ux 7 and the spec's later-version list. | 2026-11-06 |
+| D197 | spec 13; ux 5.4; L60 | What should a chat item popup show when the same item is in the player's bags? | **Show the bag item's verdict**, labelled as matching an item in the bags. Match item ID and random suffix; when multiple bag slots match, use the first in bag and slot order. Other item links retain their link-only verdict. Applied to spec 13 and ux 5.4. | 2026-11-06 |
+
 ### Gear reason percentage format
 
 | # | Raised in | Question | Answer | Date |
@@ -247,6 +254,12 @@ The answers to the six questions of the M1 stage 2 plan (`/ll debug on|off`, `.w
 | D191 | spec 6 (`debug`); M1 stage 2 plan Q5 | Does `debug.enabled` persist across reload and logout? | **Yes:** L32 and L40 need it. The default stays false. | 2026-11-05 |
 | D192 | spec 13 (`/ll debug` row); M1 stage 2 plan Q6 | Does `on` write a first debug line? | **No:** the docs do not ask for one. | 2026-11-05 |
 | D193 | spec 13 (Errors: a change that changes nothing; usage line); D188; review 30 (finding 1, 2) | What does `/ll debug` reply when the state already matches, and does the usage line start with "Usage:"? | **It says so:** `on` when debug is already on prints "debug is already on.", and `off` when already off prints "debug is already off.", by spec 13's row for a change that changes nothing. **The usage line has no "Usage:" word,** as spec 13's examples have none: "/ll debug on\|off. Example: /ll debug on". Amends D188, which gave no "already" text and the "Usage:" form. Decided by Claude under the owner's standing instruction, for the owner to confirm. | 2026-11-05 |
+
+### M1 stage 3 live-check decisions
+
+| # | Raised in | Question | Answer | Date |
+|---|---|---|---|---|
+| D195 | spec 4, 7.2, 7.5; D26; L60 live check | Can a link-only item whose item data proves it is bind-on-pickup or quest-bound be routed to another character? | **No.** Bind-on-pickup (`bindType` 1) and quest-bound (`bindType` 4) links may still be evaluated as upgrades for the current character and may match this character's own wants, but they never route to another character. This narrows D26's general link-only assumption that a link is treated as tradable. Owner decision from the live check: a BoP quest reward cannot be mailed to another character, so naming other characters as destinations is not useful. Applied to spec 4 and 7.5 and `Engine/Classify.lua`. | 2026-11-06 |
 
 ### Spec questions
 

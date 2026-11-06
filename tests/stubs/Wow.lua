@@ -108,6 +108,9 @@ Setters of h.Stub (keep this list in step with the code below):
   MakeAuctionatorV1(prices, ages)
                           an Auctionator.API.v1 fake: price and age per item ID;
                           its calls are listed by AuctionatorCalls()
+  FireAuctionatorUpdate() fire the callback registered by Auctionator
+  MakeTooltip(name, info, owner) scripted tooltip for Stage 3 display tests
+  FireTooltip(tooltip)      run TooltipDataProcessor callbacks for the tooltip
   SetAuctionator(v1)      install the Auctionator global with API.v1 = v1 (nil:
                           API has no v1)
   AuctionatorCalls()      list of { name, callerID, itemID } of the fake's calls
@@ -733,7 +736,42 @@ local bagIndex = {
 for tab = 1, 9 do
     bagIndex["CharacterBankTab_" .. tab] = 5 + tab
 end
-Enum = { BagIndex = bagIndex }
+Enum = { BagIndex = bagIndex, TooltipDataType = { Item = 1 } }
+
+GREEN_FONT_COLOR = { r = 0.1, g = 1, b = 0.1 }
+GOLD_FONT_COLOR = { r = 1, g = 0.82, b = 0 }
+GRAY_FONT_COLOR = { r = 0.5, g = 0.5, b = 0.5 }
+ORANGE_FONT_COLOR = { r = 1, g = 0.5, b = 0 }
+BLUE_FONT_COLOR = { r = 0.25, g = 0.78, b = 0.92 }
+YELLOW_FONT_COLOR = { r = 1, g = 0.95, b = 0.2 }
+MAGENTA_FONT_COLOR = { r = 1, g = 0.1, b = 0.7 }
+RED_FONT_COLOR = { r = 1, g = 0.125, b = 0.125 }
+NORMAL_FONT_COLOR = { r = 1, g = 0.82, b = 0 }
+RAID_CLASS_COLORS = {
+    WARRIOR = { r = 0.78, g = 0.61, b = 0.43 },
+    PRIEST = { r = 1, g = 1, b = 1 },
+    HUNTER = { r = 0.67, g = 0.83, b = 0.45 },
+    DRUID = { r = 1, g = 0.49, b = 0.04 },
+}
+
+function GetCVarBool(name)
+    return name == "colorblindMode" and false or false
+end
+
+local iconFiles = {
+    ["Interface\\Icons\\INV_Sword_04"] = 135274,
+    ["Interface\\Icons\\INV_Misc_Coin_01"] = 133784,
+    ["Interface\\Icons\\INV_Misc_Coin_02"] = 133785,
+    ["Interface\\Icons\\INV_Misc_QuestionMark"] = 134400,
+}
+
+function GetFileIDFromPath(path)
+    return iconFiles[path]
+end
+
+function Stub.SetIconPath(path, fileID)
+    iconFiles[path] = fileID
+end
 
 function Stub.SetBagIndex(name, value)
     bagIndex[name] = value
@@ -1213,6 +1251,53 @@ C_TooltipInfo = {
     end,
 }
 
+local tooltipPostCalls = {}
+
+TooltipDataProcessor = {
+    AddTooltipPostCall = function(dataType, callback)
+        tooltipPostCalls[dataType] = tooltipPostCalls[dataType] or {}
+        tooltipPostCalls[dataType][#tooltipPostCalls[dataType] + 1] = callback
+    end,
+}
+
+function Stub.MakeTooltip(name, info, owner, itemLink)
+    return {
+        name = name,
+        info = info,
+        owner = owner,
+        itemLink = itemLink,
+        lines = {},
+        shown = false,
+        GetName = function(self)
+            return self.name
+        end,
+        GetOwner = function(self)
+            return self.owner
+        end,
+        GetPrimaryTooltipInfo = function(self)
+            return self.info
+        end,
+        GetItem = function(self)
+            return self.itemName, self.itemLink
+        end,
+        AddLine = function(self, text, red, green, blue)
+            self.lines[#self.lines + 1] = {
+                text = text,
+                color = { r = red, g = green, b = blue },
+            }
+        end,
+        Show = function(self)
+            self.shown = true
+        end,
+    }
+end
+
+function Stub.FireTooltip(tooltip)
+    for _, callback in ipairs(tooltipPostCalls[Enum.TooltipDataType.Item] or {}) do
+        callback(tooltip)
+    end
+end
+
 -- Outfitter Forever: Outfitter.Settings.Outfits and
 -- Outfitter:RegisterOutfitEvent are source-read;
 -- gOutfitter_GlobalSettings.Characters["First-Realm"] is source-read
@@ -1288,6 +1373,7 @@ end
 -- GetAuctionPriceByItemID(callerID, itemID) and GetAuctionAgeByItemID(callerID,
 -- itemID). Source-read on the beta client; live check L9.
 local auctionatorCalls = {}
+local auctionatorUpdate
 
 --- Builds an Auctionator.API.v1 fake that answers from the two tables and
 --- records each call.
@@ -1295,16 +1381,27 @@ local auctionatorCalls = {}
 -- @param ages table item ID to age in days
 -- @treturn table
 function Stub.MakeAuctionatorV1(prices, ages)
+    auctionatorCalls = {}
+    auctionatorUpdate = nil
     return {
         GetAuctionPriceByItemID = function(callerID, itemID)
             auctionatorCalls[#auctionatorCalls + 1] =
                 { name = "price", callerID = callerID, itemID = itemID }
             return prices[itemID]
         end,
+        GetAuctionPriceByItemLink = function(callerID, link)
+            auctionatorCalls[#auctionatorCalls + 1] =
+                { name = "link", callerID = callerID, link = link }
+            return prices[link]
+        end,
         GetAuctionAgeByItemID = function(callerID, itemID)
             auctionatorCalls[#auctionatorCalls + 1] =
                 { name = "age", callerID = callerID, itemID = itemID }
             return ages[itemID]
+        end,
+        RegisterForDBUpdate = function(callerID, callback)
+            auctionatorCalls[#auctionatorCalls + 1] = { name = "update", callerID = callerID }
+            auctionatorUpdate = callback
         end,
     }
 end
@@ -1319,6 +1416,13 @@ end
 -- @treturn table
 function Stub.AuctionatorCalls()
     return auctionatorCalls
+end
+
+--- Fires the callback Auctionator registered for database updates.
+function Stub.FireAuctionatorUpdate()
+    if auctionatorUpdate then
+        auctionatorUpdate()
+    end
 end
 
 -- LibStub with an AceAddon-3.0 fake. LibStub(name, silent) gives the library or

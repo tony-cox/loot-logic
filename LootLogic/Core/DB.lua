@@ -53,7 +53,7 @@ DB.defaults = {
             overlay = true,
             -- Off in the M0 code; M1 changes it to on, M2 back to off with its
             -- migration (spec 6).
-            tooltipNoWant = false,
+            tooltipNoWant = true,
             badge = {
                 enabled = true,
                 position = "TOPRIGHT",
