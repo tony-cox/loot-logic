@@ -76,6 +76,51 @@ local function Bag(item)
 end
 
 return {
+    ["chat link hooks retry and add only one line when the item script fails"] = function()
+        Boot()
+        local item = Define()
+        Include(item)
+        local popup = h.Stub.MakeTooltip("ItemRefTooltip", nil, nil, item.link)
+        popup.shown = true
+        popup.HookScript = function()
+            error("unsupported item script")
+        end
+        popup.IsShown = function(self)
+            return self.shown
+        end
+        popup.NumLines = function(self)
+            return #self.lines
+        end
+        popup.SetHyperlink = function(self, link)
+            self.itemLink = link
+        end
+        local addLine = popup.AddLine
+        popup.AddLine = function(self, text, red, green, blue)
+            addLine(self, text, red, green, blue)
+            _G["ItemRefTooltipTextLeft" .. #self.lines] = { GetText = function() return text end }
+        end
+        _G.ItemRefTooltip = popup
+        _G.SetItemRef = function(link)
+            popup.itemLink = link
+        end
+
+        h.Stub.FireEvent("ADDON_LOADED", "OtherAddon")
+        h.Stub.FireEvent("PLAYER_LOGIN")
+        popup:SetHyperlink(item.link)
+        h.Equal(#popup.lines, 1, "hyperlink hook works when item script fails")
+        popup.lines = {}
+        _G.SetItemRef(item.link)
+        h.Equal(#popup.lines, 1, "click hook adds a line")
+        h.Equal(
+            popup.lines[1].text,
+            "LootLogic: Alt (wants Tooltip Item; not in your bags)",
+            "popup result"
+        )
+        popup:SetHyperlink(item.link)
+        _G.SetItemRef(item.link)
+        h.Equal(#popup.lines, 1, "repeated notifications do not duplicate the line")
+    end,
+
     ["bag getter adds one result line"] = function()
         Boot()
         local item = Define()

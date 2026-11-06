@@ -1023,6 +1023,27 @@ return {
     end,
 
     -- Link-only
+    ["ClassifyB: bound link types never route to alts but still allow here"] = function()
+        local here = Boot()
+        StrongRings()
+        here.loadouts = { here.loadouts[1] }
+        for _, bindType in ipairs({ 1, 4 }) do
+            local altUpgrade = Ring(AGI, 10, { bindType = bindType })
+            Expect(Classify.Link(altUpgrade.link), "none", "nobody", true, "blocked alt upgrade")
+            local ownUpgrade = Ring(AGI, 200, { bindType = bindType })
+            Expect(Classify.Link(ownUpgrade.link), "equip", "equip", true, "own upgrade")
+            local wanted = Define({
+                equipLoc = false, classID = 7, subclassID = 5, bindType = bindType,
+            })
+            Want(BONESET, nil, { [wanted.itemID] = "include" })
+            Expect(Classify.Link(wanted.link), "none", "nobody", true, "blocked alt want")
+            Want(HERE, nil, { [wanted.itemID] = "include" })
+            Expect(Classify.Link(wanted.link), "none", "wantedhere", true, "own want")
+        end
+        local tradable = Ring(AGI, 10, { bindType = 0 })
+        Expect(Classify.Link(tradable.link), "char:" .. BONESET, "gearfor", true, "control")
+    end,
+
     ["ClassifyB: link-only results use the allowed codes (7.5)"] = function()
         local here = Boot()
         StrongRings()
