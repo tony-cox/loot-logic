@@ -1,6 +1,6 @@
 // Command statweights computes stat weights with WoWSims Forever's own engine (core.StatWeights).
 //
-// It is the program the LootLogic team runs to produce the weight tables in Data/Weights.lua. It imports the sim's
+// It is the program the LootLogic team runs to produce the weight tables in Data/WeightTables.lua. It imports the sim's
 // packages (MIT licensed, copyright (c) 2022 wowsims team, https://github.com/wowsims/forever) and calls their
 // exported functions, so it needs a checkout of the sim with the protobuf Go files generated. See README.md. The one
 // piece of sim logic it carries is individualSimRequest, below, under the sim's MIT licence.
@@ -8,9 +8,9 @@
 // We run this file as it stands. It is written against one sim commit (recorded in README.md), so a newer sim may need
 // small changes. It is not part of the addon.
 //
-// Input is a spec's build file (ui/specs/<class>/<spec>/builds/*.build.json in the sim): an IndividualSimSettings in
-// protojson holding talents, rotation, consumables, buffs and sometimes gear. The request is built from it the way
-// the sim's own CLI builds a normal run (individualSimRequest, which is unexported there, so it is reproduced below).
+// Input is an IndividualSimSettings in protojson or a full SIML settings file holding talents, rotation, consumables,
+// buffs and sometimes gear. The request is built from it the way the sim's own CLI builds a normal run
+// (individualSimRequest, which is unexported there, so it is reproduced below).
 package main
 
 import (
@@ -24,6 +24,7 @@ import (
 	"github.com/wowsims/forever/sim/core"
 	"github.com/wowsims/forever/sim/core/proto"
 	"github.com/wowsims/forever/sim/core/stats"
+	"github.com/wowsims/forever/sim/siml"
 	"google.golang.org/protobuf/encoding/protojson"
 	googleProto "google.golang.org/protobuf/proto"
 
@@ -34,28 +35,60 @@ func main() {
 	sim.RegisterAll() // registers every spec with the sim, as the sim's own CLI does at start-up
 
 	var (
-		buildPath  = flag.String("build", "", "IndividualSimSettings protojson (a ui/specs/*/builds/*.build.json)")
-		gearPath   = flag.String("gear", "", "EquipmentSpec protojson (a gear_sets/*.gear.json); replaces the build's gear")
-		statNames  = flag.String("stats", "", "comma list of the sim's Stat names to weigh, e.g. StatSpellDamage,StatHitRating")
-		pseudoList = flag.String("pseudo", "", "comma list of pseudo stats to weigh, e.g. PseudoStatMainHandDps")
-		refName    = flag.String("ref", "StatSpellDamage", "the stat every EP is measured against (its EP is 1)")
-		bonusList  = flag.String("bonus", "", "bonus stats added to the player, e.g. StatHitRating=-40")
-		iterations = flag.Int("iterations", 5000, "iterations per stat run (ignored in target mode)")
-		seed       = flag.Int64("seed", 101, "fixed random seed; the same seed gives the same result")
-		epCi       = flag.Float64("epci", 0, "target mode: the 90% interval each EP must reach (0 = off)")
-		maxMult    = flag.Int("maxmult", 0, "target mode: cap on the iteration multiplier (0 = none)")
-		hps        = flag.Bool("hps", false, "weigh and report HPS instead of DPS")
-		outPath    = flag.String("out", "", "write the full result as protojson to this file (default stdout)")
+		buildPath    = flag.String("build", "", "IndividualSimSettings protojson (a ui/specs/*/builds/*.build.json)")
+		gearPath     = flag.String("gear", "", "EquipmentSpec protojson (a gear_sets/*.gear.json); replaces the build's gear")
+		rotationPath = flag.String("rotation", "", "SIML APL rotation; replaces the build's rotation")
+		tankDamage   = flag.Float64("tank-damage", 0, "override the first target's minimum base damage")
+		statNames    = flag.String("stats", "", "comma list of the sim's Stat names to weigh, e.g. StatSpellDamage,StatHitRating")
+		pseudoList   = flag.String("pseudo", "", "comma list of pseudo stats to weigh, e.g. PseudoStatMainHandDps")
+		refName      = flag.String("ref", "StatSpellDamage", "the stat every EP is measured against (its EP is 1)")
+		bonusList    = flag.String("bonus", "", "bonus stats added to the player, e.g. StatHitRating=-40")
+		iterations   = flag.Int("iterations", 5000, "iterations per stat run (ignored in target mode)")
+		seed         = flag.Int64("seed", 101, "fixed random seed; the same seed gives the same result")
+		epCi         = flag.Float64("epci", 0, "target mode: the 90% interval each EP must reach (0 = off)")
+		maxMult      = flag.Int("maxmult", 0, "target mode: cap on the iteration multiplier (0 = none)")
+		hps          = flag.Bool("hps", false, "weigh and report HPS instead of DPS")
+		outPath      = flag.String("out", "", "write the full result as protojson to this file (default stdout)")
 	)
 	flag.Parse()
 
-	data, err := os.ReadFile(*buildPath)
-	if err != nil {
-		log.Fatal(err)
-	}
 	settings := &proto.IndividualSimSettings{}
-	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, settings); err != nil {
-		log.Fatal(err)
+	if strings.HasSuffix(*buildPath, ".siml") {
+		f, err := siml.ReadFile(*buildPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, w := range f.Warnings {
+			fmt.Fprintln(os.Stderr, "warning:", w)
+		}
+		settings = f.Settings
+	} else {
+		data, err := os.ReadFile(*buildPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := (protojson.UnmarshalOptions{}).Unmarshal(data, &proto.IndividualSimSettings{}); err != nil {
+			fmt.Fprintln(os.Stderr, "warning: JSON requires unknown-field compatibility:", err)
+		}
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, settings); err != nil {
+			log.Fatal(err)
+		}
+	}
+	if settings.Player == nil {
+		log.Fatal("build has no player")
+	}
+	if *rotationPath != "" {
+		f, err := siml.ReadFile(*rotationPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, w := range f.Warnings {
+			fmt.Fprintln(os.Stderr, "warning:", w)
+		}
+		settings.Player.Rotation = f.Rotation()
+	}
+	if settings.Player.Rotation == nil || len(settings.Player.Rotation.PriorityList) == 0 {
+		log.Fatal("build has no executable priority rotation")
 	}
 	if *gearPath != "" {
 		g, err := os.ReadFile(*gearPath)
@@ -65,6 +98,9 @@ func main() {
 		settings.Player.Equipment = core.EquipmentSpecFromJsonString(string(g))
 	}
 	simReq, warnings := individualSimRequest(settings, &proto.SimOptions{Iterations: int32(*iterations), RandomSeed: *seed})
+	if *tankDamage > 0 {
+		simReq.Encounter.Targets[0].MinBaseDamage = *tankDamage
+	}
 	for _, w := range warnings {
 		fmt.Fprintln(os.Stderr, "warning:", w)
 	}
@@ -129,6 +165,9 @@ func main() {
 	start := time.Now()
 	res := core.StatWeights(req)
 	fmt.Fprintf(os.Stderr, "elapsed %s\n", time.Since(start))
+	if res.GetError() != nil {
+		log.Fatalf("stat weights failed: %v", res.GetError())
+	}
 
 	// The printed +- is the per-iteration standard deviation, not the confidence interval.
 	v := res.GetDps()

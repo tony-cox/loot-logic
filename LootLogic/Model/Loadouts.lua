@@ -48,7 +48,7 @@ local function HasWorn(list)
 end
 
 --- The class's assumed spec: the spec row carrying assumed = true (from M0 on
---- the four rows of the M1 tables, spec 8.2), or nil for any other class.
+--- the four M1 assumed-spec rows, spec 8.2), or nil for any other class.
 -- @param class string class token, such as "MAGE"
 -- @treturn string|nil spec id
 function Loadouts.AssumedSpec(class)

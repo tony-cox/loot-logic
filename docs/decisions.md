@@ -22,6 +22,12 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 
 ## Answered decisions
 
+### M1 loadout test weights
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D207 | spec 8.2; testing M1 | Which additional specs should M1 support for multiple-loadout testing? | Add Druid Restoration and Paladin Retribution to M1. Recalculate the four existing tables against the latest WoWSims master, updating the wrapper as needed. Restoration uses the existing team-judgement healer rule. Applied to spec 8.2 and the M1 checklist. | 2026-11-07 |
+
 ### Reused character names
 
 | # | Where | Question | Answer | Date |

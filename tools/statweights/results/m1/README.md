@@ -1,6 +1,6 @@
 # M1 weight runs
 
-The runs behind the four M1 weight tables (Warlock Affliction, Shaman Enhancement, Druid Bear, Paladin Protection), made on 2026-11-02 with the program in the parent folder against WoWSims Forever commit `3e41c53f` (MIT, copyright (c) 2022 wowsims team). `Data/WeightTables.lua` is built from these. The tables are unverified in game.
+The original runs behind the four M0 weight tables (Warlock Affliction, Shaman Enhancement, Druid Bear, Paladin Protection), made on 2026-11-02 with the program in the parent folder against WoWSims Forever commit `3e41c53f` (MIT, copyright (c) 2022 wowsims team). The current M1 tables and their sources are recorded in `../m1-refresh/`. The tables are unverified in game.
 
 | File | What |
 |---|---|

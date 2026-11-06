@@ -57,7 +57,7 @@ The loadout name is required; quote it if needed. `worn` makes the loadout the w
 /ll loadout Chamoomile "Old set" remove
 ```
 
-The current build has four spec weight tables: Druid **Bear**, Shaman **Enhancement**, Paladin **Protection** and Warlock **Affliction**. Other classes can use wants and prices, but have no spec table in this build; their equippable gear stays with the `nospec` reason.
+The current build has six spec weight tables: Druid **Bear** and **Restoration**, Shaman **Enhancement**, Paladin **Protection** and **Retribution**, and Warlock **Affliction**. Other classes can use wants and prices, but have no spec table in this build; their equippable gear stays with the `nospec` reason.
 
 ## Wants
 
