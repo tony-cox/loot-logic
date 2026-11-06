@@ -756,9 +756,11 @@ An item-link popup that matches an item ID and random suffix in the player's bag
 | Wants | 1 | Someone's wants match: the winner first ("you" for the current character), then the others in the player's character order |
 | Gear | 1 per loadout comparison | The item is gear: the winner's loadouts for a result that goes to another character as an upgrade, the current character's for any other, largest gain first, each with its baseline piece and where it is |
 | Runners-up | 1 | Other characters were compared as gear destinations: up to two after the winner |
-| Price | 2 | A price was read: the price and its net after the cut; then the gain per unit and for the whole holding, and the thresholds |
+| Price | 2 | A price was read, including on demand for detail: the price and its net after the cut; then the gain per unit and for the whole holding, and the thresholds. A rejected stale quote and its calculations are marked stale. The lookup does not change the verdict |
 
-When the parts come to more than 8 lines, the gear lines with the smallest gains are cut and the last one kept ends "(and N more)".
+When additional comparisons needed only for detail are still loading, the verdict and available detail remain visible and the detail indicates that comparisons are loading. When the parts come to more than 8 lines, the gear lines with the smallest gains are cut and the last one kept ends "(and N more)".
+
+When `/ll why` cannot find the item, it replies "Couldn't find that item. Use /ll why followed by an item link." With no argument and nothing hovered, it replies "Hover an item or give a link."
 
 Examples, hovered on Chamoomile (proportions, not final wording):
 
@@ -797,7 +799,7 @@ Gear upgrade percentages in reasons and runner-up clauses use one decimal place,
 | Adapter failed | `pcall` | No sections or badges from it; the tooltip carries on | | Notice "BetterBags sections are off" | Bags row; checklist NEED | Once per session, at login |
 | Bag addon with no adapter (Baganator) | detection | Tooltip line only | | Footer: "Your bags show tooltips only; this tab is the full list." | Bags row, info | none |
 | Item data not loaded | item data not available | No result until it loads | none | "3 items still loading." | | none |
-| Engine error on an item | `pcall` per item | No category for that item | "LootLogic: error on an item, see /ll status." | Count | Errors | Once per session |
+| Engine error on an item | `pcall` per item | A classification error gives no category; an error while adding detail keeps the classified category | Classification error: "LootLogic: error on an item, see /ll status." A detail error keeps the category line. | Count | Errors | Once per session |
 
 **Chat lines** (each once per session unless stated; the scan summary comes after each scan and the mail-recorded line after each recorded mail; all start "LootLogic:"):
 - Provider error: "<provider> failed (<error>); using <other provider>." or, with no other provider, "<provider> failed (<error>); no prices until it works."

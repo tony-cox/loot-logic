@@ -831,7 +831,10 @@ result = {
         -- gainPct. baselineItem and baselineWhere hold two entries for a pair
         -- baseline.
         gear = { <entry>, ... },
-        -- Fields: source, unit, ageDays, net, vendor, gainPerUnit, gainTotal.
+        -- True while comparisons needed only for detail are still loading.
+        gearPending = <boolean>,
+        -- Fields: source, unit, ageDays, net, vendor, gainPerUnit, gainTotal,
+        -- stale (true when the quote is rejected as too old).
         price = <price>,
     },
 }
@@ -904,7 +907,7 @@ BetterBags is first because it has a real category API and an open (MIT) reposit
 - "LootLogic: Vendor/AH (no AH price yet: scan)"
 - "LootLogic: stays (best Cat chest owned)"
 
-**Holding Shift** and `/ll why` add the detail, at most 8 lines, in this order, each part only when it applies: the category line; one wants line (the winner, then the characters that lose, in the player's character order); one gear line per loadout comparison (8.5) of the character the result is about (the winner for `gearfor`, here for any other result of a gear item), largest gain first, each with its gain or loss and its baseline (a bank baseline adds "bank seen N d ago", or "bank not seen" with no bank snapshot); one line with up to two runners-up (step 3b); then two price lines when a price was read (source, unit price, age and net after the cut; the gain per unit and for the whole holding, and the thresholds). When the parts come to more than 8 lines, the gear lines with the smallest gains are cut and the last one kept ends "(and N more)". Pressing or releasing Shift while the tooltip is shown adds or removes the detail without a new hover (from memory: technical findings 12.2, live check L59); if it cannot, the detail is shown only by `/ll why`. Layout and examples: `docs/ux.md` 5.4.
+**Holding Shift** and `/ll why` add the detail, at most 8 lines, in this order, each part only when it applies: the category line; one wants line (the winner, then the characters that lose, in the player's character order); one gear line per loadout comparison (8.5) of the character the result is about (the winner for `gearfor`, here for any other result of a gear item), largest gain first, each with its gain or loss and its baseline (a bank baseline adds "bank seen N d ago", or "bank not seen" with no bank snapshot); one line with up to two runners-up (step 3b); then two price lines when a price was read (source, unit price, age and net after the cut; the gain per unit and for the whole holding, and the thresholds). Detail reads a price on demand even when classification did not need one. A rejected stale quote and its calculations are shown marked stale; the lookup and its display do not change the verdict. If comparisons needed only for detail are still loading, the verdict and available detail remain visible and the detail indicates that additional comparisons are loading. When the parts come to more than 8 lines, the gear lines with the smallest gains are cut and the last one kept ends "(and N more)". Pressing or releasing Shift while the tooltip is shown adds or removes the detail without a new hover (from memory: technical findings 12.2, live check L59); if it cannot, the detail is shown only by `/ll why`. Layout and examples: `docs/ux.md` 5.4.
 
 **Overlay:** a corner badge by category: a square badge with a letter for Equip, AH, Vendor and Vendor/AH (E, A, V, ?), and a round badge with the first letter of the display name, in class colour, for a character (letters on a collision: `docs/ux.md` section 7). The item's border is left alone, because it shows quality. Shown on default bags and EUI Bags; design in `docs/ux.md` section 7.
 
@@ -969,6 +972,7 @@ BetterBags is first because it has a real category API and an open (MIT) reposit
 | Unknown template (M2) | "No template named 'foo'. Templates: ..." |
 | Unknown command | "Unknown command 'foo'. /ll help lists them." |
 | `/ll why` or `/ll protect` with no link and nothing hovered | "Hover an item or give a link." |
+| `/ll why` cannot find the item | "Couldn't find that item. Use /ll why followed by an item link." |
 | `/ll reset confirm` with nothing pending, or after 30 seconds | "Nothing to confirm. Type /ll reset first." |
 | Wants for a character that cannot receive from here | Allowed and saved: "Otherguy cannot receive from this character (faction)." |
 | A change that changes nothing | "Zugar already wants Trade Goods: Cloth." |

@@ -319,6 +319,8 @@ local function IsSoulbound(facts)
     return facts.bound
 end
 
+Classify.IsSoulbound = IsSoulbound
+
 -- Equippable armour or a weapon (spec 7.2 step 3): the slot type is one of
 -- Data/Slots.lua and the item is neither cosmetic armour (4:5) nor a
 -- profession tool (step 1d); Scoring.Group answers that.

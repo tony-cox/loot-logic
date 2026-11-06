@@ -9,6 +9,7 @@ local Tooltip = {}
 ns.Tooltip = Tooltip
 
 local API = ns.API
+local Detail = ns.Detail
 local DB = ns.DB
 local Events = ns.Events
 local L = ns.L
@@ -17,6 +18,28 @@ local Util = ns.Util
 local itemRefTooltipHooked = false
 local itemRefHyperlinkHooked = false
 local itemRefClickHooked = false
+local tracked = {}
+local refreshing = false
+local rebuildingContext = {}
+local hooked = {}
+
+local function TrackLifecycle(tooltip)
+    if hooked[tooltip] or type(tooltip.HookScript) ~= "function" then
+        return
+    end
+    local function ClearTracking()
+        if not refreshing then
+            tracked[tooltip] = nil
+        end
+    end
+    pcall(tooltip.HookScript, tooltip, "OnHide", ClearTracking)
+    pcall(tooltip.HookScript, tooltip, "OnTooltipCleared", ClearTracking)
+    hooked[tooltip] = true
+end
+
+local function ShiftDown()
+    return type(IsShiftKeyDown) == "function" and IsShiftKeyDown()
+end
 
 local function IsUsableLink(link)
     return type(link) == "string" and link ~= "" and Util.ParseLink(link) ~= nil
@@ -43,25 +66,26 @@ local function IsComparison(tooltip)
     return name == "ShoppingTooltip1" or name == "ShoppingTooltip2"
 end
 
-local function Classify(info)
+local function Classify(info, fromInbox)
     local getterName = info.getterName
     local args = info.getterArgs or {}
     if getterName == "GetBagItem" then
         if type(args[1]) == "number" and type(args[2]) == "number" then
-            return API.ClassifyBagSlot(args[1], args[2]), true
+            return API.ClassifyBagSlot(args[1], args[2]), true, nil, true
         end
         if IsUsableLink(info.hyperlink) then
-            return API.ClassifyLink(info.hyperlink), true
+            return API.ClassifyLink(info.hyperlink), true, info.hyperlink
         end
         return nil, false
     end
     if getterName == "GetInboxItem" then
         local link = info.hyperlink
-        if not IsUsableLink(link) and type(args[1]) == "number" and type(args[2]) == "number" then
+        local validArgs = type(args[1]) == "number" and type(args[2]) == "number"
+        if not IsUsableLink(link) and validArgs then
             link = GetInboxItemLink(args[1], args[2])
         end
         if IsUsableLink(link) then
-            return API.ClassifyLink(link, true), true
+            return API.ClassifyLink(link, true), true, link, validArgs
         end
         return nil, false
     end
@@ -70,7 +94,7 @@ local function Classify(info)
         link = args[1]
     end
     if IsUsableLink(link) then
-        return API.ClassifyLink(link), true
+        return API.ClassifyLink(link, fromInbox), true, link
     end
     return nil, false
 end
@@ -100,7 +124,7 @@ local function HasLine(tooltip, text)
     return false
 end
 
-local function AddLine(tooltip, info, bagResult, matchesBag)
+local function AddLine(tooltip, info, bagResult, matchesBag, savedContext)
     if IsComparison(tooltip) then
         return
     end
@@ -111,14 +135,28 @@ local function AddLine(tooltip, info, bagResult, matchesBag)
     if not display.tooltip then
         return
     end
-    local result, hasInput = bagResult, matchesBag
+    local result, hasInput, classificationLink = bagResult, matchesBag, nil
     if info and not matchesBag then
-        result, hasInput = Classify(info)
+        local getterUsed
+        result, hasInput, classificationLink, getterUsed =
+            Classify(info, savedContext and savedContext.fromInbox)
+        if getterUsed then
+            savedContext = {
+                getterName = info.getterName,
+                getterArgs = info.getterArgs,
+                fromInbox = info.getterName == "GetInboxItem",
+            }
+        end
     end
     if not result and not hasInput then
         local link = ItemLink(tooltip)
-        if link then
-            result = API.ClassifyLink(link, info and info.getterName == "GetInboxItem")
+        if IsUsableLink(link) then
+            result = API.ClassifyLink(
+                link,
+                (savedContext and savedContext.fromInbox)
+                    or (info and info.getterName == "GetInboxItem")
+            )
+            classificationLink = link
         end
     end
     if not result then
@@ -127,12 +165,39 @@ local function AddLine(tooltip, info, bagResult, matchesBag)
     if result.reasonCode == "nobody" and not display.tooltipNoWant then
         return
     end
+    if info or savedContext or classificationLink then
+        TrackLifecycle(tooltip)
+        tracked[tooltip] = {
+            info = info,
+            bagResult = bagResult,
+            matchesBag = matchesBag,
+            context = savedContext
+                or {
+                    info = info,
+                    getterName = info
+                        and info.getterName
+                        and (
+                            (info.getterName ~= "GetBagItem" and info.getterName ~= "GetInboxItem")
+                            or (savedContext and savedContext.getterName)
+                        ),
+                    getterArgs = info and info.getterArgs,
+                    link = classificationLink,
+                    fromInbox = info and info.getterName == "GetInboxItem",
+                },
+        }
+    end
     local line = result.line .. (matchesBag and L.tooltipMatchesBag or "")
     if HasLine(tooltip, line) then
         return
     end
     local color = result.color
     tooltip:AddLine(line, color.r, color.g, color.b)
+    if ShiftDown() then
+        local detailLines = Detail.Lines(result)
+        for index = 2, #detailLines do
+            tooltip:AddLine(detailLines[index], color.r, color.g, color.b)
+        end
+    end
     tooltip:Show()
 end
 
@@ -152,19 +217,26 @@ local function MatchingBagSlot(link)
 end
 
 local function AddItemRefLine(tooltip, link)
+    tracked[tooltip] = nil
     if not IsUsableLink(link) then
         link = ItemLink(tooltip)
     end
     if IsUsableLink(link) then
         local bag, slot = MatchingBagSlot(link)
         if bag then
-            AddLine(tooltip, nil, API.ClassifyBagSlot(bag, slot), true)
+            AddLine(
+                tooltip,
+                nil,
+                API.ClassifyBagSlot(bag, slot),
+                true,
+                { bag = bag, slot = slot, link = link }
+            )
         else
             AddLine(tooltip, {
                 getterName = "SetHyperlink",
                 getterArgs = { link },
                 hyperlink = link,
-            })
+            }, nil, false, { link = link })
         end
         return
     end
@@ -178,13 +250,85 @@ local function AddItemRefLine(tooltip, link)
     AddLine(tooltip, info)
 end
 
+local function RefreshShownTooltips(_, key)
+    if key ~= "LSHIFT" and key ~= "RSHIFT" then
+        return
+    end
+    if refreshing then
+        return
+    end
+    refreshing = true
+    for tooltip, state in pairs(tracked) do
+        if type(tooltip.IsShown) == "function" and tooltip:IsShown() and state then
+            local context = state.context
+            local args = context
+                    and (context.getterArgs or (context.info and context.info.getterArgs))
+                or {}
+            local rebuild
+            if
+                tooltip:GetName() == "ItemRefTooltip"
+                and context
+                and context.link
+                and type(tooltip.SetHyperlink) == "function"
+            then
+                rebuild = function()
+                    tooltip:SetHyperlink(context.link)
+                end
+            elseif context and context.bag and type(tooltip.SetBagItem) == "function" then
+                rebuild = function()
+                    tooltip:SetBagItem(context.bag, context.slot)
+                end
+            elseif
+                context
+                and context.getterName == "GetInboxItem"
+                and type(tooltip.SetInboxItem) == "function"
+            then
+                -- API guess (L59): setter takes mail and attachment indices.
+                rebuild = function()
+                    tooltip:SetInboxItem(args[1], args[2])
+                end
+            elseif
+                context
+                and context.getterName == "GetBagItem"
+                and type(tooltip.SetBagItem) == "function"
+            then
+                rebuild = function()
+                    tooltip:SetBagItem(args[1], args[2])
+                end
+            elseif context and context.link and type(tooltip.SetHyperlink) == "function" then
+                rebuildingContext[tooltip] = context
+                rebuild = function()
+                    tooltip:SetHyperlink(context.link)
+                end
+            elseif context and context.hyperlink and type(tooltip.SetHyperlink) == "function" then
+                rebuild = function()
+                    tooltip:SetHyperlink(context.hyperlink)
+                end
+            end
+            if rebuild then
+                if type(tooltip.ClearLines) == "function" then
+                    tooltip:ClearLines()
+                end
+                rebuild()
+                rebuildingContext[tooltip] = nil
+            end
+        else
+            tracked[tooltip] = nil
+        end
+    end
+    refreshing = false
+end
+
+Events.Register("MODIFIER_STATE_CHANGED", RefreshShownTooltips)
+
 TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip)
     local info = tooltip:GetPrimaryTooltipInfo()
+    tracked[tooltip] = nil
     if tooltip:GetName() == "ItemRefTooltip" then
         local link = info and (info.hyperlink or (info.getterArgs or {})[1])
         AddItemRefLine(tooltip, link)
     else
-        AddLine(tooltip, info)
+        AddLine(tooltip, info, nil, false, rebuildingContext[tooltip])
     end
 end)
 

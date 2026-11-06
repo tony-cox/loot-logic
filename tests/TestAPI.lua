@@ -103,6 +103,23 @@ return {
         h.Nil(API.ClassifyLink(item.link), "pending link item")
     end,
 
+    ["classification detail is fresh and does not expand the public API"] = function()
+        Boot()
+        local item = Define({ classID = 12 })
+        local here = LootLogicDB.characters[HERE]
+        here.asks = { types = {}, items = {} }
+        LootLogicDB.characters[OTHER].asks.items[item.itemID] = "include"
+        Put(item)
+        local first = API.ClassifyBagSlot(0, 1)
+        h.Equal(first.detail.wants.winner, OTHER, "first want")
+        LootLogicDB.characters[OTHER].asks.items[item.itemID] = nil
+        here.asks.items[item.itemID] = "include"
+        local refreshed = API.ClassifyBagSlot(0, 1)
+        h.Equal(refreshed.reasonCode, first.reasonCode, "category remains from cached verdict")
+        h.Equal(refreshed.detail.wants.winner, HERE, "fresh asks are reflected")
+        h.Equal(API.DetailLines, nil, "no additional public API method")
+    end,
+
     ["results have the public category line and palette fields"] = function()
         Boot()
         local item = Define()

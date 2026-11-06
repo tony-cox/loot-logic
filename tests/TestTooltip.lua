@@ -1,6 +1,7 @@
 local _, ns, h = ...
 
 local API = ns.API
+local Detail = ns.Detail
 
 local HERE = "Local Test-Realm"
 local OTHER = "Alt Test-Realm"
@@ -76,6 +77,42 @@ local function Bag(item)
 end
 
 return {
+    ["hidden or cleared tooltip does not revive an old item on Shift"] = function()
+        Boot()
+        local item = Define()
+        Include(item)
+        for _, action in ipairs({ "Hide", "ClearLines" }) do
+            local tooltip = Tooltip("GameTooltip", {
+                getterName = "GetHyperlink",
+                getterArgs = { item.link },
+                hyperlink = item.link,
+            }, nil, item.link)
+            tooltip[action](tooltip)
+            tooltip.shown = true
+            tooltip.info = { getterName = "GetUnit" }
+            tooltip.itemLink = nil
+            h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+            h.Equal(tooltip.info.getterName, "GetUnit", "old item is not restored")
+        end
+    end,
+    ["Shift rebuilds a chat popup from its link after the bag changes"] = function()
+        Boot()
+        local item, replacement = Define(), Define()
+        Bag(item)
+        Include(item)
+        local popup = Tooltip("ItemRefTooltip", {
+            getterName = "SetHyperlink",
+            getterArgs = { item.link },
+            hyperlink = item.link,
+        }, nil, item.link)
+        Bag(replacement)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+        h.Equal(popup.itemLink, item.link, "popup still shows clicked item")
+        h.True(
+            string.find(popup.lines[1].text, "not in your bags", 1, true) ~= nil,
+            "new bag match is checked"
+        )
+    end,
     ["chat link hooks retry and add only one line when the item script fails"] = function()
         Boot()
         local item = Define()
@@ -97,7 +134,11 @@ return {
         local addLine = popup.AddLine
         popup.AddLine = function(self, text, red, green, blue)
             addLine(self, text, red, green, blue)
-            _G["ItemRefTooltipTextLeft" .. #self.lines] = { GetText = function() return text end }
+            _G["ItemRefTooltipTextLeft" .. #self.lines] = {
+                GetText = function()
+                    return text
+                end,
+            }
         end
         _G.ItemRefTooltip = popup
         _G.IsModifiedClick = function()
@@ -256,6 +297,224 @@ return {
 
         h.Equal(#tooltip.lines, 0, "pending bag has no line")
         h.Equal(linkCalls, 0, "pending bag does not try link fallback")
+    end,
+
+    ["Shift adds and removes shared detail on the stationary bag tooltip"] = function()
+        Boot()
+        local item = Define()
+        Bag(item)
+        Include(item)
+        h.Stub.SetShiftDown(false)
+        local tooltip = Tooltip("GameTooltip", {
+            getterName = "GetBagItem",
+            getterArgs = { 0, 1 },
+        })
+        h.Equal(#tooltip.lines, 1, "category before Shift")
+        h.Stub.SetShiftDown(true)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+        local result = API.ClassifyBagSlot(0, 1)
+        local expected = Detail.Lines(result)
+        h.Equal(#tooltip.lines, #expected, "all shared detail lines shown")
+        h.Equal(tooltip.lines[2].text, expected[2], "same wants line")
+        h.Stub.SetShiftDown(false)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+        h.Equal(#tooltip.lines, 1, "release rebuilds category only")
+    end,
+
+    ["Shift refresh retains the classified link for incomplete tooltip payloads"] = function()
+        Boot()
+        local item = Define()
+        Include(item)
+        h.Stub.SetShiftDown(false)
+        local tooltips = {
+            Tooltip("GameTooltip", {
+                getterName = "GetHyperlink",
+                getterArgs = { item.link },
+            }),
+            Tooltip("GameTooltip", nil, nil, item.link),
+            Tooltip("GameTooltip", {
+                getterName = "GetHyperlink",
+                getterArgs = { "invalid" },
+                hyperlink = "invalid",
+            }, nil, item.link),
+        }
+        h.Stub.SetShiftDown(true)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+        for _, tooltip in ipairs(tooltips) do
+            h.True(#tooltip.lines > 1, "detail appears for the classified link")
+            h.True(
+                tooltip.info and tooltip.info.getterArgs[1] == item.link,
+                "refresh uses the resolved link"
+            )
+        end
+        h.Stub.SetShiftDown(false)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+        for _, tooltip in ipairs(tooltips) do
+            h.Equal(#tooltip.lines, 1, "detail clears after Shift release")
+        end
+    end,
+
+    ["Shift refresh uses valid link fallbacks for malformed bag and inbox getters"] = function()
+        Boot()
+        local item = Define()
+        Include(item)
+        local originalClassifyLink = API.ClassifyLink
+        local cases = {
+            {
+                getterName = "GetBagItem",
+                getterArgs = { "bad" },
+                hyperlink = item.link,
+            },
+            {
+                getterName = "GetBagItem",
+                getterArgs = {},
+            },
+            {
+                getterName = "GetInboxItem",
+                getterArgs = { "bad" },
+                hyperlink = "bad",
+            },
+            {
+                getterName = "GetInboxItem",
+                getterArgs = {},
+                hyperlink = item.link,
+            },
+        }
+        h.Stub.SetShiftDown(false)
+        for _, info in ipairs(cases) do
+            local tooltip = h.Stub.MakeTooltip("GameTooltip", info, nil, item.link)
+            local badBagCalls, badInboxCalls, inboxSeen = 0, 0, false
+            local setBagItem, setInboxItem = tooltip.SetBagItem, tooltip.SetInboxItem
+            tooltip.SetBagItem = function(self, ...)
+                badBagCalls = badBagCalls + 1
+                return setBagItem(self, ...)
+            end
+            tooltip.SetInboxItem = function(self, ...)
+                badInboxCalls = badInboxCalls + 1
+                return setInboxItem(self, ...)
+            end
+            local classifyLink = API.ClassifyLink
+            API.ClassifyLink = function(link, fromInbox)
+                inboxSeen = inboxSeen or fromInbox == true
+                return classifyLink(link, fromInbox)
+            end
+            h.Stub.FireTooltip(tooltip)
+            h.Stub.SetShiftDown(true)
+            h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+            h.True(#tooltip.lines > 1, "Shift adds detail from the fallback link")
+            h.Stub.SetShiftDown(false)
+            h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+            API.ClassifyLink = classifyLink
+            h.Equal(badBagCalls, 0, "malformed bag getter is not reused")
+            h.Equal(badInboxCalls, 0, "malformed inbox getter is not reused")
+            if info.getterName == "GetInboxItem" then
+                h.True(inboxSeen, "inbox fallback remains classified as inbox")
+            end
+        end
+        API.ClassifyLink = originalClassifyLink
+    end,
+
+    ["modifier refresh clears tracking after a tooltip becomes excluded or pending"] = function()
+        Boot()
+        local first = Define()
+        local second = Define()
+        Include(first)
+        Include(second)
+        local tooltip = Tooltip("GameTooltip", {
+            getterName = "GetHyperlink",
+            getterArgs = { first.link },
+            hyperlink = first.link,
+        }, nil, first.link)
+        tooltip:ClearLines()
+        tooltip.info = {
+            getterName = "GetInventoryItem",
+            getterArgs = { "player", 1 },
+            hyperlink = first.link,
+        }
+        h.Stub.FireTooltip(tooltip)
+        h.Stub.SetShiftDown(true)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "RSHIFT", 1)
+        h.Equal(#tooltip.lines, 0, "equipped transition does not restore prior item")
+        tooltip.info = {
+            getterName = "GetHyperlink",
+            getterArgs = { second.link },
+            hyperlink = second.link,
+        }
+        h.Stub.SetItemPending(second.itemID, second)
+        h.Stub.FireTooltip(tooltip)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+        h.Equal(#tooltip.lines, 0, "pending transition remains empty")
+        h.Stub.SetShiftDown(false)
+    end,
+
+    ["Shift inbox rebuild retains inbox classification without a hyperlink field"] = function()
+        Boot()
+        local item = Define()
+        Include(item)
+        h.Stub.SetInbox({ { items = { { link = item.link, count = 1 } } } })
+        local tooltip = Tooltip("GameTooltip", {
+            getterName = "GetInboxItem",
+            getterArgs = { 1, 1 },
+        })
+        local original = API.ClassifyLink
+        local inboxSeen = false
+        h.Stub.SetShiftDown(true)
+        API.ClassifyLink = function(link, fromInbox)
+            inboxSeen = inboxSeen or fromInbox == true
+            return original(link, fromInbox)
+        end
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+        API.ClassifyLink = original
+        h.True(inboxSeen, "inbox flag preserved on refresh")
+        h.True(#tooltip.lines >= 2, "inbox detail rebuilt")
+        h.Stub.SetShiftDown(false)
+    end,
+
+    ["Shift release keeps detail while the other key remains down"] = function()
+        Boot()
+        local item = Define()
+        Bag(item)
+        Include(item)
+        h.Stub.SetShiftDown(false)
+        local tooltip = Tooltip("GameTooltip", { getterName = "GetBagItem", getterArgs = { 0, 1 } })
+        h.Stub.SetShiftDown(true)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+        local detailed = #tooltip.lines
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "RSHIFT", 1)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+        h.Equal(#tooltip.lines, detailed, "other Shift keeps detail visible")
+        h.Stub.SetShiftDown(false)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "RSHIFT", 0)
+        h.Equal(#tooltip.lines, 1, "last Shift release removes detail")
+    end,
+
+    ["Shift ignores unrelated modifiers, hidden tooltips, and refreshes popups"] = function()
+        Boot()
+        local item = Define()
+        Include(item)
+        h.Stub.SetShiftDown(false)
+        local tooltip = Tooltip("GameTooltip", {
+            getterName = "GetHyperlink",
+            getterArgs = { item.link },
+            hyperlink = item.link,
+        }, nil, item.link)
+        h.Stub.SetShiftDown(true)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LCTRL", 1)
+        h.Equal(#tooltip.lines, 1, "unrelated modifier has no effect")
+        tooltip.shown = false
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+        h.Equal(tooltip.shown, false, "hidden tooltip stays hidden")
+        h.Stub.SetShiftDown(false)
+        local popup = Tooltip("ItemRefTooltip", {
+            getterName = "GetHyperlink",
+            getterArgs = { item.link },
+            hyperlink = item.link,
+        }, nil, item.link)
+        popup.shown = true
+        h.Stub.SetShiftDown(true)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+        h.True(#popup.lines >= 2, "shown item-link popup gets detail")
+        h.Stub.SetShiftDown(false)
     end,
 
     ["malformed primary hyperlink falls back to the tooltip item link"] = function()

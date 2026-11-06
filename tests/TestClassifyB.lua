@@ -1033,7 +1033,10 @@ return {
             local ownUpgrade = Ring(AGI, 200, { bindType = bindType })
             Expect(Classify.Link(ownUpgrade.link), "equip", "equip", true, "own upgrade")
             local wanted = Define({
-                equipLoc = false, classID = 7, subclassID = 5, bindType = bindType,
+                equipLoc = false,
+                classID = 7,
+                subclassID = 5,
+                bindType = bindType,
             })
             Want(BONESET, nil, { [wanted.itemID] = "include" })
             Expect(Classify.Link(wanted.link), "none", "nobody", true, "blocked alt want")

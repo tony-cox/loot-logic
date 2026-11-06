@@ -15,6 +15,8 @@ local DB = ns.DB
 local Events = ns.Events
 local Util = ns.Util
 local Probe = ns.Probe
+local API = ns.API
+local Detail = ns.Detail
 
 local debugEventsRegistered = false
 
@@ -75,9 +77,164 @@ local function RunDebug(rest)
     end
 end
 
+local function InstanceArgument(argument)
+    local id, suffix = string.match(argument, "^(%d+):([%-]?%d+)$")
+    if id then
+        return tonumber(id), tonumber(suffix)
+    end
+    id = string.match(argument, "^(%d+)$")
+    if id then
+        return tonumber(id), nil
+    end
+end
+
+local function BagMatch(itemID, suffix)
+    for bag = 0, 5 do
+        for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+            local link = C_Container.GetContainerItemLink(bag, slot)
+            local foundID, foundSuffix = Util.ParseLink(link or "")
+            if foundID == itemID and (suffix == nil or suffix == foundSuffix) then
+                return bag, slot
+            end
+        end
+    end
+end
+
+local function Hovered()
+    local tooltip = _G.GameTooltip
+    if not tooltip then
+        return nil
+    end
+    local info
+    if type(tooltip.GetPrimaryTooltipInfo) == "function" then
+        local ok, value = pcall(tooltip.GetPrimaryTooltipInfo, tooltip)
+        if ok then
+            info = value
+        end
+    end
+    if info and info.getterName == "GetBagItem" then
+        local args = info.getterArgs or {}
+        if type(args[1]) == "number" and type(args[2]) == "number" then
+            return { bag = args[1], slot = args[2] }
+        end
+    end
+    local link = info and (info.hyperlink or (info.getterArgs or {})[1])
+    if
+        (type(link) ~= "string" or not Util.ParseLink(link))
+        and type(tooltip.GetItem) == "function"
+    then
+        local ok, _, itemLink = pcall(tooltip.GetItem, tooltip)
+        if ok then
+            link = itemLink
+        end
+    end
+    if type(link) == "string" and Util.ParseLink(link) then
+        return { link = link, fromInbox = info and info.getterName == "GetInboxItem" }
+    end
+end
+
+local function ItemLink(itemID, suffix)
+    local itemString = string.format("item:%d:0:0:0:0:0:%d", itemID, suffix or 0)
+    local ok, _, link = pcall(C_Item.GetItemInfo, itemString)
+    if ok and type(link) == "string" then
+        return link
+    end
+end
+
+local function HyperlinkArgument(argument)
+    local raw = argument
+    local prefix = string.match(raw, "^(|c%x%x%x%x%x%x%x%x)") or string.match(raw, "^(|cn[%w_]+:)")
+    if prefix then
+        if string.sub(raw, -2) ~= "|r" then
+            return nil
+        end
+        raw = string.sub(raw, #prefix + 1, -3)
+    end
+    if string.sub(raw, 1, 7) ~= "|Hitem:" or string.sub(raw, -3) ~= "]|h" then
+        return nil
+    end
+    local separatorStart, separatorEnd = string.find(raw, "|h%[", 1)
+    if not separatorStart or separatorStart <= 8 then
+        return nil
+    end
+    local fields = string.sub(raw, 8, separatorStart - 1)
+    if string.find(fields, "|", 1, true) or not Util.ParseLink("item:" .. fields) then
+        return nil
+    end
+    local name = string.sub(raw, separatorEnd + 1, #raw - 3)
+    if string.find(name, "|", 1, true) then
+        return nil
+    end
+    return argument
+end
+
+local function RunWhy(rest)
+    local argument = string.match(strtrim(rest), "^(.*)$")
+    if argument == "" then
+        local context = Hovered()
+        if not context then
+            Log.Chat(L.detailNoHover)
+            return
+        end
+        local result
+        if context.bag then
+            result = API.ClassifyBagSlot(context.bag, context.slot)
+        else
+            result = API.ClassifyLink(context.link, context.fromInbox)
+        end
+        if result then
+            local lines = Detail.Lines(result)
+            for _, line in ipairs(lines) do
+                Log.Chat(string.gsub(line, "^" .. L.chatPrefix .. " ", ""))
+            end
+        end
+        return
+    end
+    local link = HyperlinkArgument(argument)
+    local context, id, suffix
+    if link then
+        context = { link = link }
+    else
+        id, suffix = InstanceArgument(argument)
+        if not id then
+            Log.Chat(L.detailUsage)
+            return
+        end
+        local bag, slot = BagMatch(id, suffix)
+        if bag then
+            context = { bag = bag, slot = slot }
+        else
+            if type(C_Item.DoesItemExistByID) == "function" then
+                local ok, exists = pcall(C_Item.DoesItemExistByID, id)
+                if ok and exists == false then
+                    Log.Chat(L.detailNotFound)
+                    return
+                end
+            end
+            link = ItemLink(id, suffix)
+            if not link then
+                return
+            end
+            context = { link = link }
+        end
+    end
+    local result
+    if context.bag then
+        result = API.ClassifyBagSlot(context.bag, context.slot)
+    else
+        result = API.ClassifyLink(context.link, context.fromInbox)
+    end
+    if result then
+        for _, line in ipairs(Detail.Lines(result)) do
+            Log.Chat(string.gsub(line, "^" .. L.chatPrefix .. " ", ""))
+        end
+    end
+end
+
 --- Runs the command typed after /ll. The command word is case-insensitive;
 --- words after "probe" are ignored (spec 13, errors rule 2). "debug" takes on
---- or off. Anything else prints one placeholder line for now.
+--- or off; "why" explains the hovered or given item. Other commands print
+--- one placeholder line for now.
 -- @param message string the typed text after the slash command
 function Slash.Run(message)
     local word, rest = string.match(strtrim(message), "^(%S+)%s*(.*)$")
@@ -88,6 +245,10 @@ function Slash.Run(message)
     end
     if word == "debug" then
         RunDebug(rest)
+        return
+    end
+    if word == "why" then
+        RunWhy(rest)
         return
     end
     Log.Chat(L.slashPlaceholder)

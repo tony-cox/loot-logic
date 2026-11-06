@@ -149,6 +149,7 @@ local timers = {}
 local frames = {}
 local chatLines = {}
 local metadata = { LootLogic = { Version = "0.0.0-test" } }
+local shiftDown = false
 
 local function Floor(value)
     return math.floor(value)
@@ -554,6 +555,15 @@ function Stub.FireEvent(event, ...)
             handler(frame, event, ...)
         end
     end
+end
+
+--- Sets the aggregate Shift state used by Shift tooltip tests.
+function Stub.SetShiftDown(value)
+    shiftDown = value == true
+end
+
+function IsShiftKeyDown()
+    return shiftDown
 end
 
 --- The chat lines printed so far (the live list).
@@ -1261,13 +1271,24 @@ TooltipDataProcessor = {
 }
 
 function Stub.MakeTooltip(name, info, owner, itemLink)
-    return {
+    local tooltip = {
         name = name,
         info = info,
         owner = owner,
         itemLink = itemLink,
         lines = {},
         shown = false,
+        scripts = {},
+        HookScript = function(self, event, callback)
+            self.scripts[event] = self.scripts[event] or {}
+            table.insert(self.scripts[event], callback)
+        end,
+        Hide = function(self)
+            self.shown = false
+            for _, callback in ipairs(self.scripts.OnHide or {}) do
+                callback(self)
+            end
+        end,
         GetName = function(self)
             return self.name
         end,
@@ -1289,7 +1310,33 @@ function Stub.MakeTooltip(name, info, owner, itemLink)
         Show = function(self)
             self.shown = true
         end,
+        IsShown = function(self)
+            return self.shown
+        end,
+        ClearLines = function(self)
+            self.lines = {}
+            for _, callback in ipairs(self.scripts.OnTooltipCleared or {}) do
+                callback(self)
+            end
+        end,
+        SetBagItem = function(self, bag, slot)
+            self.info = { getterName = "GetBagItem", getterArgs = { bag, slot } }
+            local item = C_Container.GetContainerItemInfo(bag, slot)
+            self.itemLink = item and item.hyperlink
+            Stub.FireTooltip(self)
+        end,
+        SetInboxItem = function(self, mail, attachment)
+            self.info = { getterName = "GetInboxItem", getterArgs = { mail, attachment } }
+            self.itemLink = GetInboxItemLink(mail, attachment)
+            Stub.FireTooltip(self)
+        end,
+        SetHyperlink = function(self, link)
+            self.info = { getterName = "SetHyperlink", getterArgs = { link }, hyperlink = link }
+            self.itemLink = link
+            Stub.FireTooltip(self)
+        end,
     }
+    return tooltip
 end
 
 function Stub.FireTooltip(tooltip)

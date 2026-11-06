@@ -11,6 +11,7 @@ ns.API = API
 local Classify = ns.Classify
 local DB = ns.DB
 local Generations = ns.Generations
+local Detail = ns.Detail
 local L = ns.L
 local Log = ns.Log
 local Roster = ns.Roster
@@ -222,7 +223,11 @@ end
 -- @param slot number
 -- @treturn table|nil result, nil while pending, empty or a closed bank
 function API.ClassifyBagSlot(bag, slot)
-    return Decorate(Classify.BagSlot(bag, slot))
+    local result = Decorate(Classify.BagSlot(bag, slot))
+    if result and result.reasonCode ~= "error" then
+        Log.Guard("engine", Detail.Attach, result, { bag = bag, slot = slot })
+    end
+    return result
 end
 
 --- Classifies a hyperlink without a bag slot and decorates its result.
@@ -234,7 +239,11 @@ function API.ClassifyLink(link, fromInbox)
     if fromInbox then
         mail = "inbox"
     end
-    return Decorate(Classify.Link(link, mail))
+    local result = Decorate(Classify.Link(link, mail))
+    if result and result.reasonCode ~= "error" then
+        Log.Guard("engine", Detail.Attach, result, { link = link, fromInbox = fromInbox == true })
+    end
+    return result
 end
 
 --- The active category rows in display order. The Contents totals are added

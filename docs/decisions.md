@@ -22,6 +22,14 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 
 ## Answered decisions
 
+### M1 Stage 4 detail
+
+| # | Raised in | Question | Answer | Date |
+|---|---|---|---|
+| D198 | spec 12.4 and 13; ux 5.4; M1 Stage 4 plan | What price information does detail show when the quote is stale or classification did not need a price? | Show stale quotes and their calculations marked as stale. Look up a price on demand for detail even when classification did not need one. Neither changes the verdict. Applied to spec 12.4 and 13 and ux 5.4. | 2026-11-06 |
+| D199 | spec 12.4 and 13; ux 5.4; M1 Stage 4 plan | What if comparisons needed only for detail are still loading after the verdict is ready? | Keep the verdict and available detail visible, and indicate that additional comparisons are loading. Applied to spec 12.4 and 13 and ux 5.4. | 2026-11-06 |
+| D200 | spec 13; M1 Stage 4 plan | What does `/ll why` say when it cannot find an item? | Say "Couldn't find that item. Use /ll why followed by an item link." When nothing is hovered, keep the existing "Hover an item or give a link." message. Applied to spec 13 and ux 5.4. | 2026-11-06 |
+
 ### Character badge abbreviation collisions
 
 | # | Raised in | Question | Answer | Date |
