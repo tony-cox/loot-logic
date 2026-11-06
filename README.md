@@ -21,6 +21,7 @@ LootLogic is read-only: it never sells, mails, lists on the AH, deletes or moves
 
 | File | What it holds |
 |---|---|
+| [`docs/COMMANDS.md`](docs/COMMANDS.md) | Commands and workflows implemented in the current development build |
 | [`docs/spec.md`](docs/spec.md) | The full v1 specification: decisions, data model, classification algorithm, gear ranking and loadouts, price providers (Auctionator, AHDB), bag adapters (BetterBags first), UI, tests, live-client checks, build plan, risks |
 | [`docs/ux.md`](docs/ux.md) | UX and workflow design: journey, first run, layouts, Wants editor, Contents tab, stale-data feedback, accessibility |
 | [`docs/technical-findings.md`](docs/technical-findings.md) | What is known about the Forever client's APIs and other addons, the file layout, events, tests and the live-client checks (section numbers match the spec) |

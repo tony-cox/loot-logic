@@ -38,6 +38,7 @@ Design rule from the pair: **defaults serve the solo player, and nothing the pow
 | Install | Installs LootLogic; ideally BetterBags and a price addon | Nothing until login | |
 | First login ever (empty `LootLogicDB`) | Logs in | Registers the character that just logged in (key, class, faction, level, gear, proficiency) and creates the account-wide data; shows a small welcome dialog once, with a button to open setup (section 2.1) | Once per account |
 | First login on each other character | Logs in on each alt | Registers it (key, class, faction, level, gear, proficiency), creates one worn loadout, named after the class's assumed spec, with that spec, puts it last in the order; one chat line | SavedVariables are written at logout and read at login, so the next character played sees the new one |
+| Login with an incompatible saved loadout | Logs in after reusing a name for a different class | Removes loadouts whose known spec belongs to another class; keeps compatible loadouts and other saved character data, and creates a default loadout if none remain | A same-name replacement of the same class is not detected by this check |
 | Setup, one sitting, any character | Characters tab: order and a spec per loadout for everyone. Wants tab: a template or ticks per character | Checklist lines turn done | Every character's specs and wants can be edited from any character |
 | First prices | Scans at the AH | Chat line: "LootLogic: prices updated: 9 items left Vendor/AH (6 AH, 3 Vendor)." | If the first AH visit comes late, Vendor/AH is large in the first days |
 | Steady state (levelling) | Loots | Tooltip line on every item; sections fill (BetterBags) or badges appear (default bags) | No chat in steady state |
@@ -138,6 +139,10 @@ A character joins the roster only by logging in with LootLogic enabled. Before t
 **More than one PC:** `LootLogicDB` lives in the local WTF folder. A character played only on another computer is unseen on this computer; one played on both is as fresh as its last login on this one. The help text says so. LootLogic cannot detect it.
 
 There are no placeholder characters in v1: a character exists only once it has logged in.
+
+Command errors suggest a candidate only when exactly one is one insertion, deletion, substitution or adjacent transposition away. Character reset restores Receives gear to its default, replaces the loadouts with one default worn loadout, and clears wants and protect, while preserving the display name, imported membership, identity and snapshots. A valid reset preview replaces the previous one; invalid commands leave it pending, and confirmation at exactly 30 seconds is valid. Quote a character named `all` or `confirm` to distinguish it from the reserved reset commands. `/ll perf` reports the scope, item count and elapsed time of the latest completed full classification, or says when none has completed.
+
+If the client cannot supply item type names, `/ll want` reports that types are unavailable and leaves saved data unchanged when resolving a type.
 
 ---
 

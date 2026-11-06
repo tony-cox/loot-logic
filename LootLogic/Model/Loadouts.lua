@@ -256,7 +256,23 @@ Events.Register("PLAYER_LOGIN", function()
         return
     end
     if type(entry.loadouts) == "table" and #entry.loadouts > 0 then
-        return
+        local changed = false
+        for index = #entry.loadouts, 1, -1 do
+            local spec = Specs[entry.loadouts[index].spec]
+            if spec and spec.class ~= entry.class then
+                table.remove(entry.loadouts, index)
+                changed = true
+            end
+        end
+        if #entry.loadouts > 0 then
+            if changed then
+                if not HasWorn(entry.loadouts) then
+                    MakeWorn(entry.loadouts, entry.loadouts[1])
+                end
+                Generations.Bump("loadouts")
+            end
+            return
+        end
     end
     -- The client's class name, such as "Mage" (the first value of UnitClass;
     -- from memory, no live check yet).
