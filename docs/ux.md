@@ -47,7 +47,7 @@ Design rule from the pair: **defaults serve the solo player, and nothing the pow
 | A character goes idle | Doesn't play it for weeks | Snapshot unchanged and still correct unless played elsewhere; age shown in Characters and Status; one chat line at login names characters not seen for `staleDays` | Section 6 |
 | Price addon added later | Installs Auctionator or AHDB | The checklist's Prices line changes from "No price addon" to "Auctionator found, no price seen yet"; Vendor/AH stays until the first scan, then the scan chat line | |
 | Bag addon changed | For example Baganator to BetterBags | Adapter detected at login; checklist line updates | |
-| Set addon changed | For example Outfitter added or removed | Set sources detected at login; the linked-set dropdown and the Status Sets row update | |
+| Set addon changed | For example Outfitter added or removed | Set sources detected at login; the linked-sets picker and the Status Sets row update | |
 
 ### 1.3 Setup order, and why
 
@@ -211,7 +211,7 @@ Mockups show proportions, not pixels. `Dr`, `Pa`, `Wl`, `Sh` stand for class ico
 | Contested Metal and Stone: Boneset wins, Zugar wants it too           |
 |                                                                       |
 | v Zugar, Warlock 5, Horde                                             |
-|   Worn  Name       Spec                   Linked set                  |
+|   Worn  Name       Spec                   Linked sets                 |
 |   (o)   [Affliction] [Affliction*    v]  [none                v] [-]  |
 |         Armour: [use the setting v]                                   |
 |   [+ loadout]  [Keep Affliction]                                      |
@@ -231,8 +231,8 @@ Mockups show proportions, not pixels. `Dr`, `Pa`, `Wl`, `Sh` stand for class ico
 **Specs and loadouts.** A character's spec is set on a **loadout**, not on the character. A loadout is a name plus a spec, for example "Cat" with the Cat spec.
 - A new character has one loadout, named after its class's assumed spec by default, with that spec. "Pick a spec for the character" means picking the spec on that loadout.
 - A character that plays more than one role (a druid who tanks, heals and does damage) can add a loadout for each, with its own spec.
-- Exactly one loadout is the **worn** one: the role the character is wearing now. Move the radio when the character changes role.
-- A loadout can be **linked** to a gear set the player already has in Outfitter or the Blizzard Equipment Manager. The link only labels the set's pieces in tooltips ("LootLogic: stays (in set Tank (Bear))"); every piece of an imported set stays whether it is linked or not. It does not set the spec.
+- Exactly one loadout is the **worn** one: the role the character is wearing now. From M2, equipping a linked set selects its loadout; the player can also move the radio. Changing individual pieces leaves the selection in place. Set-equip detection is unverified (L64); when a source cannot identify the equipped set reliably, use the radio.
+- A loadout can be **linked** to any number of sets the player already has in Outfitter or the Blizzard Equipment Manager. Each set links to at most one loadout. The links label set pieces in tooltips ("LootLogic: stays (in set Tank (Bear))") and select the loadout when a linked set is equipped. Equipping an unlinked set, such as Fishing, leaves the worn loadout unchanged. Every piece of an imported set stays whether it is linked or not. A loadout can remain unlinked and still give gear advice; it can be selected manually, but automatic selection needs a linked set and a reliable signal. A link does not set the spec.
 - Gear is scored under the spec of every loadout. A piece that is the best owned piece under two loadouts' specs stays for both; a new item that beats it under only one of them becomes that loadout's best piece, and the old piece stays while it is still the best under the other. On the current character an item is an upgrade (Equip) only under the worn loadout's spec; under another loadout's spec, a piece that becomes best at any level in the window stays. A replaced piece is judged like any other item only when it no longer wins at any level in the window for any scored loadout. For another character an item is an upgrade if it beats what that character owns under any of its loadouts, and the tooltip names the loadout ("Chamoomile (+9% Cat over Ferocious Bracers)"). In v1, loadouts that share a spec and an armour rule share one comparison, and a loadout is not compared with the pieces of its own set (that is v1.1).
 - Most players need only the first loadout. Extra loadouts are for characters that swap roles.
 
@@ -247,9 +247,9 @@ Mockups show proportions, not pixels. `Dr`, `Pa`, `Wl`, `Sh` stand for class ico
 | Wants "2 types" | The number of item types (class or subclass flags) ticked for that character. Item includes and excludes are counted as "+N" after it ("2 +2": two types, two items). *Design choice.* |
 | Ineligible row (Otherguy) | A character that cannot receive from the current character (for example, the other faction). Greyed, no order buttons, the reason on a second line. Not a destination. |
 | Expanded row (`v Zugar, ...`) | That character's loadouts. Click the row header to expand or collapse. |
-| Worn radio `(o)` | Marks the loadout the character is wearing now. Exactly one per character; move it when the character changes role. |
+| Worn radio `(o)` | Marks the selected worn loadout. Exactly one per character; equipping a linked set selects its loadout, and the radio also permits manual selection (spec 9.2, L64). |
 | Loadout name | Click it to rename the loadout (unique per character, case ignored). The default name is the spec's name and has no special meaning. |
-| Spec, Linked set | The loadout's spec, and an imported Outfitter or Equipment Manager set linked to it, or none. |
+| Spec, Linked sets | The loadout's spec, and a picker for zero or more imported Outfitter or Equipment Manager sets. A set already linked to another loadout is unavailable until it is unlinked there. |
 | Armour | Use the setting (Settings tab), best armour only, or any armour, for this loadout. A druid can set Resto to any armour (cloth counts) and leave Bear on best only. |
 | `[-]`, `[+ loadout]` | Remove this loadout, add another. |
 | Receives gear upgrades | Off means no gear upgrades are routed to the character (Gear shows OFF); its wants still apply. For bank alts. On by default. |
@@ -258,7 +258,7 @@ Mockups show proportions, not pixels. `Dr`, `Pa`, `Wl`, `Sh` stand for class ico
 | State | What shows |
 |---|---|
 | Empty (only the current character) | One row (you). Content text: "Only Chamoomile so far. Log in on each of your other characters once with LootLogic enabled; they appear here. Nothing can be sent to a character LootLogic has not seen." |
-| Loading | The linked-set dropdown reads "reading Outfitter..." until the import finishes. Rows never wait on it. |
+| Loading | The linked-sets picker reads "reading Outfitter..." until the import finishes. Rows never wait on it. |
 | Stale | The Seen cell as above. Hover: "Zugar's gear, bags and level as of 16 d ago on this PC. Wants are not affected." |
 | Error | A row whose snapshot will not load shows "data error: log in on Zugar to refresh" in place of level and spec, and is not a destination. Detail in Status. |
 | Ineligible | Greyed, no order buttons, the reason on a second line (faction or region). |
@@ -433,7 +433,7 @@ Behaviour is in section 4.
 | "4 of 6 done" | Checklist lines 1 to 6 that are done, out of 6. Line 7 (bank) is advice and never counts. Lines 2 and 6 count although their not-done tag is info, and line 4's "receives no gear" line counts as done. |
 | Prices rows | One per price provider found. "newest 0 d" is the age in days of its newest price (for Auctionator, the newest of the prices LootLogic has read this session; "no price seen yet" before the first, and "Auctionator: price over 21 d old" when every price read has no age because it is older than 21 days). "1,204 items" is how many items it has prices for (AHDB only; Auctionator's public API gives no count, so its row omits it). When `requireLastScan` is on and Auctionator is the only provider, its row adds "latest-scan setting ignored (needs AHDB)". "last scan 14:02, house Horde" is when the AH was last scanned and for which faction's auction house. |
 | Bags rows | One per bag display. **active** means it is drawing categories now. **idle** means it is installed but another addon draws the bags. "last refresh 2 s ago" is the last time LootLogic updated it. |
-| Sets rows | One per set source found (Equipment Manager, Outfitter). **active** means its sets can be read for the linked-set dropdown and for protection; **found** means it is installed but no set has been read yet; **failed** shows the error, as for a bag addon. |
+| Sets rows | One per set source found (Equipment Manager, Outfitter). **active** means its sets can be read for the linked-sets picker and for protection; **found** means it is installed but no set has been read yet; **failed** shows the error, as for a bag addon. |
 | Roster | How long ago each character was last seen. |
 | Build | LootLogic version, the saved-data format version (schema), and the game client build. |
 | Errors, `[Copy]`, `[Clear]` | Errors this session. Copy opens a box to select from. Clear empties the list. |

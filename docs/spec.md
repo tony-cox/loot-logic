@@ -33,7 +33,7 @@ description: "LootLogic: specification for a shared, standalone WoW Forever addo
 | Core contract | `ClassifyBagSlot` and `ClassifyLink` return a result (fields in section 12.4). Bag adapters are thin. The tooltip line works with any bag addon. |
 | Wants | Per character: item class/subclass flags, each with an optional minimum quality, plus per-item include and exclude. Stored in account-wide SavedVariables, edited only in game. Quantity caps are a later addition (section 23). |
 | Priority | **Wants:** the current character wins if it wants the item; otherwise the first wanting character in **one global character order** that the player sets in the UI. **Gear:** the current character wins if the item is an upgrade for it, including within the level look-ahead window (both are parameters). Otherwise the biggest score gain wins, with the player's character order as the tie-break. |
-| Loadouts | Each character has one or more **loadouts**, each a name plus a spec (weights). The **worn loadout** is the one the character is wearing. A loadout can be linked by name to an **imported set** (section 4), read-only, for labels. Every member of an imported set is protected, linked or not. |
+| Loadouts | Each character has one or more **loadouts**, each a name plus a spec (weights). The **worn loadout** is the one the character is wearing. A loadout can be linked by name to imported sets (section 4), read-only, for labels and worn-loadout selection. Every member of an imported set is protected, linked or not. |
 | Gear ranking | Built in: a weighted sum of stats. The baseline is the best owned piece per loadout spec, armour rule and evaluated level (worn, bags, bank, inbox and mail on the way). Gear that is best at any level in the look-ahead window is protected, preserving useful intermediate upgrades without keeping inferior alternatives. |
 | Sets | A Protect list; read-only import of set membership from the Blizzard Equipment Manager and Outfitter Forever (members always stay); and the "best owned per loadout spec" protection. |
 | Prices | Optional providers: **Auctionator** and **AHDB**. The freshest price wins. **No usable price means Vendor/AH.** That covers no price addon at all, an item not seen, a stale price, or (if enabled) missing from the latest scan. Never Vendor (agreed). |
@@ -96,7 +96,7 @@ description: "LootLogic: specification for a shared, standalone WoW Forever addo
 - **Spec:** a named set of stat weights for one class and role, for example Druid Bear (id `DRUID:bear`; the list of specs is in technical findings 14.1). LootLogic does not detect which spec a character plays: the player picks it, and a new character starts with an assumed one (section 8.2).
 - **Loadout:** a name plus a spec, belonging to one character, for example "Cat" with spec `DRUID:cat`.
   - The **worn loadout** is the one the character wears.
-  - A loadout may be linked by name to an imported set.
+  - From M2, a loadout may be linked by name to imported sets. A set links to at most one loadout. Equipping a linked set selects its loadout as worn (section 9.2; unverified, L64).
 - **Imported set:** a gear set the player already keeps in another addon (an Outfitter Forever outfit) or in the game's own Equipment Manager. LootLogic reads which items are in it, when the player logs in and when the set changes, and never creates, edits or equips one. Where each is stored, and how another character's sets are read: technical findings 9.1.
 - **Usable price:** a provider price that exists, is at most `maxPriceAgeDays` old, and (when `requireLastScan` is on and AHDB is available) appeared in AHDB's latest full scan. Auctionator cannot say, so `requireLastScan` is for AHDB (section 11.2). Age is counted in whole days, rounded down; a price with no age is not usable. When both providers have a usable price, the one with the smaller age wins, then `providerOrder`.
 
@@ -256,12 +256,12 @@ LootLogicDB = {
                     spec = "DRUID:bear",
                     worn = true,
                     assumed = false,
-                    link = { source = "outfitter", set = "Tank" },
+                    links = { { source = "outfitter", set = "Tank" } }, -- M2
                 },
                 {
                     name = "Cat",
                     spec = "DRUID:cat",
-                    link = { source = "equipmentset", set = "Cat" },
+                    links = { { source = "equipmentset", set = "Cat" } }, -- M2
                 },
                 {
                     name = "Resto",
@@ -662,9 +662,10 @@ LootLogic reads gear sets that other addons keep. It is set **reading**, not set
 LootLogic reads the sets of Outfitter Forever and of the Blizzard Equipment Manager (the imported sets, section 4), for the current character and for the others. Where each addon keeps its sets, and how another character's sets are read, is in `docs/technical-findings.md` section 9.1.
 
 ### 9.2 Design: loadouts
-- A **loadout** = `{ name, spec, worn?, assumed?, armor?, link? }`.
+- A **loadout** = `{ name, spec, worn?, assumed?, armor?, links? }` (`links` is M2).
   - `worn` marks what is worn. Exactly one per character.
-  - `link` optionally names an imported set (`{ source = "outfitter" or "equipmentset", set = "<name>" }`). It is used for labels ("LootLogic: stays (in set Tank (Bear))").
+  - `links` is an optional list of imported sets, each `{ source = "outfitter" or "equipmentset", set = "<name>" }`. A loadout may link to multiple sets; each set links to at most one loadout of that character. The links are used for labels ("LootLogic: stays (in set Tank (Bear))") and worn-loadout selection. A loadout needs no link to give gear advice; a set needs no link and its pieces remain protected.
+  - From M2, when the current character equips a linked Equipment Manager or Outfitter set, select its linked loadout as worn (unverified, live check L64). Equipping an unlinked set or changing individual pieces does not change the selected loadout. The player can still select a worn loadout manually; this is also the fallback for a source whose set-equip signal cannot be identified reliably. M1 uses explicit selection.
 - **Imported sets** are stored separately (`importedSets`), read-only. They are refreshed at login and when the set addon reports a change:
   - **Here:** read from the game or the set addon directly.
   - **Others:** read from the copy Outfitter keeps for all characters, matched by first name plus region. A character whose first name is shared with another is skipped (technical findings 9.1).
@@ -673,7 +674,7 @@ LootLogic reads the sets of Outfitter Forever and of the Blizzard Equipment Mana
 ### 9.3 Scope and size
 **Size (about 380 lines, about 9% of the addon):**
 1. **Protect list** per character and global: slash command, keybinding ("toggle protect on hovered item") and UI list. About 150 lines including UI.
-2. **Loadouts** `{name, spec, worn, assumed, armor, link}` in the Characters tab, plus the "in use" protection over loadout specs. About 90 lines beyond scoring.
+2. **Loadouts** `{name, spec, worn, assumed, armor, links}` in the Characters tab, plus the "in use" protection over loadout specs. About 90 lines beyond scoring.
 3. **Membership import** from the Equipment Manager (about 60 lines) and Outfitter Forever (about 80 lines). No per-set scoring.
 
 **What would be lost with the worn set only** (none of 1 to 3):
@@ -878,7 +879,7 @@ BetterBags is first because it has a real category API and an open (MIT) reposit
 
    Greyed rows are characters that are not eligible destinations from here. Expanding a row shows its **loadouts**:
    - name (click to rename), spec dropdown, an armour dropdown (use the setting, best only, any), a "worn" radio (the loadout the character is wearing now);
-   - "linked set" dropdown (imported Outfitter and Equipment Manager sets of that character, or none);
+   - linked sets (zero or more imported Outfitter and Equipment Manager sets of that character); a set may link to only one loadout. Equipping a linked set selects its loadout as worn (9.2, L64);
    - add and remove.
 2. **Wants.** A row of character buttons (class icon, name in class colour), up to 8, and a dropdown beyond that. It opens on here the first time each session, then on the last character edited.
    - **Left:** the item class tree (client names). Class rows expand to subclasses; each ticked row has a minimum-quality dropdown (any, common, uncommon, rare, epic).
@@ -929,7 +930,7 @@ BetterBags is first because it has a real category API and an open (MIT) reposit
 | `/ll wants [<display name>]` (M2) | Open the window on the Wants tab, on that character when a name is given |
 | `/ll status` | Print the setup checklist and the providers, adapters and snapshot ages in chat in M1; from M2 it opens the window on the Status tab. It also prints the session's last 5 errors |
 | `/ll refresh` | Rebuild caches and refresh adapters |
-| `/ll probe` | Run the automatic live-client checks (technical findings 18) and print PASS, FAIL or SKIP (with the reason) for each; then list the manual ones in 42 lines, one for each of the 41 manual checks and one for L5's above-level part, each with its number and the assumption it tests, with the 24 lines M1 needs marked (section 19: 23 manual checks and L5's above-level part). L28 and L63 wait for the client (up to 10 seconds and about 1.5 seconds) and print after the rest, then "probe done"; a second `/ll probe` before "probe done" is refused. Words after `probe` are ignored. Each run is kept in `debug.probe` (section 6); in a read-only session it runs and prints but saves nothing |
+| `/ll probe` | Run the automatic live-client checks (technical findings 18) and print PASS, FAIL or SKIP (with the reason) for each; then list the manual ones in 42 lines, one for each of the 41 manual checks through L63 and one for L5's above-level part, each with its number and the assumption it tests, with the 24 lines M1 needs marked (section 19: 23 manual checks and L5's above-level part). L28 and L63 wait for the client (up to 10 seconds and about 1.5 seconds) and print after the rest, then "probe done"; a second `/ll probe` before "probe done" is refused. Words after `probe` are ignored. Each run is kept in `debug.probe` (section 6); in a read-only session it runs and prints but saves nothing |
 | `/ll perf` | Scope, item count and elapsed time of the latest completed full classification; reports when none has completed |
 | `/ll debug on\|off` | Debug logging: lines echo to chat with a "LootLogic debug:" prefix, and the last `debug.maxLog` lines are kept in the saved data, readable after a reload. What it records (events, snapshots, mail capture, the logout check and more): technical findings 15 |
 | `/ll reset`, `/ll reset <display name>`, `/ll reset all`, `/ll reset confirm` | Clear the settings and the window settings (everything except `firstRunDone`); one character's loadouts (recreated as one worn loadout with the assumed spec), wants, protect list and `receivesGear` switch (restored to its default); or everything including the roster (the current character is registered again at once, and `firstRunDone` is kept). Character reset preserves the display name, imported equipment and outfitter membership, identity and snapshots. Each prints what it would clear, and nothing happens until `/ll reset confirm` is typed within 30 seconds |
@@ -1010,7 +1011,7 @@ Tests are assertions: hand-written cases with expected results taken from the ru
 
 ## 18. Live-client checks
 
-The checks to run in the first sessions after 2026-11-05 are in `docs/technical-findings.md` section 18 (L1 to L63). Each tests an assumption this spec makes, with the test, the expected result and what changes if it is wrong. Claims here that rest on a check name it, for example "live check L3".
+The checks to run in the first sessions after 2026-11-05 are in `docs/technical-findings.md` section 18 (L1 to L64). Each tests an assumption this spec makes, with the test, the expected result and what changes if it is wrong. Claims here that rest on a check name it, for example "live check L3".
 
 ---
 
@@ -1020,7 +1021,7 @@ The checks to run in the first sessions after 2026-11-05 are in `docs/technical-
 |---|---|---|---|
 | **M0: Engine offline** | Repo skeleton, DB and the migration framework (schema 1, no migration yet), roster, loadouts, wants, facts, stats, scoring, classification, AH rule, providers (stubbed), the original four weight tables (8.2), tests and fixtures | Before launch | All offline tests pass (the `migrations[2]` test is M2's; a test belongs to the milestone of the file it tests, technical findings 14) |
 | **M1: Probe and tooltip** | **No window.** The six M1 weight tables (8.2), snapshot capture, `/ll probe`, tooltip line, `/ll why`, the Auctionator provider, debug log, first-run welcome dialog (once per account), and these chat lines: added, first-run, no-price, provider error and engine error (`docs/ux.md` 2.1 and 6). No forget or rename in M1: they arrive with the Characters tab in M2. Setup by slash command: `/ll loadout`, `/ll want`, `/ll order`, `/ll gear`, `/ll protect`, `/ll status`; `/ll` prints them and the checklist | Launch week | By the M1 pass rule in `docs/TESTING.md`: L1 to L14 (L9 against Auctionator only), L20 to L28, L31, L32, L40, L43, L46, L49, L51 to L53 and L55 to L63 pass (a check that fails does not block M1 when its documented fallback is built), and tooltips are correct on the 4 test characters over three town trips each. Before M2 the team chooses each test character's spec by hand (L54). |
-| **M2: BetterBags v1** | BetterBags adapter, default-bag overlay, Protect tab, loadouts in the Characters tab, Equipment Manager and Outfitter membership import, minimal settings (with the `requireLastScan` toggle and its login line), Wants editor, Weights viewer (read-only), the assumed-spec tables for all nine classes and the assumed specs back on the list in 8.2, `migrations[2]` and its test (schema 2, section 6), `/ll types`, minimap button, Contents tab, checklist on the Status tab, the AHDB provider, the stale, scan summary, mail-recorded and mail-upgrade chat lines with their switches in the Settings tab, and the adapter-failed chat line | Week 2 | A tester does a full town trip from the BetterBags sections alone. L15 to L17, L29, L33, L34, L36 to L39, L41 to L45, L47 and L50 pass, and L9 passes for AHDB. |
+| **M2: BetterBags v1** | BetterBags adapter, default-bag overlay, Protect tab, loadouts in the Characters tab, Equipment Manager and Outfitter membership import and automatic worn-loadout selection for linked sets (9.2), minimal settings (with the `requireLastScan` toggle and its login line), Wants editor, Weights viewer (read-only), the assumed-spec tables for all nine classes and the assumed specs back on the list in 8.2, `migrations[2]` and its test (schema 2, section 6), `/ll types`, minimap button, Contents tab, checklist on the Status tab, the AHDB provider, the stale, scan summary, mail-recorded and mail-upgrade chat lines with their switches in the Settings tab, and the adapter-failed chat line | Week 2 | A tester does a full town trip from the BetterBags sections alone. L15 to L17, L29, L33, L34, L36 to L39, L41 to L45, L47 and L50 pass, L9 passes for AHDB, and L64 passes for each set source or its manual-selection fallback is built. |
 | **M3: More adapters** | BagBrother (Bagnon, Bagnonium), ArkInventory rule function (with docs), EUI overlay, the full Status tab (providers, adapters, set sources, errors), performance pass | Week 3 | L18, L19 and L35 pass |
 | **M4: Weights complete** | Weights for every spec in `Data/Specs.lua` (section 8.2), each with its source (the sim commit and inputs of a computed table, or team judgement) and a confidence label; the tables reviewed by the team | Before publish | L48 confirms the tree names. Every spec has its own table; no spec borrows another spec's table; the team has reviewed each table's source |
 | **Publish** | README, CurseForge project (name clear as of 2026-10-28) | When the team decides | |

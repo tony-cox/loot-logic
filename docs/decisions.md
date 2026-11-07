@@ -22,6 +22,13 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 
 ## Answered decisions
 
+### Automatic worn-loadout selection
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D208 | spec 4, 9.1, 13 and 19; ux 3.2 | Should equipping a linked set select its LootLogic loadout? | Yes, in M2: equipping a linked Equipment Manager or Outfitter set selects its loadout as worn. Manual piece changes leave the selected loadout in place. Keep manual selection and use it as the fallback if the set-equip signal cannot be identified reliably. M1 continues to use explicit selection. Duplicate links remain open in D209. Applied to spec 4, 9.1, 13 and 19, ux 3.2, and technical findings 9.1 and 18 (L64). | 2026-11-07 |
+| D209 | spec 6, 9.1, 9.2 and 13; ux 3.2; testing M2 | How should equipment sets and loadouts be linked? | In M2 a set may link to at most one loadout, and a loadout may link to multiple sets. Sets and loadouts may both remain unlinked; equipping an unlinked set leaves the worn loadout unchanged. Unlinked loadouts still give gear advice and can be selected manually. Automatic selection requires a linked set and a reliable equip signal. The names and per-set scoring are unchanged. Applied to spec 6, 9.1, 9.2 and 13, ux 3.2 and the M2 check. | 2026-11-07 |
+
 ### M1 loadout test weights
 
 | # | Where | Question | Answer | Date |

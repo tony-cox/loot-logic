@@ -13,7 +13,7 @@ This file is read by every coding tool used on the repo (Codex reads it directly
 | `docs/technical-findings.md` | APIs, other addons, file layout, events, tests and the live checks. Section numbers match the spec. Keeps implementation detail out of the spec |
 | `docs/sim-learnings.md` | What the team has learned about how WoWSims Forever works and what moves its results (gear, talents, hit cap, level) |
 | `tools/statweights/` | The Go program the team runs to compute stat weights with the sim (a development tool, not shipped with the addon) |
-| `docs/TESTING.md` | In-game test checklists per milestone, each with the rule that says when the milestone passes (M1 so far) |
+| `docs/TESTING.md` | In-game test checklists and checks per milestone, including the M1 pass rule and an M2 linked-set check |
 | `docs/decisions.md` | Decision log: open and answered decisions with dates. The place for product decisions and their history |
 | `docs/style.md` | Lua style guide and tooling (StyLua, luacheck) for the addon code; draft apart from the accepted points |
 | `CONTRIBUTING.md` | Rules for writing docs and comments, and for researching and using other addons' code |
