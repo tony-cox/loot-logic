@@ -294,6 +294,22 @@ function API.RegisterCallback(event, fn)
     callbacks[#callbacks + 1] = fn
 end
 
+local function Dispatch()
+    local generation = Generations.Total()
+    local changedName = pendingName
+    pendingName = nil
+    scheduled = false
+    for index = 1, #callbacks do
+        Log.Guard("events", callbacks[index], generation, changedName)
+    end
+end
+
+local function Schedule()
+    scheduled = true
+    C_Timer.After(0, Dispatch)
+    return true
+end
+
 Generations.OnBump(function(name)
     if not pendingName then
         pendingName = name
@@ -301,14 +317,8 @@ Generations.OnBump(function(name)
     if scheduled then
         return
     end
-    scheduled = true
-    C_Timer.After(0, function()
-        local generation = Generations.Total()
-        local changedName = pendingName
-        pendingName = nil
+    -- A scheduling error must not escape the bump; the next bump retries.
+    if Log.Guard("events", Schedule) == nil then
         scheduled = false
-        for index = 1, #callbacks do
-            Log.Guard("events", callbacks[index], generation, changedName)
-        end
-    end)
+    end
 end)

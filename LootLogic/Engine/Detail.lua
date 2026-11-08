@@ -137,7 +137,7 @@ local function Price(facts, result)
     local net = math.floor(price.unit * (100 - settings.ahCutPct) / 100)
     local gainPerUnit = net - vendor
     return {
-        source = source.label or source.id or source.provider or "price provider",
+        source = source.label or source.id or source.provider or L.detailUnknownSource,
         unit = price.unit,
         ageDays = price.ageDays,
         net = net,
@@ -204,12 +204,12 @@ function Detail.Attach(result, context)
 end
 
 local function Name(key)
-    return key == Roster.HereKey() and "you" or Roster.DisplayName(key) or key
+    return key == Roster.HereKey() and L.detailYou or Roster.DisplayName(key) or key
 end
 
 local function Percent(value)
     if value == math.huge then
-        return "infinite"
+        return L.detailInfinite
     end
     local rounded = math.floor(value * 10 + 0.5) / 10
     if rounded == math.floor(rounded) then
@@ -239,7 +239,7 @@ local function GearLine(entry)
                 or where == "inbox" and L.reasonWhereMail
             pieces[#pieces + 1] = location and (name .. ", " .. location) or name
         end
-        baseline = table.concat(pieces, " and ")
+        baseline = table.concat(pieces, L.detailAnd)
     end
     local text = string.format(
         L.detailGear,
@@ -310,7 +310,7 @@ function Detail.Lines(result)
         if price.ageDays == nil then
             age = L.reasonAgeOver
         elseif price.ageDays == 0 then
-            age = "today"
+            age = L.reasonAgeToday
         else
             age = string.format(L.reasonAgeDays, price.ageDays)
         end

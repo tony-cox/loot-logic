@@ -694,6 +694,16 @@ return {
         Expect(Classified(), "none", "belowthreshold", "one item")
     end,
 
+    ["Classify: a closed bank slot has no result even with its data loaded (12.4)"] = function()
+        Boot()
+        Provider({ unit = 14, ageDays = 0 })
+        local linen = Define({ sellPrice = 13 })
+        Put(linen, 6, 1, { count = 5 })
+        h.Nil(Classify.BagSlot(6, 1), "closed bank")
+        h.Stub.OpenBank()
+        h.Equal(Classify.BagSlot(6, 1) ~= nil, true, "open bank")
+    end,
+
     ["Classify: the bags and the bank count their own holding (7.5)"] = function()
         Boot()
         local settings = Settings()
@@ -703,6 +713,7 @@ return {
         local linen = Define({ sellPrice = 13 })
         Put(linen, 0, 1, { count = 120 })
         Put(linen, 6, 1, { count = 5 })
+        h.Stub.OpenBank()
         Expect(Classify.BagSlot(0, 1), "ah", "ah", "bags: 120")
         Expect(Classify.BagSlot(6, 1), "vendor", "vendor", "bank: 5")
         h.Equal(Classify.BagSlot(6, 1).reasonData.price.gainTotal, 5, "bank holding")

@@ -2,7 +2,7 @@
 
 ## Description
 
-A shared, standalone WoW: Forever addon for people who play alts. It sorts every bag item into a destination and fills those categories in the player's bag addon. Opening a bag shows, for each item:
+A shared, standalone WoW: Forever addon for people who play alts. It sorts every bag item into a destination and fills those categories in the player's bag addon. Each bag item gets one answer. A bag addon shows it as a section; the tooltip line and `/ll why` give it with the reason. The answers are:
 
 - sell to vendor
 - list on the AH
@@ -15,7 +15,7 @@ A character can have several loadouts (a name plus a spec, such as Bear and Cat 
 
 ## High level scope
 
-LootLogic is read-only: it never sells, mails, lists on the AH, deletes or moves items. Characters can mark specific items as wants: a want says that an item should go to that character. A character's wants are set by item class and subclass (for example all cloth), with per-item include and exclude. Gear ranking is built in and works per loadout. Tradable unwanted items with no usable price always go to Vendor/AH, since the vendor-or-auction call is the player's. Price data comes from optional providers; bag integration starts with BetterBags, with tooltip and overlay fallbacks.
+LootLogic is read-only: it never sells, mails, lists on the AH, deletes or moves items. Characters can mark specific items as wants: a want says that an item should go to that character. A character's wants are set by item class and subclass (for example all cloth), with per-item include and exclude. Gear ranking is built in and works per loadout. Sellable, tradable items nobody wants and the gear rules leave alone, with no usable price, always go to Vendor/AH (greys and bound items go to Vendor, or stay when they have no vendor value; any other item with no vendor value is still Vendor/AH), since the vendor-or-auction call is the player's. Price data comes from optional providers; bag integration starts with BetterBags, with tooltip and overlay fallbacks.
 
 ## Design
 

@@ -1,12 +1,12 @@
 ---
 name: lootlogic-ux
-description: "LootLogic UX and workflow design pass: personas, the end-to-end journey (install, registration, setup, town trip, new alts, stale data), first-run checklist, ASCII layouts for the Contents, Characters, Wants, Weights, Protect, Settings and Status tabs with empty, loading, stale and error states, Wants editor usability, Vendor/AH handling, stale-data feedback, accessibility, and a live-client tuning list. Nothing tested in a live Forever client."
+description: "LootLogic UX and workflow design pass: personas, the end-to-end journey (install, registration, setup, town trip, new alts, stale data), first-run checklist, ASCII layouts for the Contents, Characters, Wants, Weights, Protect, Settings and Status tabs with empty, loading, stale and error states, Wants editor usability, Vendor/AH handling, stale-data feedback, accessibility, and a live-client tuning list. Mostly untested on a live Forever client."
 
 ---
 
 # LootLogic: UX and workflow design pass
 
-Companion to `docs/spec.md` ("the spec"; section numbers below refer to it unless they say otherwise). Nothing here has run on a Forever client. Client behaviour keeps the spec's labels (source-read, from memory, unverified), and **untested** marks anything that waits for the live client (2026-11-05).
+Companion to `docs/spec.md` ("the spec"; section numbers below refer to it unless they say otherwise). Little of this has run on a Forever client: the M1 pieces (the tooltip line, `/ll why`, `/ll probe`, `/ll debug`, the chat lines and the loadout and wants commands) have been built and are being checked on build 1.60.1.70790, and the window, tabs and bag adapters are not built yet. Client behaviour keeps the spec's labels (source-read, from memory, unverified), and **untested** marks anything that waits for the live client (results: technical findings 18).
 
 **Terms:** the **current character** is the one the player is logged in on now. "This tab" and "this screen" mean the view being described. Characters are named by **display name**: the first name, given a space and one distinguishing letter when two characters share one (the full name when one letter cannot tell them apart), or set by the player (spec section 6, notes). The examples use Chamoomile as the current character.
 
@@ -374,8 +374,8 @@ Behaviour is in section 4.
 | State | What shows |
 |---|---|
 | Nothing routed | "Nothing is routed. Everything in these bags stays with Chamoomile." |
-| No price addon | Notice: "No price addon: everything tradable that nobody wants is in Vendor/AH. Auctionator or AHDB would sort most of it." |
-| Provider, no scan | Notice: "No AH scan yet: Vendor/AH holds everything tradable that nobody wants." |
+| No price addon | Notice: "No price addon: every tradable item that nobody wants and no other rule claims is in Vendor/AH. Auctionator or AHDB would sort most of it." |
+| Provider, no scan | Notice: "No AH scan yet: Vendor/AH holds every tradable item that nobody wants and no other rule claims." |
 | Loading | "3 items still loading." Rows show what is known. |
 | Error | "2 items could not be sorted: see Status." |
 | [Bank] with the bank closed | "Open your bank to sort it." |
@@ -420,7 +420,7 @@ Behaviour is in section 4.
 | State | What shows |
 |---|---|
 | Loading (first seconds after login) | "Checking addons..." in the Prices and Bags rows until the `PLAYER_LOGIN` work is done |
-| No provider | Prices row: "none: everything tradable that nobody wants goes to Vendor/AH"; checklist line 5 as TIP |
+| No provider | Prices row: "none: every tradable item that nobody wants and no other rule claims goes to Vendor/AH"; checklist line 5 as TIP |
 | Provider error | "AHDB: error (LastPrice missing), reading its saved data instead" or "AHDB: off after an error"; the error in the Errors list |
 | Adapter failed | Bags row: "BetterBags: FAILED: <first line>. Tooltips still work." [Retry] [Turn off]. Checklist line 6 turns NEED. |
 | Errors | "3 this session", the last 20 in a scroll list |
@@ -800,7 +800,7 @@ Gear upgrade percentages in reasons and runner-up clauses use one decimal place,
 | Character with an assumed spec | loadouts | Ranked by the class's assumed spec | Gear reasons (Equip and a character's gear line) say "(assumed)" | | Checklist TIP | none after the first-login line |
 | Bank never seen, or older than `staleDays` | `bank.updatedAt` | never seen: bank pieces missing from baselines; old: bank pieces as last seen | Shift only: "bank not seen" or "bank seen N d ago" | | Checklist info (never seen only) | none |
 | Mail recorded, not collected after `staleDays` | `inbound[].sentAt` | Still counted as owned | | | Mail cell "3 (16 d)" | none |
-| No price addon | provider detection | Every AH-able unwanted item is Vendor/AH | "LootLogic: Vendor/AH (no price addon)" | Notice | Prices row; checklist TIP | With the first-run line (2.1) |
+| No price addon | provider detection | Every AH-able unwanted item that no earlier rule claims is Vendor/AH | "LootLogic: Vendor/AH (no price addon)" | Notice | Prices row; checklist TIP | With the first-run line (2.1) |
 | Provider found, nothing scanned | AHDB reports no scans; for Auctionator, no item classified this session has a price (its public API cannot tell an empty database from no match; a price over 21 d old counts as a price, so its item shows the old-price reason below, not this one) | Vendor/AH | "LootLogic: Vendor/AH (no AH price yet: scan)" | Notice | Prices row | none |
 | Price older than `maxPriceAgeDays` | `ageDays` | Vendor/AH | "LootLogic: Vendor/AH (price 9 d old, max 7; was 1g 2s each (Auctionator))" | Icon hover with the old price | "newest price N d" | none |
 | Not in the latest scan (`requireLastScan`) | AHDB `inLastScan` | Vendor/AH | "LootLogic: Vendor/AH (not in the last scan)" | Icon hover | | none |
@@ -816,7 +816,7 @@ Gear upgrade percentages in reasons and runner-up clauses use one decimal place,
 - Engine error: "error on an item, see /ll status."
 - Saved data newer than this version (once, when the addon loads): "saved data is newer than this version and is left unchanged."
 - Saved data that could not be upgraded (once, when the addon loads): "saved data could not be upgraded and is left unchanged."
-- First run, no price addon: "no price addon found; tradable items nobody wants show as Vendor/AH."
+- First run, no price addon: "no price addon found; tradable items nobody wants, and no other rule claims, show as Vendor/AH."
 - Last scan ignored (at login, M2): "'Only prices from the latest scan' is on, but Auctionator cannot tell which items were in the last scan, so it is ignored. Use AHDB for this."
 - Scan summary: "prices updated: 9 items left Vendor/AH (6 AH, 3 Vendor)."
 - Mail recorded (off by default): "mail to Boneset recorded (2 items)."

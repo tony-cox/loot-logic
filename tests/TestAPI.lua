@@ -227,4 +227,26 @@ return {
         h.DeepEqual(calls[2], calls[1], "second callback")
         h.Equal(ns.Log.Errors()[1].message, "callback failed", "callback error")
     end,
+
+    ["a scheduling error cannot escape a bump and the next bump retries"] = function()
+        Boot()
+        h.Stub.Advance(0)
+        local calls = 0
+        API.RegisterCallback("CHANGED", function()
+            calls = calls + 1
+        end)
+        local timer = C_Timer
+        local after = timer.After
+        rawset(timer, "After", function()
+            error("no timer", 0)
+        end)
+        local ok = pcall(Generations.Bump, "asks")
+        rawset(timer, "After", after)
+        h.Equal(ok, true, "bump survives")
+        h.Equal(ns.Log.Errors()[1].message, "no timer", "recorded")
+
+        Generations.Bump("roster")
+        h.Stub.Advance(0)
+        h.Equal(calls, 1, "retried")
+    end,
 }
