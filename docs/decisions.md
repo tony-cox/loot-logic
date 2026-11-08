@@ -22,6 +22,18 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 
 ## Answered decisions
 
+### Command listings
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D211 | spec 13; ux 2.2, 2.3 | How can a player inspect and edit loadouts and wants in chat? | `/ll loadout` and `/ll want` with no arguments list the current character's entries and their details. Both commands default to the current character and accept a trailing `--character <name>` for another character, including for listing. A trailing `--all` lists every character and cannot be used for edits or with `--character`. Applied to spec 13, ux 2.2 and 2.3, and technical findings 18 (L54). | 2026-11-08 |
+
+### Zero-score gear baseline
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D210 | spec 7.6 and 8.4; ux 5.4 | What should an upgrade say when a comparison slot has an owned piece with a score of zero? | Show an infinite gain, not an empty-slot reason. A genuinely empty comparison slot keeps its empty-slot reason. Applied to spec 7.6 and 8.4 and ux 5.4. | 2026-11-07 |
+
 ### Automatic worn-loadout selection
 
 | # | Where | Question | Answer | Date |

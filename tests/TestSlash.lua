@@ -199,17 +199,132 @@ return {
 
     ["Slash: want accepts a numeric type and gear uses the roster setter"] = function()
         WhyBoot()
-        ns.Slash.Run("want Local 7:5")
+        ns.Slash.Run("want 7:5")
         h.True(LootLogicDB.characters["Local Test-Realm"].asks.types["7:5"] ~= nil, "type saved")
         ns.Slash.Run("gear Local off")
         h.Equal(LootLogicDB.characters["Local Test-Realm"].receivesGear, false, "gear off")
+    end,
+
+    ["Slash: current-character listings and trailing character targets"] = function()
+        WhyBoot()
+        local here = LootLogicDB.characters["Local Test-Realm"]
+        local alt = {
+            first = "Alt",
+            last = "Test",
+            class = "WARLOCK",
+            faction = here.faction,
+            region = here.region,
+            receivesGear = true,
+            asks = { types = {}, items = {} },
+            loadouts = {
+                {
+                    name = "Affliction",
+                    spec = "WARLOCK:affliction",
+                    worn = true,
+                    assumed = true,
+                },
+            },
+        }
+        LootLogicDB.characters["Alt Test-Realm"] = alt
+        LootLogicDB.order = { "Local Test-Realm", "Alt Test-Realm" }
+        local before = Copy(LootLogicDB)
+        local generation = ns.Generations.Total()
+        ns.Slash.Run("loadout")
+        h.True(HasLine(string.format(L.loadoutListHeader, "Local")), "defaults to here")
+        local showsGlobalArmor = false
+        for _, line in ipairs(Stub.ChatLines()) do
+            if string.find(line, string.format(
+                L.loadoutListDefaultArmor,
+                L.loadoutListBestOnly
+            ), 1, true) then
+                showsGlobalArmor = true
+            end
+        end
+        h.True(showsGlobalArmor, "shows global armor behavior")
+        Stub.ClearChat()
+        ns.Slash.Run("loadout --character Alt")
+        h.True(HasLine(string.format(L.loadoutListHeader, "Alt")), "targeted loadout list")
+        h.True(HasLine(string.format(
+            L.loadoutListKeep,
+            "Affliction",
+            "Affliction",
+            string.format(L.loadoutListCharacterOption, "Alt")
+        )), "assumed spec command includes target")
+        Stub.ClearChat()
+        ns.Slash.Run("loadout --all")
+        h.True(HasLine(string.format(L.loadoutListHeader, "Local")), "all list has here")
+        h.True(HasLine(string.format(L.loadoutListHeader, "Alt")), "all list has alt")
+        h.True(HasLine(string.format(
+            L.loadoutListKeep,
+            "Affliction",
+            "Affliction",
+            string.format(L.loadoutListCharacterOption, "Alt")
+        )), "all list keep command targets assumed alt")
+        Stub.ClearChat()
+        ns.Slash.Run('loadout "Affliction" Affliction --character "Alt"')
+        h.Equal(alt.loadouts[1].assumed, false, "trailing character option edits selected entry")
+        h.True(LootLogicDB.characters["Local Test-Realm"].loadouts[1].assumed,
+            "current character remains unchanged")
+        Stub.ClearChat()
+        ns.Slash.Run("want --character Alt")
+        h.True(HasLine(string.format(L.wantListHeader, "Alt")), "targeted wants list")
+        Stub.ClearChat()
+        ns.Slash.Run("want --all")
+        h.True(HasLine(string.format(L.wantListHeader, "Local")), "all wants has here")
+        h.True(HasLine(string.format(L.wantListHeader, "Alt")), "all wants has alt")
+        h.Equal(ns.Generations.Total(), generation + 1, "only explicit edit changes generation")
+        h.True(before.characters["Local Test-Realm"].loadouts[1].assumed,
+            "listing did not mutate saved loadouts")
+    end,
+
+    ["Slash: wants listing shows type quality and item include or exclude"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        WhyItem(199090)
+        entry.asks = {
+            types = { ["7:5"] = {}, ["4:1"] = { minQuality = 3 } },
+            items = { [199090] = "include", [199091] = "exclude" },
+        }
+        ns.Slash.Run("want")
+        h.True(HasLine(string.format(L.wantListHeader, "Local")), "current wants header")
+        h.True(HasLine(string.format(L.wantListType, "Trade Goods: Cloth", L.wantListAnyQuality)),
+            "any quality shown")
+        h.True(HasLine(string.format(L.wantListType, "Armor: Cloth", "3")),
+            "minimum quality shown")
+        h.True(HasLine(string.format(L.wantListInclude, 199090, " [Why Item]")),
+            "item include with loaded name")
+        h.True(HasLine(string.format(L.wantListExclude, 199091, "")),
+            "item exclude without loaded name")
+    end,
+
+    ["Slash: invalid all-character option combinations print usage without changes"] = function()
+        WhyBoot()
+        local before = Copy(LootLogicDB)
+        local generation = ns.Generations.Total()
+        for _, command in ipairs({
+            "want 7:5 --all",
+            "want --all --character Alt",
+            "want --character Alt extra",
+            "want --character Alt --character Local",
+            "loadout Affliction Affliction --all",
+            "loadout --all --character Alt",
+            "loadout --character Alt extra",
+        }) do
+            Stub.ClearChat()
+            ns.Slash.Run(command)
+            local expected = string.sub(command, 1, 4) == "want" and L.wantUsage
+                or string.format(L.loadoutUsage, L.helpLoadoutExample)
+            h.Equal(Stub.ChatLines()[1], PREFIX .. expected, "usage for " .. command)
+            h.DeepEqual(LootLogicDB, before, "no changes for " .. command)
+            h.Equal(ns.Generations.Total(), generation, "no generation bump for " .. command)
+        end
     end,
 
     ["Slash: type want on, off and clear replies match each mutation"] = function()
         WhyBoot()
         local entry = LootLogicDB.characters["Local Test-Realm"]
         entry.asks = { types = {}, items = {} }
-        ns.Slash.Run("want Local 7:5 on")
+        ns.Slash.Run("want 7:5 on")
         h.True(entry.asks.types["7:5"] ~= nil, "type on")
         h.Equal(
             Stub.ChatLines()[1],
@@ -217,7 +332,7 @@ return {
             "on reply"
         )
         Stub.ClearChat()
-        ns.Slash.Run("want Local 7:5 off")
+        ns.Slash.Run("want 7:5 off")
         h.Nil(entry.asks.types["7:5"], "type off clears")
         h.Equal(
             Stub.ChatLines()[1],
@@ -225,7 +340,7 @@ return {
             "off reply"
         )
         Stub.ClearChat()
-        ns.Slash.Run("want Local 7:5 clear")
+        ns.Slash.Run("want 7:5 clear")
         h.Equal(
             Stub.ChatLines()[1],
             PREFIX .. string.format(L.wantTypeAbsent, "Local", "Trade Goods: Cloth"),
@@ -238,7 +353,7 @@ return {
         local entry = LootLogicDB.characters["Local Test-Realm"]
         entry.asks = { types = { ["7:5"] = { minQuality = 3 } }, items = {} }
         local before = ns.Generations.Get("asks")
-        ns.Slash.Run("want Local 7:5 on")
+        ns.Slash.Run("want 7:5 on")
         h.Equal(entry.asks.types["7:5"].minQuality, 3, "quality preserved")
         h.Equal(ns.Generations.Get("asks"), before, "unchanged call did not bump")
         h.Equal(
@@ -253,21 +368,21 @@ return {
         WhyItem(199092)
         local entry = LootLogicDB.characters["Local Test-Realm"]
         entry.asks = { types = {}, items = {} }
-        ns.Slash.Run("want Local 199092 on")
+        ns.Slash.Run("want 199092 on")
         h.Equal(entry.asks.items[199092], "include", "item on")
         h.True(
             string.find(Stub.ChatLines()[1], "now wants item 199092", 1, true) ~= nil,
             "on reply"
         )
         Stub.ClearChat()
-        ns.Slash.Run("want Local 199092 off")
+        ns.Slash.Run("want 199092 off")
         h.Equal(entry.asks.items[199092], "exclude", "item off")
         h.True(
             string.find(Stub.ChatLines()[1], "excludes item 199092", 1, true) ~= nil,
             "off reply"
         )
         Stub.ClearChat()
-        ns.Slash.Run("want Local 199092 clear")
+        ns.Slash.Run("want 199092 clear")
         h.Nil(entry.asks.items[199092], "item cleared")
         h.True(
             string.find(Stub.ChatLines()[1], "removed from Local's wants", 1, true) ~= nil,
@@ -280,17 +395,17 @@ return {
         local entry = LootLogicDB.characters["Local Test-Realm"]
         entry.asks = { types = {}, items = {} }
         Stub.SetItemExists(-1, false)
-        ns.Slash.Run("want Local -1")
+        ns.Slash.Run("want -1")
         h.Nil(entry.asks.items[-1], "false validation no mutation")
         h.Equal(Stub.ChatLines()[1], PREFIX .. string.format(L.itemNotExist, -1), "signed ID error")
         Stub.SetExistsApi("off")
         Stub.ClearChat()
-        ns.Slash.Run("want Local -1")
+        ns.Slash.Run("want -1")
         h.Equal(entry.asks.items[-1], "include", "missing validator fallback")
         entry.asks.items[-2] = nil
         Stub.SetExistsApi("raise")
         Stub.ClearChat()
-        ns.Slash.Run("want Local -2")
+        ns.Slash.Run("want -2")
         h.Equal(entry.asks.items[-2], "include", "raising validator fallback")
     end,
 
@@ -298,14 +413,14 @@ return {
         WhyBoot()
         local entry = LootLogicDB.characters["Local Test-Realm"]
         entry.asks = { types = {}, items = {} }
-        ns.Slash.Run("want Local Armr: Cloth")
+        ns.Slash.Run("want Armr: Cloth")
         h.True(
             string.find(Stub.ChatLines()[1], "Classes: Consumable, Armor, Trade Goods", 1, true)
                 ~= nil,
             "all classes"
         )
         Stub.ClearChat()
-        ns.Slash.Run("want Local Armor: Clth")
+        ns.Slash.Run("want Armor: Clth")
         h.True(
             string.find(Stub.ChatLines()[1], "Armor subclasses: Cloth", 1, true) ~= nil,
             "subclasses"
@@ -319,7 +434,7 @@ return {
         entry.asks = { types = {}, items = {} }
         local original = C_Item.GetItemClassInfo
         _G.C_Item.GetItemClassInfo = nil
-        ns.Slash.Run("want Local Armor")
+        ns.Slash.Run("want Armor")
         _G.C_Item.GetItemClassInfo = original
         h.DeepEqual(entry.asks.types, {}, "no mutation")
         h.Equal(Stub.ChatLines()[1], PREFIX .. L.typeCatalogueUnavailable, "safe failure")
@@ -331,7 +446,7 @@ return {
         entry.asks = { types = {}, items = {} }
         local original = C_Item.GetItemClassInfo
         _G.C_Item.GetItemClassInfo = function() error("enumeration failed") end
-        ns.Slash.Run("want Local Armor")
+        ns.Slash.Run("want Armor")
         _G.C_Item.GetItemClassInfo = original
         h.DeepEqual(entry.asks.types, {}, "no mutation")
         h.Equal(Stub.ChatLines()[1], PREFIX .. L.typeCatalogueUnavailable, "safe failure")
@@ -350,7 +465,7 @@ return {
             end
             local before = Copy(LootLogicDB)
             local generations = GenerationSnapshot()
-            ns.Slash.Run("want Local Armor: Cloth")
+            ns.Slash.Run("want Armor: Cloth")
             _G.C_Item.GetItemSubClassInfo = original
             h.DeepEqual(LootLogicDB, before, failure .. " subclass API leaves DB unchanged")
             h.DeepEqual(
@@ -392,7 +507,7 @@ return {
         end
         local entry = LootLogicDB.characters["Local Test-Realm"]
         local generation = ns.Generations.Get("asks")
-        ns.Slash.Run("want Local Armor: Cloth")
+        ns.Slash.Run("want Armor: Cloth")
         _G.C_Item.GetItemClassInfo = originalClass
         _G.C_Item.GetItemSubClassInfo = originalSubclass
         h.Equal(classCalls, 21, "catalogue looked up each class once")
@@ -414,13 +529,13 @@ return {
         )
         local entry = LootLogicDB.characters["Local Test-Realm"]
         entry.asks = { types = {}, items = {} }
-        ns.Slash.Run("want Local Trade Goods")
+        ns.Slash.Run("want Trade Goods")
         h.True(entry.asks.types["0:*"] ~= nil, "class selected")
         h.Nil(entry.asks.types["4:1"], "same-named subclass not selected")
-        ns.Slash.Run("want Local 4:3")
+        ns.Slash.Run("want 4:3")
         h.True(entry.asks.types["4:3"] ~= nil, "named subclass after hole selected")
         Stub.ClearChat()
-        ns.Slash.Run("want Local 4:2")
+        ns.Slash.Run("want 4:2")
         h.Equal(
             Stub.ChatLines()[1],
             PREFIX .. string.format(L.itemTypeMissing, "4:2"),
@@ -442,7 +557,7 @@ return {
         }
         LootLogicDB.characters["Alt Test-Realm"] = alt
         LootLogicDB.order = { "Local Test-Realm", "Alt Test-Realm" }
-        ns.Slash.Run("want Alt 199093 on")
+        ns.Slash.Run("want 199093 on --character Alt")
         h.Equal(alt.asks.items[199093], "include", "ineligible include saved")
         h.Equal(
             Stub.ChatLines()[1],
@@ -452,7 +567,7 @@ return {
         alt.faction = "Alliance"
         alt.region = "Other"
         Stub.ClearChat()
-        ns.Slash.Run("want Alt 199093 clear")
+        ns.Slash.Run("want 199093 clear --character Alt")
         h.Nil(alt.asks.items[199093], "ineligible clear saved")
         h.Equal(
             Stub.ChatLines()[1],
@@ -508,11 +623,11 @@ return {
         local before = Copy(LootLogicDB)
         local generation = ns.Generations.Total()
         for _, message in ipairs({
-            'want "Local Test"',
-            'want "Local Test" on',
-            'want "Local Test" off',
-            'want "Local Test" clear',
-            'want "Local Test" " "',
+            'want on',
+            'want on',
+            'want off',
+            'want clear',
+            'want " "',
         }) do
             Stub.ClearChat()
             ns.Slash.Run(message)
@@ -528,7 +643,7 @@ return {
         entry.class = "WARLOCK"
         before = Copy(LootLogicDB)
         Stub.ClearChat()
-        ns.Slash.Run('loadout Local "" Affliction')
+        ns.Slash.Run('loadout "" Affliction')
         h.Equal(
             Stub.ChatLines()[1],
             PREFIX .. string.format(L.loadoutUsage, L.helpLoadoutExample),
@@ -544,18 +659,18 @@ return {
 
     ["Slash: near matches cover short types, specs and loadouts with tie handling"] = function()
         WhyBoot()
-        ns.Slash.Run("want Local Armor: Cltoh")
+        ns.Slash.Run("want Armor: Cltoh")
         h.True(string.find(Stub.ChatLines()[1], "Did you mean Cloth?", 1, true) ~= nil,
             "short subclass typo suggestion")
         local entry = LootLogicDB.characters["Local Test-Realm"]
         entry.class = "WARLOCK"
         entry.loadouts = { { name = "Affliction", spec = "WARLOCK:affliction" } }
         Stub.ClearChat()
-        ns.Slash.Run("loadout Local Tank afflicton")
+        ns.Slash.Run("loadout Tank afflicton")
         h.True(string.find(Stub.ChatLines()[1], "Did you mean Affliction?", 1, true) ~= nil,
             "loadout spec typo suggestion")
         Stub.ClearChat()
-        ns.Slash.Run("loadout Local Afflictio remove")
+        ns.Slash.Run("loadout Afflictio remove")
         h.True(string.find(Stub.ChatLines()[1], "Did you mean Affliction?", 1, true) ~= nil,
             "loadout name typo suggestion")
         entry.loadouts = {
@@ -563,7 +678,7 @@ return {
             { name = "Bat", spec = "WARLOCK:affliction" },
         }
         Stub.ClearChat()
-        ns.Slash.Run("loadout Local Hat remove")
+        ns.Slash.Run("loadout Hat remove")
         h.True(string.find(Stub.ChatLines()[1], "Loadouts: Bat, Cat", 1, true) ~= nil,
             "choices remain when near-match tie")
         h.True(string.find(Stub.ChatLines()[1], "Did you mean", 1, true) == nil,
@@ -577,7 +692,7 @@ return {
         entry.loadouts = {
             { name = "Affliction", spec = "WARLOCK:affliction", worn = true, assumed = true },
         }
-        ns.Slash.Run("loadout Local Affliction Affliction")
+        ns.Slash.Run("loadout Affliction Affliction")
         h.Equal(
             Stub.ChatLines()[1],
             PREFIX .. string.format(
@@ -591,7 +706,7 @@ return {
         )
         h.Equal(entry.loadouts[1].assumed, false, "assumed flag cleared")
         Stub.ClearChat()
-        ns.Slash.Run("loadout Local Affliction Affliction")
+        ns.Slash.Run("loadout Affliction Affliction")
         h.Equal(
             Stub.ChatLines()[1],
             PREFIX .. string.format(L.loadoutUnchanged, "Local", "Affliction", "Affliction"),
@@ -623,13 +738,13 @@ return {
             end
         end
         for _, command in ipairs({
-            "want Local 7:5",
-            "want Local 199097",
+            "want 7:5",
+            "want 199097",
             "gear Local off",
             "order Alt Local",
-            "loadout Local Tank Affliction",
-            "loadout Local Tank armor best",
-            "loadout Local Tank remove",
+            "loadout Tank Affliction",
+            "loadout Tank armor best",
+            "loadout Tank remove",
             "protect 199097",
             "protect global 199098",
             "refresh",
@@ -741,10 +856,10 @@ return {
         WhyBoot()
         local entry = LootLogicDB.characters["Local Test-Realm"]
         entry.class = "WARLOCK"
-        ns.Slash.Run('loadout Local "Tank set" Affliction worn')
+        ns.Slash.Run('loadout "Tank set" Affliction worn')
         h.Equal(entry.loadouts[#entry.loadouts].name, "Tank set", "quoted name")
         h.Equal(entry.loadouts[#entry.loadouts].worn, true, "worn flag")
-        ns.Slash.Run('loadout Local "Tank set" remove')
+        ns.Slash.Run('loadout "Tank set" remove')
         h.Equal(entry.loadouts[#entry.loadouts].name, "Tank set", "worn loadout kept")
         h.Equal(
             Stub.ChatLines()[#Stub.ChatLines()],
@@ -761,11 +876,28 @@ return {
             { name = "Affliction", spec = "WARLOCK:affliction", worn = true, assumed = true },
             { name = "Other", spec = "WARLOCK:affliction" },
         }
-        ns.Slash.Run("loadout Local Affliction affliction")
+        ns.Slash.Run("loadout Affliction affliction")
         h.Equal(entry.loadouts[1].assumed, false, "picked spec clears assumed")
         entry.loadouts[2].armor = "best"
-        ns.Slash.Run("loadout Local Other armor default")
+        ns.Slash.Run("loadout Other armor default")
         h.Nil(entry.loadouts[2].armor, "default armor follows settings")
+    end,
+
+    ["Slash: invalid or missing loadout armor rule gives armor usage without changes"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.loadouts = { { name = "Resto", spec = "DRUID:restoration", worn = true, armor = "best" } }
+        for _, command in ipairs({ "loadout Resto armor all", "loadout Resto armor" }) do
+            Stub.ClearChat()
+            ns.Slash.Run(command)
+            h.Equal(entry.loadouts[1].armor, "best", "invalid rule leaves armor unchanged")
+            h.Equal(
+                Stub.ChatLines()[1],
+                PREFIX .. "/ll loadout <loadout> armor best|any|default [--character <name>]. "
+                    .. "Example: /ll loadout Resto armor any",
+                "armor usage lists valid choices"
+            )
+        end
     end,
 
     ["Slash: unknown loadout names include available choices"] = function()
@@ -776,7 +908,7 @@ return {
             { name = "Demonology", spec = "WARLOCK:demonology" },
         }
         entry.class = "WARLOCK"
-        ns.Slash.Run("loadout Local Missing remove")
+        ns.Slash.Run("loadout Missing remove")
         h.Equal(
             Stub.ChatLines()[1],
             PREFIX .. string.format(L.noLoadoutNamed, "Local", "Missing", "Affliction, Demonology"),
@@ -827,15 +959,15 @@ return {
         }
         LootLogicDB.characters["Alt Test-Realm"] = alt
         LootLogicDB.order = { "Local Test-Realm", "Alt Test-Realm" }
-        ns.Slash.Run("want Alt Test 7:5")
+        ns.Slash.Run('want 7:5 --character "Alt Test"')
         h.True(
             alt.asks.types["7:5"] ~= nil,
             "full name consumes its longest matching prefix"
         )
-        ns.Slash.Run('want "Local Test" 7:5 off')
+        ns.Slash.Run('want 7:5 off --character "Local Test"')
         h.Nil(alt.asks.types["7:5"], "display name beats another character full name")
         Stub.ClearChat()
-        ns.Slash.Run("want LocalHero 7:5")
+        ns.Slash.Run("want 7:5 --character LocalHero")
         h.True(
             string.find(Stub.ChatLines()[1], "does not know LocalHero", 1, true) ~= nil,
             "word boundary"
@@ -1022,7 +1154,7 @@ return {
     ["Slash: ambiguous type words do not mutate wants"] = function()
         WhyBoot()
         LootLogicDB.characters["Local Test-Realm"].asks = { types = {}, items = {} }
-        ns.Slash.Run("want Local cloth")
+        ns.Slash.Run("want cloth")
         h.Nil(LootLogicDB.characters["Local Test-Realm"].asks.types["4:1"], "armor cloth untouched")
         h.Nil(LootLogicDB.characters["Local Test-Realm"].asks.types["7:5"], "trade cloth untouched")
         h.True(
@@ -1038,7 +1170,7 @@ return {
     ["Slash: a one-edit type match is suggested without mutating wants"] = function()
         WhyBoot()
         LootLogicDB.characters["Local Test-Realm"].asks = { types = {}, items = {} }
-        ns.Slash.Run("want Local Armor: Clth")
+        ns.Slash.Run("want Armor: Clth")
         h.Nil(LootLogicDB.characters["Local Test-Realm"].asks.types["4:1"], "no type set")
         h.True(
             string.find(Stub.ChatLines()[1], "Did you mean Cloth?", 1, true) ~= nil,
@@ -1050,7 +1182,7 @@ return {
         WhyBoot()
         WhyItem(199090)
         local colored = "|cnIQ4:|Hitem:199090:0:0:0:0:0:0|h[Why Item]|h|r"
-        ns.Slash.Run("want Local " .. colored)
+        ns.Slash.Run("want " .. colored)
         h.Equal(
             LootLogicDB.characters["Local Test-Realm"].asks.items[199090],
             "include",

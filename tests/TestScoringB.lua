@@ -35,6 +35,121 @@ local function Item(fields)
 end
 
 return {
+    ["a zero-score ring is retained as the comparison piece"] = function()
+        local entry = Boot()
+        local strong = Item({ stats = { ITEM_MOD_AGILITY_SHORT = 20 } })
+        local zero = Item()
+        local candidate = Item({ stats = { ITEM_MOD_AGILITY_SHORT = 10 } })
+        entry.bags = { gear = { strong.link, zero.link } }
+        local result = ns.Scoring.Compare(candidate, "druid", { loadout = entry.loadouts[2] })
+        h.Equal(result.baseline, 0, "zero score")
+        h.Equal(result.baselineItem.link, zero.link, "zero-score ring")
+        h.Equal(result.gainPct, math.huge, "infinite gain")
+    end,
+    ["a worn zero-score unique twin is retained as the comparison piece"] = function()
+        Boot()
+        local here = "Zugar Soulsour-Region"
+        local character = LootLogicDB.characters[here]
+        character.class = "DRUID"
+        local loadout = { name = "Cat", spec = "DRUID:cat", worn = true }
+        character.loadouts = { loadout }
+        local twin = Item({ unique = true })
+        character.gear = { slots = { [11] = twin.link } }
+        local candidate = Item({
+            unique = true,
+            stats = { ITEM_MOD_AGILITY_SHORT = 10 },
+        })
+        candidate.itemID = twin.itemID
+        local result = ns.Scoring.Compare(candidate, here, { loadout = loadout })
+        h.Equal(result.baseline, 0, "zero score")
+        h.Equal(result.baselineItem.link, twin.link, "worn zero-score twin")
+    end,
+    ["a zero-score weapon is retained as the comparison piece"] = function()
+        local entry = Boot()
+        entry.class = "ROGUE"
+        local old = Item({ classID = 2, subclassID = 15, equipLoc = "INVTYPE_WEAPONMAINHAND" })
+        local candidate = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONMAINHAND",
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10 },
+        })
+        entry.bags = { gear = { old.link } }
+        local result = ns.Scoring.Compare(candidate, "druid", { loadout = entry.loadouts[2] })
+        h.Equal(result.baseline, 0, "zero score")
+        h.Equal(result.baselineItem.link, old.link, "zero-score weapon")
+        h.Equal(result.gainPct, math.huge, "infinite gain")
+    end,
+    ["a losing zero-score two-hander does not fill an empty winning main hand"] = function()
+        local entry = Boot()
+        entry.class = "ROGUE"
+        entry.proficiency.spells[674] = true
+        local two = Item({ classID = 2, subclassID = 15, equipLoc = "INVTYPE_2HWEAPON" })
+        local off = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONOFFHAND",
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 5 },
+        })
+        local candidate = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONMAINHAND",
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10 },
+        })
+        entry.bags = { gear = { two.link, off.link } }
+        local result = ns.Scoring.Compare(candidate, "druid", { loadout = entry.loadouts[2] })
+        h.Equal(result.baseline, 0, "empty main hand")
+        h.Nil(result.baselineItem, "losing two-hander is not the baseline")
+    end,
+    ["a zero-score off hand remains the comparison beside a positive main hand"] = function()
+        local entry = Boot()
+        entry.class = "ROGUE"
+        entry.proficiency.spells[674] = true
+        local main = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONMAINHAND",
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10 },
+        })
+        local off = Item({ classID = 2, subclassID = 15, equipLoc = "INVTYPE_WEAPONOFFHAND" })
+        local candidate = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONOFFHAND",
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 5 },
+        })
+        entry.gear = { slots = { [16] = main.link, [17] = off.link } }
+        local result = ns.Scoring.Compare(candidate, "druid", { loadout = entry.loadouts[2] })
+        h.Equal(result.baseline, 0, "zero-score off hand")
+        h.Equal(result.baselineItem.link, off.link, "worn off hand")
+    end,
+    ["a zero-score shield is found after the winning main hand"] = function()
+        local entry = Boot()
+        entry.class = "ROGUE"
+        entry.proficiency.spells[674] = true
+        entry.proficiency.spells[9116] = true
+        ns.WeightTables["DRUID:mhonly"] = { weights = { AGI = 1, DPS_MH = 3 }, percent = {} }
+        local loadout = { name = "Main", spec = "DRUID:mhonly" }
+        local main = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPON",
+            itemLevel = 40,
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10 },
+        })
+        local shield = Item({ classID = 4, subclassID = 6, equipLoc = "INVTYPE_SHIELD" })
+        local candidate = Item({
+            classID = 4,
+            subclassID = 6,
+            equipLoc = "INVTYPE_SHIELD",
+            stats = { ITEM_MOD_AGILITY_SHORT = 5 },
+        })
+        entry.gear = { slots = { [16] = main.link, [17] = shield.link } }
+        local result = ns.Scoring.Compare(candidate, "druid", { loadout = loadout })
+        h.Equal(result.baseline, 0, "zero-score off hand")
+        h.Equal(result.baselineItem.link, shield.link, "worn shield")
+    end,
     ["a unique trinket with a worn twin compares against the twin"] = function()
         local entry = Boot()
         local here = "Zugar Soulsour-Region"

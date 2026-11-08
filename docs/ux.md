@@ -123,7 +123,7 @@ Computed live from the DB and the detected addons. Nothing is stored except "hid
 | 6 | Bag display | info: "Baganator: tooltip line only; the Contents tab is your list" ([done] reads "BetterBags sections active"). **NEED** when an adapter failed. | an adapter active, or tooltip-only acknowledged | [Retry] on failure; [Tooltip only] accepts the tooltip line as the bag display |
 | 7 | Bank seen on the current character | info: "Open your bank once so gear upgrades count it." | `bank.updatedAt` set | |
 
-NEED means results are misleading without it; TIP and info are advice. A complete checklist collapses to one line ("Setup complete") above the Status block. **In M1** (no window) the checklist prints in chat. Lines 4 and 6 print as info only. Line 3's tip reads "type /ll loadout Zugar Affliction Affliction to keep it" (that command clears the flag). Line 6 reads "Bags: tooltip line only in this build."
+NEED means results are misleading without it; TIP and info are advice. A complete checklist collapses to one line ("Setup complete") above the Status block. **In M1** (no window) the checklist prints in chat. Lines 4 and 6 print as info only. Line 3's tip names the command to keep the assumed spec, for example "type /ll loadout Affliction Affliction --character Zugar to keep it"; omit the character option for the current character. Setting the same spec clears the assumed flag. Line 6 reads "Bags: tooltip line only in this build."
 
 ### 2.3 Unseen alts
 
@@ -133,7 +133,7 @@ A character joins the roster only by logging in with LootLogic enabled. Before t
 |---|---|
 | Characters tab footer | "Not listed? Log in on that character once with LootLogic enabled. Nothing can be sent to a character LootLogic has not seen." |
 | Wants tab when only the current character is registered | "You are the only character LootLogic knows. Wants for your other characters can be set once they have logged in." The editor still works for the current character. |
-| `/ll want Bob <link>` | "LootLogic does not know Bob yet. Log in on Bob once with LootLogic enabled." |
+| `/ll want <link> --character Bob` | "LootLogic does not know Bob yet. Log in on Bob once with LootLogic enabled." |
 | Checklist line 2 | "5 characters. Missing one? Log in on it once." |
 
 **More than one PC:** `LootLogicDB` lives in the local WTF folder. A character played only on another computer is unseen on this computer; one played on both is as fresh as its last login on this one. The help text says so. LootLogic cannot detect it.
@@ -143,6 +143,8 @@ There are no placeholder characters in v1: a character exists only once it has l
 Command errors suggest a candidate only when exactly one is one insertion, deletion, substitution or adjacent transposition away. Character reset restores Receives gear to its default, replaces the loadouts with one default worn loadout, and clears wants and protect, while preserving the display name, imported membership, identity and snapshots. A valid reset preview replaces the previous one; invalid commands leave it pending, and confirmation at exactly 30 seconds is valid. Quote a character named `all` or `confirm` to distinguish it from the reserved reset commands. `/ll perf` reports the scope, item count and elapsed time of the latest completed full classification, or says when none has completed.
 
 If the client cannot supply item type names, `/ll want` reports that types are unavailable and leaves saved data unchanged when resolving a type.
+
+`/ll loadout` and `/ll want` list the current character's entries and their details. A trailing `--character <name>` selects another character for either listing or edit; quote names with spaces. `/ll loadout --all` and `/ll want --all` list every character's entries, grouped by character. `--all` is only for listing and cannot be combined with `--character`. A loadout listing explains how to keep an assumed spec by setting the same spec again.
 
 ---
 
@@ -712,7 +714,7 @@ A template is a set of type flags (and, rarely, item includes), applied by **mer
 | Search | `/ll`, Wants, Zugar, type "cloth", tick | 4 plus typing |
 | Template | `/ll`, Wants, Zugar, Template, Tailoring, Apply | 6, and sets recipes too |
 | From the item | Hover Linen Cloth, press "add hovered item to wants", pick Zugar, pick "all Cloth" or "only Linen Cloth" | 3 |
-| Slash (spec) | `/ll want Zugar [Linen Cloth]` | 1 command; an item include, not the type |
+| Slash (spec) | `/ll want [Linen Cloth] --character Zugar` | 1 command; an item include, not the type |
 
 Target: **at most 5 actions** from a closed window to a working want, **3 from the item**. The item path needs the "add hovered item to wants" keybinding and a small popup. The window remembers tab and character, so later edits are 2 or 3 clicks.
 
@@ -764,6 +766,8 @@ An item-link popup that matches an item ID and random suffix in the player's bag
 | Price | 2 | A price was read, including on demand for detail: the price and its net after the cut; then the gain per unit and for the whole holding, and the thresholds. A rejected stale quote and its calculations are marked stale. The lookup does not change the verdict |
 
 When additional comparisons needed only for detail are still loading, the verdict and available detail remain visible and the detail indicates that comparisons are loading. When the parts come to more than 8 lines, the gear lines with the smallest gains are cut and the last one kept ends "(and N more)".
+
+A positive score compared with an owned zero-score piece shows "+inf% <loadout>" rather than calling the slot empty; detail names the comparison piece (spec 7.6).
 
 When `/ll why` cannot find the item, it replies "Couldn't find that item. Use /ll why followed by an item link." With no argument and nothing hovered, it replies "Hover an item or give a link."
 

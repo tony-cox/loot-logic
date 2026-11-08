@@ -441,6 +441,48 @@ local function NameError(tokens, count, matches)
     return string.format(L.unknownCharacter, input, input)
 end
 
+local function CharacterTarget(args, quoted, usage)
+    local count = #args
+    local option
+    for index, token in ipairs(args) do
+        if not quoted[index]
+            and (string.lower(token) == "--character" or string.lower(token) == "--all")
+        then
+            if option then
+                Log.Chat(usage)
+                return nil, "error"
+            end
+            option = index
+        end
+    end
+    if not option then
+        return { Roster.HereKey() }, "current"
+    end
+    local word = string.lower(args[option])
+    if word == "--all" then
+        if option ~= count or option ~= 1 then
+            Log.Chat(usage)
+            return nil, "error"
+        end
+        return Roster.Keys(), "all"
+    end
+    if option + 1 ~= count or not args[option + 1] then
+        Log.Chat(usage)
+        return nil, "error"
+    end
+    local name = args[option + 1]
+    local key, matched, matches = ResolveName({ name })
+    if not key then
+        Log.Chat(NameError({ name }, matched, matches))
+        return nil, "error"
+    end
+    for index = #args, option, -1 do
+        args[index] = nil
+        quoted[index] = nil
+    end
+    return { key }, "character"
+end
+
 local function TypeCatalogue()
     if
         type(C_Item) ~= "table"
@@ -473,18 +515,138 @@ local function TypeCatalogue()
     return classes, types
 end
 
+local function ItemLabel(itemID)
+    local name = C_Item.GetItemInfo(itemID)
+    if name then return " [" .. name .. "]" end
+    return ""
+end
+
+local function LoadoutLines(key, targeted)
+    local display = Roster.DisplayName(key)
+    local lines = { string.format(L.loadoutListHeader, display) }
+    local loadouts = Loadouts.List(key)
+    if #loadouts == 0 then
+        lines[#lines + 1] = L.loadoutListNone
+        return lines
+    end
+    for _, loadout in ipairs(loadouts) do
+        local spec = Specs[loadout.spec]
+        local specName = spec and spec.label or L.loadoutListNoSpec
+        local status = loadout.worn and L.loadoutListWorn or L.loadoutListStowed
+        if loadout.assumed then
+            status = status .. L.loadoutListAssumed
+        end
+        local armor
+        if loadout.armor then
+            armor = loadout.armor == "best" and L.loadoutListBestArmor
+                or L.loadoutListAnyArmor
+        else
+            armor = string.format(
+                L.loadoutListDefaultArmor,
+                DB.Data().settings.gear.bestArmorOnly and L.loadoutListBestOnly
+                    or L.loadoutListAnyArmor
+            )
+        end
+        lines[#lines + 1] = string.format(
+            L.loadoutListEntry,
+            loadout.name,
+            specName,
+            status,
+            armor
+        )
+        if loadout.assumed and spec then
+            local characterOption = targeted
+                and string.format(L.loadoutListCharacterOption, display)
+                or ""
+            lines[#lines + 1] = string.format(
+                L.loadoutListKeep,
+                loadout.name,
+                spec.label,
+                characterOption
+            )
+        end
+    end
+    return lines
+end
+
+local function WantTypeName(key)
+    local classID = string.match(key, "^(%d+):%d+$")
+    local classAll = string.match(key, "^(%d+):%*$")
+    local classes, types = TypeCatalogue()
+    if not classes then return key end
+    local className
+    for _, row in ipairs(classes) do
+        if tostring(row.id) == (classID or classAll) then
+            className = row.name
+            break
+        end
+    end
+    if classAll then return className or key end
+    for _, row in ipairs(types) do
+        if row.key == key then return row.name end
+    end
+    return key
+end
+
+local function WantLines(key)
+    local entry = Roster.Entry(key)
+    local asks = entry and entry.asks or {}
+    local lines = { string.format(L.wantListHeader, Roster.DisplayName(key)) }
+    local typeEntries, itemEntries = {}, {}
+    for typeKey, flag in pairs(asks.types or {}) do
+        if flag then
+            typeEntries[#typeEntries + 1] = { key = typeKey, flag = flag }
+        end
+    end
+    for itemID, mode in pairs(asks.items or {}) do
+        if mode == "include" or mode == "exclude" then
+            itemEntries[#itemEntries + 1] = { id = itemID, mode = mode }
+        end
+    end
+    table.sort(typeEntries, function(first, second)
+        local firstClass, firstSub = string.match(first.key, "^(%d+):(%d+)$")
+        local secondClass, secondSub = string.match(second.key, "^(%d+):(%d+)$")
+        firstClass = tonumber(firstClass) or tonumber(string.match(first.key, "^(%d+):%*$")) or 0
+        secondClass = tonumber(secondClass)
+            or tonumber(string.match(second.key, "^(%d+):%*$"))
+            or 0
+        if firstClass ~= secondClass then return firstClass < secondClass end
+        return (tonumber(firstSub) or -1) < (tonumber(secondSub) or -1)
+    end)
+    table.sort(itemEntries, function(first, second) return first.id < second.id end)
+    for _, item in ipairs(typeEntries) do
+        local quality = type(item.flag) == "table" and item.flag.minQuality or nil
+        local qualityName = quality and tostring(quality) or L.wantListAnyQuality
+        lines[#lines + 1] = string.format(
+            L.wantListType,
+            WantTypeName(item.key),
+            qualityName
+        )
+    end
+    for _, item in ipairs(itemEntries) do
+        lines[#lines + 1] = string.format(
+            item.mode == "include" and L.wantListInclude or L.wantListExclude,
+            item.id,
+            ItemLabel(item.id)
+        )
+    end
+    if #typeEntries == 0 and #itemEntries == 0 then lines[#lines + 1] = L.wantListNone end
+    return lines
+end
+
+local function PrintCharacterListings(keys, build)
+    for _, key in ipairs(keys) do
+        local lines = build(key, key ~= Roster.HereKey())
+        for _, line in ipairs(lines) do Log.Chat(line) end
+    end
+end
+
 local function ValidateItem(id)
     if type(C_Item.DoesItemExistByID) == "function" then
         local ok, exists = pcall(C_Item.DoesItemExistByID, id)
         if ok and exists == false then return false end
     end
     return true
-end
-
-local function ItemLabel(itemID)
-    local name = C_Item.GetItemInfo(itemID)
-    if name then return " [" .. name .. "]" end
-    return ""
 end
 
 local function IneligibleReason(key)
@@ -570,17 +732,22 @@ local function ParseItemOrType(value, allowInstance)
 end
 
 local function RunWant(rest)
-    local args = Tokens(rest)
-    if not args or #args < 2 then Log.Chat(L.wantUsage); return end
-    local key, count, matches = ResolveName(args)
-    if not key then Log.Chat(NameError(args, count, matches)); return end
+    local args, quoted = Tokens(rest)
+    if not args then Log.Chat(L.wantUsage); return end
+    local keys, targetMode = CharacterTarget(args, quoted, L.wantUsage)
+    if not keys then return end
+    if targetMode == "all" or #args == 0 then
+        PrintCharacterListings(keys, WantLines)
+        return
+    end
+    local key = keys[1]
     local setting = "on"
     local last = string.lower(args[#args])
     if last == "on" or last == "off" or last == "clear" then
         setting = last
         table.remove(args)
     end
-    local value = table.concat(args, " ", count + 1)
+    local value = table.concat(args, " ")
     if string.match(value, "^%s*$") then
         Log.Chat(L.wantUsage)
         return
@@ -790,22 +957,23 @@ end
 
 local function RunLoadout(rest)
     local args, quoted = Tokens(rest)
-    if not args or #args == 0 then
-        Log.Chat(string.format(L.loadoutUsage, L.helpLoadoutExample))
+    if not args then Log.Chat(string.format(L.loadoutUsage, L.helpLoadoutExample)); return end
+    local keys, targetMode = CharacterTarget(args, quoted, string.format(
+        L.loadoutUsage,
+        L.helpLoadoutExample
+    ))
+    if not keys then return end
+    if targetMode == "all" or #args == 0 then
+        PrintCharacterListings(
+            keys,
+            LoadoutLines
+        )
         return
     end
-    local key, count, matches = ResolveName(args)
-    local entry = key and Roster.Entry(key)
-    if not entry then
-        Log.Chat(NameError(args, count, matches))
-        return
-    end
-    local tail = {}
-    local tailQuoted = {}
-    for index = count + 1, #args do
-        tail[#tail + 1] = args[index]
-        tailQuoted[#tail] = quoted[index]
-    end
+    local key = keys[1]
+    local entry = Roster.Entry(key)
+    local tail = args
+    local tailQuoted = quoted
     if #tail == 0 then
         Log.Chat(string.format(L.loadoutUsage, L.helpLoadoutExample))
         return
@@ -829,6 +997,9 @@ local function RunLoadout(rest)
             return
         end
         loadoutName = name
+    elseif action == "armor" and not tailQuoted[#tail] and #tail > 1 then
+        Log.Chat(L.loadoutArmorUsage)
+        return
     elseif
         string.lower(tail[#tail - 1] or "") == "armor"
         and not tailQuoted[#tail - 1]
@@ -841,7 +1012,7 @@ local function RunLoadout(rest)
             armor = action
         end
         if action ~= "default" and action ~= "best" and action ~= "any" then
-            Log.Chat(string.format(L.loadoutUsage, L.helpLoadoutExample))
+            Log.Chat(L.loadoutArmorUsage)
             return
         end
         table.remove(tail)
@@ -850,7 +1021,7 @@ local function RunLoadout(rest)
         table.remove(tailQuoted)
         loadoutName = table.concat(tail, " ")
         if loadoutName == "" then
-            Log.Chat(string.format(L.loadoutUsage, L.helpLoadoutExample))
+            Log.Chat(L.loadoutArmorUsage)
             return
         end
         if not Loadouts.Find(key, loadoutName) then

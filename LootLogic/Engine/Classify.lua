@@ -221,8 +221,10 @@ local function ReasonText(result)
         if gear.assumed then
             loadout = loadout .. L.reasonAssumed
         end
-        if gear.baseline == 0 then
+        if gear.baseline == 0 and not gear.baselineItem and not gear.baselinePair then
             text = string.format(L.reasonEmptySlot, loadout, Slots.Word(gear.group))
+        elseif gear.baseline == 0 then
+            text = string.format(L.reasonZeroBaseline, loadout)
         else
             text = string.format(
                 text,
@@ -245,7 +247,7 @@ local function ReasonText(result)
             end
         end
         for _, runner in ipairs(data.runnerUps or {}) do
-            if runner.baseline == 0 then
+            if runner.baseline == 0 and not runner.baselineItem and not runner.baselinePair then
                 text = text
                     .. string.format(
                         L.reasonRunnerEmpty,

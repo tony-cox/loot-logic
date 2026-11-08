@@ -42,19 +42,19 @@ Character names may contain spaces. LootLogic takes the longest matching roster 
 ## Loadouts
 
 ```text
-/ll loadout <character> <loadout> <spec> [worn]
-/ll loadout <character> <loadout> remove
-/ll loadout <character> <loadout> armor best|any|default
+/ll loadout [<loadout> <spec> [worn]] [--character <name>|--all]
+/ll loadout <loadout> remove [--character <name>]
+/ll loadout <loadout> armor best|any|default [--character <name>]
 ```
 
-The loadout name is required; quote it if needed. `worn` makes the loadout the worn one. Make another loadout worn before removing the worn one. `armor default` makes the loadout follow the global armour rule.
+With no positional arguments, list the current character's loadouts. For edits, supply a loadout name; quote it if needed. `worn` makes the loadout the worn one. Make another loadout worn before removing the worn one. `armor default` makes the loadout follow the global armour rule. To confirm an assumed spec, set the loadout to that same spec; the listing shows the command.
 
 ```text
-/ll loadout Zugar Affliction Affliction worn
-/ll loadout Chamoomile "Tank set" Bear worn
-/ll loadout Chamoomile "Tank set" armor any
-/ll loadout Chamoomile "Tank set" armor default
-/ll loadout Chamoomile "Old set" remove
+/ll loadout Affliction Affliction worn --character Zugar
+/ll loadout "Tank set" Bear worn --character Chamoomile
+/ll loadout "Tank set" armor any --character Chamoomile
+/ll loadout "Tank set" armor default --character Chamoomile
+/ll loadout "Old set" remove --character Chamoomile
 ```
 
 The current build has six spec weight tables: Druid **Bear** and **Restoration**, Shaman **Enhancement**, Paladin **Protection** and **Retribution**, and Warlock **Affliction**. Other classes can use wants and prices, but have no spec table in this build; their equippable gear stays with the `nospec` reason.
@@ -62,25 +62,27 @@ The current build has six spec weight tables: Druid **Bear** and **Restoration**
 ## Wants
 
 ```text
-/ll want <character> <type or item> [on|off|clear]
+/ll want [<type or item> [on|off|clear]] [--character <name>|--all]
 ```
+
+With no positional arguments, list the current character's wants. Both commands accept a final `--character <name>` to list or edit another known character; quote names with spaces. A final `--all` lists every character in priority order, including characters with no entries; it cannot be combined with edits or `--character`. Loadout listings include the spec, worn and assumed status, and armour rule. Wants listings include types, minimum qualities and item includes and excludes.
 
 The default is `on`. A type can be a client class name, a full `Class: Subclass` name, a unique short subclass name, numeric `class:subclass`, or `class:*` for a whole class. An ambiguous short name lists its matches. A bare number is an item ID, not a class. An item can also be given as a link.
 
 ```text
-/ll want Zugar Trade Goods: Cloth
-/ll want Zugar 7:5
-/ll want Zugar Armor
-/ll want Zugar 4:*
-/ll want Zugar 2589 on
+/ll want Trade Goods: Cloth --character Zugar
+/ll want 7:5 --character Zugar
+/ll want Armor --character Zugar
+/ll want 4:* --character Zugar
+/ll want 2589 on --character Zugar
 ```
 
 For a **type**, `off` and `clear` both remove the type want. For an **item**, `on` includes it even if its type is off, `off` excludes it even if its type is on, and `clear` removes the item-specific rule. Wants can be saved for a character that cannot receive from the current character; the reply explains the restriction. If the client type-name API is missing or fails, resolving a type reports that names are unavailable and changes nothing.
 
 ```text
-/ll want Zugar 2589 off
-/ll want Zugar 2589 clear
-/ll want Zugar Trade Goods: Cloth clear
+/ll want 2589 off --character Zugar
+/ll want 2589 clear --character Zugar
+/ll want Trade Goods: Cloth clear --character Zugar
 ```
 
 ## Protection
@@ -121,14 +123,14 @@ Unquoted `all` and `confirm` are reserved. Quote a character with either name to
 
 ```text
 /ll order Zugar Chamoomile
-/ll want Zugar Trade Goods: Cloth on
-/ll want Zugar 2589 off
+/ll want Trade Goods: Cloth on --character Zugar
+/ll want 2589 off --character Zugar
 ```
 
 **Choose a worn spec and enable gear receiving.**
 
 ```text
-/ll loadout Chamoomile "Bear tank" Bear worn
+/ll loadout "Bear tank" Bear worn --character Chamoomile
 /ll gear Chamoomile on
 ```
 
