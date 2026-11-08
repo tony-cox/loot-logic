@@ -221,8 +221,10 @@ local function ReasonText(result)
         if gear.assumed then
             loadout = loadout .. L.reasonAssumed
         end
-        if gear.baseline == 0 then
+        if gear.baseline == 0 and not gear.baselineItem and not gear.baselinePair then
             text = string.format(L.reasonEmptySlot, loadout, Slots.Word(gear.group))
+        elseif gear.baseline == 0 then
+            text = string.format(L.reasonZeroBaseline, loadout)
         else
             text = string.format(
                 text,
@@ -245,7 +247,7 @@ local function ReasonText(result)
             end
         end
         for _, runner in ipairs(data.runnerUps or {}) do
-            if runner.baseline == 0 then
+            if runner.baseline == 0 and not runner.baselineItem and not runner.baselinePair then
                 text = text
                     .. string.format(
                         L.reasonRunnerEmpty,
@@ -1009,6 +1011,7 @@ local deferred = {}
 -- dirty[scope] is true when item data loaded while a pass for the scope was
 -- running; the pass runs once more when it finishes.
 local dirty = {}
+local lastFullPass
 
 local function SlotList(range)
     local list = {}
@@ -1022,10 +1025,24 @@ end
 
 local function Finish(run)
     runs[run.scope] = nil
+    lastFullPass = { scope = run.scope, count = run.count, ms = run.ms }
     Log.Debug("classify", string.format(L.classifyPass, run.scope, run.count, run.ms))
     if dirty[run.scope] then
         Classify.Pass(run.scope)
     end
+end
+
+--- The most recently completed full pass, or nil before the first completion.
+-- @treturn table|nil copied { scope, count, ms }
+function Classify.LastPass()
+    if not lastFullPass then
+        return nil
+    end
+    return {
+        scope = lastFullPass.scope,
+        count = lastFullPass.count,
+        ms = lastFullPass.ms,
+    }
 end
 
 local Continue

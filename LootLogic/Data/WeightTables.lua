@@ -1,142 +1,153 @@
 --[[
-The shipped weight tables (technical findings 14.1; spec 8.2): exactly the four
-tables of M1, computed by the team with the WoWSims Forever sim (MIT; notice in
-THIRD_PARTY_NOTICES.md). Test tables live in the test fixtures, never here.
-
-Each value is per rating point as the sim gives it, from the reports in
-tools/statweights/results/m1/ (signs kept). percent is empty: no table here
-lists percent-based keys.
+The M1 weight tables (spec 8.2; technical findings 14.1). Computed tables use
+WoWSims Forever (MIT; notice in THIRD_PARTY_NOTICES.md). Inputs and raw results
+are recorded in tools/statweights/results/m1-refresh. Restoration is team
+judgement, not a simulation. All tables are unverified in game.
 ]]
 
 local _, ns = ...
 
-local SIM_COMMIT = "3e41c53fafe13bbce337e2784061edf2c5a5b97f"
+local SIM_COMMIT = "16e85426c43340f73f4f6ddc84938d4385890ea8"
 local CONFIDENCE = "computed by the team with WoWSims Forever, unverified in game"
 local TANK_CONFIDENCE =
     "computed by the team with WoWSims Forever, assumes group tanking, unverified in game"
 
 ns.WeightTables = {
-    -- weights-m1-report.md, "Canonical" line of Warlock Affliction.
     ["WARLOCK:affliction"] = {
         sim = "ui/specs/warlock/dps",
         commit = SIM_COMMIT,
-        inputs = "build sm_ruin (talents 2550002013520105--0550205003), gear set "
-            .. "preraid, target mode 0.05, seed 101, reference spell damage, no bonus stats",
+        inputs = "sm_ruin build, preraid gear, seed 101, target 0.05, spell damage reference",
         confidence = CONFIDENCE,
         weights = {
             SP = 1,
             SPDMG = 1,
-            SP_SHADOW = 0.9012,
-            SP_FIRE = 0.0988,
-            HIT = 0.9511,
-            CRIT = 0.7985,
-            HASTE = 0.5009,
-            SPELLPIERCING = 0.9585,
-            INT = 0.2778,
-            SPI = 0.1152,
-            MP5 = 0.2223,
+            SP_SHADOW = 0.9009,
+            SP_FIRE = 0.0991,
+            HIT = 0.9587,
+            CRIT = 0.7741,
+            HASTE = 0.5187,
+            SPELLPIERCING = 0.9504,
+            INT = 0.3025,
+            SPI = 0.0964,
+            MP5 = 0.2118,
             STA = 0,
             EXPERTISE = 0,
         },
         percent = {},
     },
-
-    -- weights-m1-report.md, "Canonical" line of Shaman Enhancement.
     ["SHAMAN:enhancement"] = {
         sim = "ui/specs/shaman/enhancement",
         commit = SIM_COMMIT,
-        inputs = "build testing (talents 053303102-053030031005102251-03, carries its "
-            .. "own gear), hit rating offset -40 (40 rating removed from gear at 8.2% hit, "
-            .. "so below the 8% cap; the hit weight is the below-the-cap value), target mode 0.05, "
-            .. "seed 101, reference attack power",
+        inputs = "testing build, hit rating offset -40, seed 101, target 0.05, "
+            .. "attack power reference",
         confidence = CONFIDENCE,
         weights = {
             STR = 2.2,
-            AGI = 1.6311,
-            INT = 2.4863,
+            AGI = 1.7454,
+            INT = 3.179,
             AP = 1,
-            HIT = 8.1082,
-            CRIT = 3.4698,
-            HASTE = 2.8814,
-            EXPERTISE = 4.1063,
-            SPDMG = 2.4209,
-            SP = 2.4209,
-            SP_NATURE = 0.8447,
-            SPELLPIERCING = 5.9399,
-            DPS_MH = 13.9924,
+            HIT = 8.4048,
+            CRIT = 3.6346,
+            HASTE = 2.9068,
+            EXPERTISE = 4.3434,
+            SPDMG = 2.2487,
+            SP = 2.2487,
+            SP_NATURE = 0.9275,
+            SPELLPIERCING = 6.0788,
+            DPS_MH = 14.0353,
         },
         percent = {},
     },
-
-    -- weights-m1-tanks-report.md, "Combined" column of Druid Bear. ARMOR takes
-    -- the StatArmor value, AP the attack power value (feral attack power is
-    -- identical); ArmorPenetration, PhysicalDamage and ArmorNoMods are dropped.
     ["DRUID:bear"] = {
         sim = "ui/specs/druid/feralbear",
         commit = SIM_COMMIT,
-        inputs = "hand-assembled build (talents 050022-2322030212310212501-055, "
-            .. "adaptive APL, the sim's dev-only level 60 placeholder gear set, "
-            .. "Tauren, preset consumables, buffs and debuffs), 180 s fight with "
-            .. "5 s variation, one level 63 target, minimum base damage 6000, "
-            .. "armour 3731, tank Player 0, preset healing model; target mode 0.05, "
-            .. "seed 101; 0.6 x threat weights (Strength = 1) + 1.15 x TMI weights "
-            .. "(Stamina = 1)",
+        inputs = "assembled build, placeholder gear, boss damage 6000, seed 101, "
+            .. "target 0.05; 0.6 threat plus 1.15 TMI",
         confidence = TANK_CONFIDENCE,
         weights = {
             STR = 0.6,
-            AGI = 0.4854,
-            STA = 1.1426,
+            AGI = 0.506,
+            STA = 1.1553,
             AP = 0.2727,
-            HIT = 0.8566,
-            CRIT = 0.4673,
-            HASTE = 0.2993,
-            EXPERTISE = 0.8147,
-            DEF = 1.0035,
-            DODGE = 0.0586,
-            ARMOR = 0.2031,
-            BONUSARMOR = 0.2048,
+            HIT = 0.8459,
+            CRIT = 0.4557,
+            HASTE = 0.2878,
+            EXPERTISE = 0.8198,
+            DEF = 0.9852,
+            DODGE = 0.0628,
+            ARMOR = 0.2095,
+            BONUSARMOR = 0.211,
             DPS_MH = 3.8182,
             SPELLPIERCING = 0,
         },
         percent = {},
     },
-
-    -- weights-m1-tanks-report.md, "Combined" column of Paladin Protection.
-    -- Dodge and parry are below 0 as measured (spec 8.2, tank tables). SP is
-    -- the spell damage weight plus the healing power weight (0), so it equals
-    -- SPDMG; ArmorPenetration and ArmorNoMods are dropped.
     ["PALADIN:protection"] = {
         sim = "ui/specs/paladin/protection",
         commit = SIM_COMMIT,
-        inputs = "hand-assembled build (talents 050050002-05302102213301531-502, "
-            .. "default APL, the sim's dev-only level 60 placeholder gear set, "
-            .. "Human, preset consumables, buffs and debuffs), 180 s fight with "
-            .. "5 s variation, one level 63 target, minimum base damage 6000, "
-            .. "armour 3731, tank Player 0, preset healing model; target mode 0.05, "
-            .. "seed 101; 0.6 x threat weights (Strength = 1) + 1.15 x TMI weights "
-            .. "(Stamina = 1)",
+        inputs = "defaults SIML, placeholder gear, boss damage 6000, seed 101, "
+            .. "target 0.05; 0.6 threat plus 1.15 TMI",
         confidence = TANK_CONFIDENCE,
         weights = {
-            STR = 0.6037,
-            SP = 1.186,
-            SPDMG = 1.186,
+            STR = 0.6047,
+            SP = 1.3219,
+            SPDMG = 1.3219,
             HEAL = 0,
-            AGI = 0.5949,
-            STA = 1.1446,
+            AGI = 0.6649,
+            STA = 1.1484,
             AP = 0.2501,
-            HIT = 2.3069,
-            CRIT = 0.9066,
-            HASTE = 0.4331,
-            EXPERTISE = 1.2691,
-            DEF = 0.2992,
-            BLOCK = 0.9614,
-            BLOCKVALUE = 0.0782,
-            DODGE = -0.1555,
-            PARRY = -0.0419,
-            ARMOR = 0.038,
-            BONUSARMOR = 0.038,
-            DPS_MH = 3.5014,
+            HIT = 2.9632,
+            CRIT = 0.9925,
+            HASTE = 1.0368,
+            EXPERTISE = 3.1117,
+            DEF = 0.3018,
+            BLOCK = 1.379,
+            BLOCKVALUE = 0.0904,
+            DODGE = -0.1754,
+            PARRY = -0.03,
+            ARMOR = 0.0378,
+            BONUSARMOR = 0.0378,
+            DPS_MH = 3.5016,
             SPELLPIERCING = 0,
+        },
+        percent = {},
+    },
+    ["PALADIN:retribution"] = {
+        sim = "ui/specs/paladin/retribution",
+        commit = SIM_COMMIT,
+        inputs = "defaults SIML, unsealed wrath build, default APL, hit offset -40 for hit weight, "
+            .. "seed 101, target 0.05, attack power reference",
+        confidence = CONFIDENCE,
+        weights = {
+            STR = 2.4,
+            AGI = 1.7718,
+            INT = 1.4653,
+            AP = 1,
+            SP = 1.9508,
+            SPDMG = 1.9508,
+            SP_HOLY = 1.6136,
+            HIT = 6.8769,
+            CRIT = 2.4863,
+            HASTE = 3.1594,
+            EXPERTISE = 5.0517,
+            SPELLPIERCING = 0.4004,
+            MP5 = 0.0066,
+            DPS_MH = 14.2421,
+        },
+        percent = {},
+    },
+    ["DRUID:restoration"] = {
+        inputs = "team judgement: healing power first, mana and throughput secondary",
+        confidence = "team judgement, unverified in game",
+        weights = {
+            SP = 1,
+            HEAL = 1,
+            INT = 0.3,
+            SPI = 0.2,
+            MP5 = 0.5,
+            CRIT = 0.2,
+            HASTE = 0.5,
+            STA = 0.1,
         },
         percent = {},
     },

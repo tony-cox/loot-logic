@@ -333,6 +333,32 @@ return {
         )
     end,
 
+    ["ClassifyB: worn zero-score legs are not called an empty slot"] = function()
+        Boot()
+        local old = Define({
+            name = "Old Leggings",
+            equipLoc = "INVTYPE_LEGS",
+            subclassID = 2,
+            stats = {},
+        })
+        Wear(old, 7)
+        local replacement = Define({
+            name = "New Leggings",
+            equipLoc = "INVTYPE_LEGS",
+            subclassID = 2,
+            stats = { [AGI] = 5 },
+        })
+        local _, slot = Carry(replacement)
+        local result = SlotResult(slot)
+        Expect(result, "equip", "equip", false, "positive score over worn zero")
+        h.Equal(result.reasonText, "+inf% Bear", "zero-score reason")
+        h.Equal(result.reasonData.gear.baselineItem.link, old.link, "worn comparison piece")
+        h.Equal(result.reasonData.gear.baselineWhere, "worn", "comparison location")
+        local decorated = ns.API.ClassifyBagSlot(0, slot)
+        local detail = table.concat(ns.Detail.Lines(decorated), " | ")
+        h.True(string.find(detail, "Old Leggings, worn", 1, true) ~= nil, "detail names worn gear")
+    end,
+
     ["ClassifyB: empty-slot gear adds ilvl, training and effect suffixes"] = function()
         Boot()
         local item = Ring(AGI, 10)
@@ -776,6 +802,28 @@ return {
     end,
 
     -- Step 3b
+    ["ClassifyB: zero-score gear destinations show infinite gains"] = function()
+        local here = Boot()
+        here.loadouts = { here.loadouts[1] }
+        local function Neck(name, agility)
+            return Define({
+                name = name,
+                equipLoc = "INVTYPE_NECK",
+                stats = agility and { [AGI] = agility } or {},
+            })
+        end
+        Wear(Neck("Here necklace", 100), 2)
+        local first = Neck("Boneset necklace")
+        local second = Neck("Chamoomile necklace")
+        Stow(BONESET, first)
+        Stow(CHAM, second)
+        local _, slot = Carry(Neck("Candidate necklace", 10))
+        local result = SlotResult(slot)
+        Expect(result, "char:" .. BONESET, "gearfor", false, "zero-score destination")
+        h.Equal(result.reasonText, "+inf% Cat; Chamoomile +inf%", "winner and runner")
+        h.Equal(result.reasonData.gear.baselineItem.link, first.link, "winner comparison")
+        h.Equal(result.reasonData.runnerUps[1].baselineItem.link, second.link, "runner comparison")
+    end,
     ["ClassifyB: the larger gain wins and the runner-up is named (3b)"] = function()
         local here = Boot()
         here.loadouts = { here.loadouts[1] }

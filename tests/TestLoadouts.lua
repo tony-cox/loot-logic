@@ -30,6 +30,36 @@ local function PickedWarlock()
 end
 
 return {
+    ["Loadouts: M1 can add and wear the second role for Druid and Paladin"] = function()
+        for _, row in ipairs({
+            { "DRUID", "Druid", "Restoration", "DRUID:restoration" },
+            { "PALADIN", "Paladin", "Retribution", "PALADIN:retribution" },
+        }) do
+            LoginAs(row[1], row[2])
+            h.Equal(Loadouts.Set(HERE, row[3], row[4]), "added", row[3] .. " added")
+            h.Equal(Loadouts.SetWorn(HERE, row[3]), "changed", row[3] .. " worn")
+            h.Equal(Loadouts.List(HERE)[2].spec, row[4], row[3] .. " spec")
+            h.True(Loadouts.List(HERE)[2].worn, row[3] .. " selected")
+        end
+    end,
+    ["Loadouts: a same-name Shaman replaces the old Warlock loadout"] = function()
+        h.Stub.SetPlayer({ class = "SHAMAN", className = "Shaman" })
+        Boot()
+        LootLogicDB.characters[HERE] = {
+            first = "Zugar",
+            last = "Soulsour",
+            class = "SHAMAN",
+            loadouts = { { name = "Affliction", spec = "WARLOCK:affliction", worn = true } },
+            protect = { [123] = true },
+        }
+        LootLogicDB.order[1] = HERE
+        h.Stub.FireEvent("PLAYER_LOGIN")
+        h.DeepEqual(LootLogicDB.characters[HERE].loadouts, {
+            { name = "Enhancement", spec = "SHAMAN:enhancement", worn = true, assumed = true },
+        }, "loadouts")
+        h.Equal(LootLogicDB.characters[HERE].protect[123], true, "other data")
+    end,
+
     ["Loadouts: a new Druid gets a worn assumed Bear loadout"] = function()
         h.DeepEqual(LoginAs("DRUID", "Druid"), {
             { name = "Bear", spec = "DRUID:bear", worn = true, assumed = true },
@@ -84,6 +114,7 @@ return {
     end,
 
     ["Loadouts: login keeps the loadouts a character already has"] = function()
+        h.Stub.SetPlayer({ class = "DRUID", className = "Druid" })
         Boot()
         local saved = { { name = "Cat", spec = "DRUID:cat", worn = true, assumed = false } }
         LootLogicDB.characters[HERE] = { first = "Zugar", last = "Soulsour", loadouts = saved }

@@ -1,6 +1,6 @@
 # LootLogic: in-game test checklists
 
-One checklist per milestone, run on a live Forever client after installing that milestone's build, with the rule that says when the milestone passes. Spec section 19 points here from the "Done when" of each milestone that has a section below. The offline tests are in `docs/technical-findings.md` section 17.1, and the live checks (L1 to L63) in its section 18.
+One checklist per milestone, run on a live Forever client after installing that milestone's build, with the rule that says when the milestone passes. Spec section 19 points here from the "Done when" of each milestone that has a section below. The offline tests are in `docs/technical-findings.md` section 17.1, and the live checks (L1 to L64) in its section 18.
 
 ---
 
@@ -19,4 +19,9 @@ One checklist per milestone, run on a live Forever client after installing that 
 3. For each check that failed, note whether its fallback is built. A failed check with no fallback that can be built stops M1.
 4. On each test character, do three town trips. Before selling, listing or mailing, hover the items in the bags: each tooltip line should show the category and reason the rules give. Log each disagreement as a bug or a rule change.
 5. Check that the trips together showed at least one item in Equip, one in another character's category, one in AH, one in Vendor and one in Vendor/AH. Until each has shown, the trips are not enough.
-6. Before moving to M2, choose each test character's spec with `/ll loadout` (L54).
+6. On the Druid, create Bear and Restoration loadouts; on the Paladin, create Protection and Retribution loadouts. Switch the worn loadout and check that gear best for the other loadout stays protected, and that the tooltip names the loadout and comparison that explain the result.
+7. Before moving to M2, choose each test character's spec with `/ll loadout` (L54).
+
+## M2: linked-set selection check
+
+Run L64 for Equipment Manager and Outfitter. For each source whose signal is reliable, equip each of two linked sets and verify its loadout becomes worn; change an individual piece and equip an unlinked set, verifying the selection stays. Verify one loadout can link to multiple sets, that a set cannot link to a second loadout, and that an unlinked loadout still gives gear advice and can be selected manually. For a source without a reliable signal, verify manual selection remains available.

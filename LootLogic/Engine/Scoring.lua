@@ -603,7 +603,7 @@ function Scoring.Baseline(key, loadout, options)
     then
         for _, piece in ipairs(cached.result.levels) do
             if piece.worn and piece.item.itemID == options.candidate.itemID then
-                best = piece.score > 0 and piece or nil
+                best = piece.score >= 0 and piece or nil
                 highest = piece
                 if piece.score < 0 then
                     highest = nil
@@ -616,6 +616,10 @@ function Scoring.Baseline(key, loadout, options)
         result.score = best.score
         result.item = best.item
         result.where = best.where
+    end
+    if best and best.score == 0 then
+        result.zeroItem = best.item
+        result.zeroWhere = best.where
     end
     if best and best.score < 0 and count == 2 then
         highest = nil
@@ -783,12 +787,16 @@ local function WeaponBaseline(key, loadout, level, excludeLink, identity)
         pairLevel = 0,
         twoLevel = 0,
         highest = {},
+        zero = {},
     }
     for hand, list in pairs(sets.highest) do
+        best.zero[hand] = {}
         for _, piece in ipairs(list) do
             if Allowed(piece) then
-                best.highest[hand] = piece
-                break
+                best.highest[hand] = best.highest[hand] or piece
+                if piece[hand] == 0 then
+                    best.zero[hand][#best.zero[hand] + 1] = piece
+                end
             end
         end
     end
@@ -1231,6 +1239,24 @@ local function CompareWeapon(item, options, hand, pool, train)
         candidate = item.itemLevel
         baseline = reference and reference.itemLevel or 0
         partner = 0
+    elseif baseline == 0 and not reference then
+        local other = hand == "mainHand" and pool.off or hand == "offHand" and pool.main
+        for _, zero in ipairs(pool.zero[hand]) do
+            if
+                zero ~= other
+                and not (other and zero.item.unique and zero.item.itemID == other.item.itemID)
+            then
+                reference = zero
+                break
+            end
+        end
+        if pool.pairScore == 0 and pool.twoScore == 0 then
+            if hand == "twoHand" then
+                reference = reference or pool.zero.mainHand[1] or pool.zero.offHand[1]
+            else
+                reference = reference or pool.zero.twoHand[1]
+            end
+        end
     end
     local upgrade, gainPct =
         Scoring.IsUpgrade(candidate + partner, baseline, settings.minUpgradePct)
@@ -1369,6 +1395,9 @@ function Scoring.Compare(item, key, options)
         if baselineItem then
             value = baselineItem.itemLevel
         end
+    elseif value == 0 and baseline.zeroItem then
+        baselineItem = baseline.zeroItem
+        baselineWhere = baseline.zeroWhere
     end
     local upgrade, gainPct = Scoring.IsUpgrade(candidate, value, settings.minUpgradePct)
     return {

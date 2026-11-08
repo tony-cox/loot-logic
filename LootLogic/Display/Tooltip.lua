@@ -251,7 +251,7 @@ local function AddItemRefLine(tooltip, link)
 end
 
 local function RefreshShownTooltips(_, key)
-    if key ~= "LSHIFT" and key ~= "RSHIFT" then
+    if key and key ~= "LSHIFT" and key ~= "RSHIFT" then
         return
     end
     if refreshing then
@@ -317,6 +317,11 @@ local function RefreshShownTooltips(_, key)
         end
     end
     refreshing = false
+end
+
+--- Rebuild the tracked shown tooltip through its existing eligibility guards.
+function Tooltip.RefreshShown()
+    RefreshShownTooltips(nil)
 end
 
 Events.Register("MODIFIER_STATE_CHANGED", RefreshShownTooltips)

@@ -22,6 +22,47 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 
 ## Answered decisions
 
+### Command listings
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D211 | spec 13; ux 2.2, 2.3 | How can a player inspect and edit loadouts and wants in chat? | `/ll loadout` and `/ll want` with no arguments list the current character's entries and their details. Both commands default to the current character and accept a trailing `--character <name>` for another character, including for listing. A trailing `--all` lists every character and cannot be used for edits or with `--character`. Applied to spec 13, ux 2.2 and 2.3, and technical findings 18 (L54). | 2026-11-08 |
+
+### Zero-score gear baseline
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D210 | spec 7.6 and 8.4; ux 5.4 | What should an upgrade say when a comparison slot has an owned piece with a score of zero? | Show an infinite gain, not an empty-slot reason. A genuinely empty comparison slot keeps its empty-slot reason. Applied to spec 7.6 and 8.4 and ux 5.4. | 2026-11-07 |
+
+### Automatic worn-loadout selection
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D208 | spec 4, 9.1, 13 and 19; ux 3.2 | Should equipping a linked set select its LootLogic loadout? | Yes, in M2: equipping a linked Equipment Manager or Outfitter set selects its loadout as worn. Manual piece changes leave the selected loadout in place. Keep manual selection and use it as the fallback if the set-equip signal cannot be identified reliably. M1 continues to use explicit selection. Duplicate links remain open in D209. Applied to spec 4, 9.1, 13 and 19, ux 3.2, and technical findings 9.1 and 18 (L64). | 2026-11-07 |
+| D209 | spec 6, 9.1, 9.2 and 13; ux 3.2; testing M2 | How should equipment sets and loadouts be linked? | In M2 a set may link to at most one loadout, and a loadout may link to multiple sets. Sets and loadouts may both remain unlinked; equipping an unlinked set leaves the worn loadout unchanged. Unlinked loadouts still give gear advice and can be selected manually. Automatic selection requires a linked set and a reliable equip signal. The names and per-set scoring are unchanged. Applied to spec 6, 9.1, 9.2 and 13, ux 3.2 and the M2 check. | 2026-11-07 |
+
+### M1 loadout test weights
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D207 | spec 8.2; testing M1 | Which additional specs should M1 support for multiple-loadout testing? | Add Druid Restoration and Paladin Retribution to M1. Recalculate the four existing tables against the latest WoWSims master, updating the wrapper as needed. Restoration uses the existing team-judgement healer rule. Applied to spec 8.2 and the M1 checklist. | 2026-11-07 |
+
+### Reused character names
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D206 | spec 6; ux 1 | How should an incompatible loadout on a same-name replacement be handled? | Check the character's class and keep loadouts appropriate to it. Remove known incompatible specs, create a default when none remain, and retain other saved data. A same-name replacement with the same class is not detected by this check. Applied to spec 6 and ux 1. | 2026-11-06 |
+
+### M1 stage 5 commands
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D201 | spec 13; ux 2.3 | Which near matches are suggested? | Suggest a unique candidate one insertion, deletion, substitution or adjacent transposition away; suggest none on a tie. Applied to spec 13 and ux 2.3. | 2026-11-06 |
+| D202 | spec 13; ux 2.3 | What does character reset preserve? | Reset `receivesGear` to its default along with loadouts, wants and protect; preserve display name, imported equipment and outfitter membership, identity and snapshots. Applied to spec 13 and ux 2.3. | 2026-11-06 |
+| D203 | spec 13; ux 2.3 | How do reset previews and confirmation interact? | A valid preview replaces the pending preview; invalid commands leave it pending. Exactly 30 seconds is valid. Unquoted `all` and `confirm` are reserved, and quotes select a character of that name. Applied to spec 13 and ux 2.3. | 2026-11-06 |
+| D204 | spec 13; ux 2.3 | What does `/ll perf` show? | Show the latest completed full classification's scope, item count and elapsed time, or a message when none has completed. Applied to spec 13 and ux 2.3. | 2026-11-06 |
+| D205 | spec 13; ux 2.3; technical findings 5 and 18 (L61) | What happens if the client type-name API is unavailable? | Use client names only. If the API is missing or fails, report that item types are unavailable and leave saved data unchanged. Remove the built-in fallback, whose referenced table contains examples rather than client names. Applied to spec 13, ux 2.3 and technical findings 5 and 18. | 2026-11-06 |
+
 ### M1 Stage 4 detail
 
 | # | Raised in | Question | Answer | Date |

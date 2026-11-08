@@ -388,7 +388,7 @@ return {
         h.Equal(Scoring.Score(item, "PALADIN:holy"), 66, "converted score")
         h.Equal(Scoring.Score(item, "PALADIN:holy"), 66, "not converted twice")
         h.Equal(ns.WeightTables["PALADIN:holy"].weights.HIT, 10, "source unchanged")
-        h.Equal(ns.WeightTables["WARLOCK:affliction"].weights.HIT, 0.9511, "computed weights")
+        h.Equal(ns.WeightTables["WARLOCK:affliction"].weights.HIT, 0.9587, "computed weights")
         LootLogicDB.characters.paladin.level = 10
         h.Equal(Scoring.Score(item, "PALADIN:holy"), 66, "level invariant")
     end,

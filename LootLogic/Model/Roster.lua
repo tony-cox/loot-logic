@@ -227,6 +227,11 @@ local function Register()
     end
 end
 
+--- Re-register the current character after an in-place saved-data reset.
+function Roster.RegisterNow()
+    Register()
+end
+
 --- The key of the current character: the one kept at login, else read from
 --- the client; nil when the game gives no name.
 -- @treturn string|nil

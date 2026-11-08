@@ -77,6 +77,20 @@ local function Bag(item)
 end
 
 return {
+    ["refresh rebuilds a stationary shown tooltip through its normal guards"] = function()
+        Boot()
+        local item = Define()
+        Include(item)
+        local shown = Tooltip("GameTooltip", {
+            getterName = "GetHyperlink",
+            getterArgs = { item.link },
+            hyperlink = item.link,
+        }, nil, item.link)
+        h.Equal(#shown.lines, 1, "initial result line")
+        LootLogicDB.settings.display.tooltip = false
+        ns.Tooltip.RefreshShown()
+        h.Equal(#shown.lines, 0, "refresh applies disabled setting")
+    end,
     ["hidden or cleared tooltip does not revive an old item on Shift"] = function()
         Boot()
         local item = Define()

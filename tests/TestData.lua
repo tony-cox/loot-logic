@@ -278,22 +278,26 @@ return {
         }, "assumed rows")
     end,
 
-    ["WeightTables has exactly the four M1 ids, each in Specs"] = function()
-        h.Equal(count(ns.WeightTables), 4, "table count")
+    ["WeightTables has exactly the six M1 ids, each in Specs"] = function()
+        h.Equal(count(ns.WeightTables), 6, "table count")
         for _, id in ipairs({
             "DRUID:bear",
             "PALADIN:protection",
+            "PALADIN:retribution",
             "SHAMAN:enhancement",
             "WARLOCK:affliction",
         }) do
             local t = ns.WeightTables[id]
             h.True(t ~= nil, id .. " has a table")
             h.True(ns.Specs[id] ~= nil, id .. " is in Specs")
-            h.Equal(t.commit, "3e41c53fafe13bbce337e2784061edf2c5a5b97f", id .. " commit")
+            h.Equal(t.commit, "16e85426c43340f73f4f6ddc84938d4385890ea8", id .. " commit")
             h.Equal(type(t.sim), "string", id .. " sim")
             h.Equal(type(t.inputs), "string", id .. " inputs")
             h.Equal(type(t.confidence), "string", id .. " confidence")
         end
+        local resto = ns.WeightTables["DRUID:restoration"]
+        h.True(resto ~= nil, "restoration has a table")
+        h.True(string.find(resto.confidence, "team judgement", 1, true) ~= nil, "healer source")
     end,
 
     ["every weight key is canonical, every weight a number, every percent list empty"] = function()
@@ -324,21 +328,21 @@ return {
         local prot = ns.WeightTables["PALADIN:protection"].weights
         h.True(prot.DODGE < 0, "paladin dodge below 0")
         h.True(prot.PARRY < 0, "paladin parry below 0")
-        h.Equal(prot.DODGE, -0.1555, "paladin dodge")
-        h.Equal(prot.PARRY, -0.0419, "paladin parry")
+        h.Equal(prot.DODGE, -0.1754, "paladin dodge")
+        h.Equal(prot.PARRY, -0.03, "paladin parry")
         h.Equal(prot.SP, prot.SPDMG, "paladin SP equals SPDMG")
         h.Equal(prot.HEAL, 0, "paladin HEAL")
         h.Equal(prot.SPELLPIERCING, 0, "paladin spell piercing")
         local bear = ns.WeightTables["DRUID:bear"].weights
-        h.Equal(bear.ARMOR, 0.2031, "bear armour takes the Armor value")
+        h.Equal(bear.ARMOR, 0.2095, "bear armour takes the Armor value")
         h.Equal(bear.AP, 0.2727, "bear AP")
         h.Equal(bear.SPELLPIERCING, 0, "bear spell piercing")
         local shaman = ns.WeightTables["SHAMAN:enhancement"]
-        h.Equal(shaman.weights.HIT, 8.1082, "shaman hit")
+        h.Equal(shaman.weights.HIT, 8.4048, "shaman hit")
         h.Equal(shaman.weights.SP, shaman.weights.SPDMG, "shaman SP")
         h.True(string.find(shaman.inputs, "-40", 1, true) ~= nil, "shaman records its hit offset")
         local warlock = ns.WeightTables["WARLOCK:affliction"].weights
-        h.Equal(warlock.SP_SHADOW, 0.9012, "warlock shadow")
+        h.Equal(warlock.SP_SHADOW, 0.9009, "warlock shadow")
         h.Equal(warlock.EXPERTISE, 0, "warlock expertise not weighed")
     end,
 
@@ -356,7 +360,7 @@ return {
 
     ["weighed keys with no ItemMods source are the named known gap"] = function()
         -- D153 item 1: school power and resistances have no rows until L4.
-        local knownGap = { SP_FIRE = true, SP_SHADOW = true, SP_NATURE = true }
+        local knownGap = { SP_FIRE = true, SP_SHADOW = true, SP_NATURE = true, SP_HOLY = true }
         local sourced = { DPS_MH = true, DPS_OH = true, DPS_RANGED = true }
         for _, key in pairs(ns.ItemMods) do
             sourced[key] = true
@@ -376,69 +380,69 @@ return {
         h.DeepEqual(tables["WARLOCK:affliction"].weights, {
             SP = 1,
             SPDMG = 1,
-            SP_SHADOW = 0.9012,
-            SP_FIRE = 0.0988,
-            HIT = 0.9511,
-            CRIT = 0.7985,
-            HASTE = 0.5009,
-            SPELLPIERCING = 0.9585,
-            INT = 0.2778,
-            SPI = 0.1152,
-            MP5 = 0.2223,
+            SP_SHADOW = 0.9009,
+            SP_FIRE = 0.0991,
+            HIT = 0.9587,
+            CRIT = 0.7741,
+            HASTE = 0.5187,
+            SPELLPIERCING = 0.9504,
+            INT = 0.3025,
+            SPI = 0.0964,
+            MP5 = 0.2118,
             STA = 0,
             EXPERTISE = 0,
         }, "warlock")
         h.DeepEqual(tables["SHAMAN:enhancement"].weights, {
             STR = 2.2,
-            AGI = 1.6311,
-            INT = 2.4863,
+            AGI = 1.7454,
+            INT = 3.179,
             AP = 1,
-            HIT = 8.1082,
-            CRIT = 3.4698,
-            HASTE = 2.8814,
-            EXPERTISE = 4.1063,
-            SPDMG = 2.4209,
-            SP = 2.4209,
-            SP_NATURE = 0.8447,
-            SPELLPIERCING = 5.9399,
-            DPS_MH = 13.9924,
+            HIT = 8.4048,
+            CRIT = 3.6346,
+            HASTE = 2.9068,
+            EXPERTISE = 4.3434,
+            SPDMG = 2.2487,
+            SP = 2.2487,
+            SP_NATURE = 0.9275,
+            SPELLPIERCING = 6.0788,
+            DPS_MH = 14.0353,
         }, "shaman")
         h.DeepEqual(tables["DRUID:bear"].weights, {
             STR = 0.6,
-            AGI = 0.4854,
-            STA = 1.1426,
+            AGI = 0.506,
+            STA = 1.1553,
             AP = 0.2727,
-            HIT = 0.8566,
-            CRIT = 0.4673,
-            HASTE = 0.2993,
-            EXPERTISE = 0.8147,
-            DEF = 1.0035,
-            DODGE = 0.0586,
-            ARMOR = 0.2031,
-            BONUSARMOR = 0.2048,
+            HIT = 0.8459,
+            CRIT = 0.4557,
+            HASTE = 0.2878,
+            EXPERTISE = 0.8198,
+            DEF = 0.9852,
+            DODGE = 0.0628,
+            ARMOR = 0.2095,
+            BONUSARMOR = 0.211,
             DPS_MH = 3.8182,
             SPELLPIERCING = 0,
         }, "bear")
         h.DeepEqual(tables["PALADIN:protection"].weights, {
-            STR = 0.6037,
-            SP = 1.186,
-            SPDMG = 1.186,
+            STR = 0.6047,
+            SP = 1.3219,
+            SPDMG = 1.3219,
             HEAL = 0,
-            AGI = 0.5949,
-            STA = 1.1446,
+            AGI = 0.6649,
+            STA = 1.1484,
             AP = 0.2501,
-            HIT = 2.3069,
-            CRIT = 0.9066,
-            HASTE = 0.4331,
-            EXPERTISE = 1.2691,
-            DEF = 0.2992,
-            BLOCK = 0.9614,
-            BLOCKVALUE = 0.0782,
-            DODGE = -0.1555,
-            PARRY = -0.0419,
-            ARMOR = 0.038,
-            BONUSARMOR = 0.038,
-            DPS_MH = 3.5014,
+            HIT = 2.9632,
+            CRIT = 0.9925,
+            HASTE = 1.0368,
+            EXPERTISE = 3.1117,
+            DEF = 0.3018,
+            BLOCK = 1.379,
+            BLOCKVALUE = 0.0904,
+            DODGE = -0.1754,
+            PARRY = -0.03,
+            ARMOR = 0.0378,
+            BONUSARMOR = 0.0378,
+            DPS_MH = 3.5016,
             SPELLPIERCING = 0,
         }, "paladin")
     end,

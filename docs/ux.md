@@ -38,6 +38,7 @@ Design rule from the pair: **defaults serve the solo player, and nothing the pow
 | Install | Installs LootLogic; ideally BetterBags and a price addon | Nothing until login | |
 | First login ever (empty `LootLogicDB`) | Logs in | Registers the character that just logged in (key, class, faction, level, gear, proficiency) and creates the account-wide data; shows a small welcome dialog once, with a button to open setup (section 2.1) | Once per account |
 | First login on each other character | Logs in on each alt | Registers it (key, class, faction, level, gear, proficiency), creates one worn loadout, named after the class's assumed spec, with that spec, puts it last in the order; one chat line | SavedVariables are written at logout and read at login, so the next character played sees the new one |
+| Login with an incompatible saved loadout | Logs in after reusing a name for a different class | Removes loadouts whose known spec belongs to another class; keeps compatible loadouts and other saved character data, and creates a default loadout if none remain | A same-name replacement of the same class is not detected by this check |
 | Setup, one sitting, any character | Characters tab: order and a spec per loadout for everyone. Wants tab: a template or ticks per character | Checklist lines turn done | Every character's specs and wants can be edited from any character |
 | First prices | Scans at the AH | Chat line: "LootLogic: prices updated: 9 items left Vendor/AH (6 AH, 3 Vendor)." | If the first AH visit comes late, Vendor/AH is large in the first days |
 | Steady state (levelling) | Loots | Tooltip line on every item; sections fill (BetterBags) or badges appear (default bags) | No chat in steady state |
@@ -46,7 +47,7 @@ Design rule from the pair: **defaults serve the solo player, and nothing the pow
 | A character goes idle | Doesn't play it for weeks | Snapshot unchanged and still correct unless played elsewhere; age shown in Characters and Status; one chat line at login names characters not seen for `staleDays` | Section 6 |
 | Price addon added later | Installs Auctionator or AHDB | The checklist's Prices line changes from "No price addon" to "Auctionator found, no price seen yet"; Vendor/AH stays until the first scan, then the scan chat line | |
 | Bag addon changed | For example Baganator to BetterBags | Adapter detected at login; checklist line updates | |
-| Set addon changed | For example Outfitter added or removed | Set sources detected at login; the linked-set dropdown and the Status Sets row update | |
+| Set addon changed | For example Outfitter added or removed | Set sources detected at login; the linked-sets picker and the Status Sets row update | |
 
 ### 1.3 Setup order, and why
 
@@ -122,7 +123,7 @@ Computed live from the DB and the detected addons. Nothing is stored except "hid
 | 6 | Bag display | info: "Baganator: tooltip line only; the Contents tab is your list" ([done] reads "BetterBags sections active"). **NEED** when an adapter failed. | an adapter active, or tooltip-only acknowledged | [Retry] on failure; [Tooltip only] accepts the tooltip line as the bag display |
 | 7 | Bank seen on the current character | info: "Open your bank once so gear upgrades count it." | `bank.updatedAt` set | |
 
-NEED means results are misleading without it; TIP and info are advice. A complete checklist collapses to one line ("Setup complete") above the Status block. **In M1** (no window) the checklist prints in chat. Lines 4 and 6 print as info only. Line 3's tip reads "type /ll loadout Zugar Affliction Affliction to keep it" (that command clears the flag). Line 6 reads "Bags: tooltip line only in this build."
+NEED means results are misleading without it; TIP and info are advice. A complete checklist collapses to one line ("Setup complete") above the Status block. **In M1** (no window) the checklist prints in chat. Lines 4 and 6 print as info only. Line 3's tip names the command to keep the assumed spec, for example "type /ll loadout Affliction Affliction --character Zugar to keep it"; omit the character option for the current character. Setting the same spec clears the assumed flag. Line 6 reads "Bags: tooltip line only in this build."
 
 ### 2.3 Unseen alts
 
@@ -132,12 +133,18 @@ A character joins the roster only by logging in with LootLogic enabled. Before t
 |---|---|
 | Characters tab footer | "Not listed? Log in on that character once with LootLogic enabled. Nothing can be sent to a character LootLogic has not seen." |
 | Wants tab when only the current character is registered | "You are the only character LootLogic knows. Wants for your other characters can be set once they have logged in." The editor still works for the current character. |
-| `/ll want Bob <link>` | "LootLogic does not know Bob yet. Log in on Bob once with LootLogic enabled." |
+| `/ll want <link> --character Bob` | "LootLogic does not know Bob yet. Log in on Bob once with LootLogic enabled." |
 | Checklist line 2 | "5 characters. Missing one? Log in on it once." |
 
 **More than one PC:** `LootLogicDB` lives in the local WTF folder. A character played only on another computer is unseen on this computer; one played on both is as fresh as its last login on this one. The help text says so. LootLogic cannot detect it.
 
 There are no placeholder characters in v1: a character exists only once it has logged in.
+
+Command errors suggest a candidate only when exactly one is one insertion, deletion, substitution or adjacent transposition away. Character reset restores Receives gear to its default, replaces the loadouts with one default worn loadout, and clears wants and protect, while preserving the display name, imported membership, identity and snapshots. A valid reset preview replaces the previous one; invalid commands leave it pending, and confirmation at exactly 30 seconds is valid. Quote a character named `all` or `confirm` to distinguish it from the reserved reset commands. `/ll perf` reports the scope, item count and elapsed time of the latest completed full classification, or says when none has completed.
+
+If the client cannot supply item type names, `/ll want` reports that types are unavailable and leaves saved data unchanged when resolving a type.
+
+`/ll loadout` and `/ll want` list the current character's entries and their details. A trailing `--character <name>` selects another character for either listing or edit; quote names with spaces. `/ll loadout --all` and `/ll want --all` list every character's entries, grouped by character. `--all` is only for listing and cannot be combined with `--character`. A loadout listing explains how to keep an assumed spec by setting the same spec again.
 
 ---
 
@@ -206,7 +213,7 @@ Mockups show proportions, not pixels. `Dr`, `Pa`, `Wl`, `Sh` stand for class ico
 | Contested Metal and Stone: Boneset wins, Zugar wants it too           |
 |                                                                       |
 | v Zugar, Warlock 5, Horde                                             |
-|   Worn  Name       Spec                   Linked set                  |
+|   Worn  Name       Spec                   Linked sets                 |
 |   (o)   [Affliction] [Affliction*    v]  [none                v] [-]  |
 |         Armour: [use the setting v]                                   |
 |   [+ loadout]  [Keep Affliction]                                      |
@@ -226,8 +233,8 @@ Mockups show proportions, not pixels. `Dr`, `Pa`, `Wl`, `Sh` stand for class ico
 **Specs and loadouts.** A character's spec is set on a **loadout**, not on the character. A loadout is a name plus a spec, for example "Cat" with the Cat spec.
 - A new character has one loadout, named after its class's assumed spec by default, with that spec. "Pick a spec for the character" means picking the spec on that loadout.
 - A character that plays more than one role (a druid who tanks, heals and does damage) can add a loadout for each, with its own spec.
-- Exactly one loadout is the **worn** one: the role the character is wearing now. Move the radio when the character changes role.
-- A loadout can be **linked** to a gear set the player already has in Outfitter or the Blizzard Equipment Manager. The link only labels the set's pieces in tooltips ("LootLogic: stays (in set Tank (Bear))"); every piece of an imported set stays whether it is linked or not. It does not set the spec.
+- Exactly one loadout is the **worn** one: the role the character is wearing now. From M2, equipping a linked set selects its loadout; the player can also move the radio. Changing individual pieces leaves the selection in place. Set-equip detection is unverified (L64); when a source cannot identify the equipped set reliably, use the radio.
+- A loadout can be **linked** to any number of sets the player already has in Outfitter or the Blizzard Equipment Manager. Each set links to at most one loadout. The links label set pieces in tooltips ("LootLogic: stays (in set Tank (Bear))") and select the loadout when a linked set is equipped. Equipping an unlinked set, such as Fishing, leaves the worn loadout unchanged. Every piece of an imported set stays whether it is linked or not. A loadout can remain unlinked and still give gear advice; it can be selected manually, but automatic selection needs a linked set and a reliable signal. A link does not set the spec.
 - Gear is scored under the spec of every loadout. A piece that is the best owned piece under two loadouts' specs stays for both; a new item that beats it under only one of them becomes that loadout's best piece, and the old piece stays while it is still the best under the other. On the current character an item is an upgrade (Equip) only under the worn loadout's spec; under another loadout's spec, a piece that becomes best at any level in the window stays. A replaced piece is judged like any other item only when it no longer wins at any level in the window for any scored loadout. For another character an item is an upgrade if it beats what that character owns under any of its loadouts, and the tooltip names the loadout ("Chamoomile (+9% Cat over Ferocious Bracers)"). In v1, loadouts that share a spec and an armour rule share one comparison, and a loadout is not compared with the pieces of its own set (that is v1.1).
 - Most players need only the first loadout. Extra loadouts are for characters that swap roles.
 
@@ -242,9 +249,9 @@ Mockups show proportions, not pixels. `Dr`, `Pa`, `Wl`, `Sh` stand for class ico
 | Wants "2 types" | The number of item types (class or subclass flags) ticked for that character. Item includes and excludes are counted as "+N" after it ("2 +2": two types, two items). *Design choice.* |
 | Ineligible row (Otherguy) | A character that cannot receive from the current character (for example, the other faction). Greyed, no order buttons, the reason on a second line. Not a destination. |
 | Expanded row (`v Zugar, ...`) | That character's loadouts. Click the row header to expand or collapse. |
-| Worn radio `(o)` | Marks the loadout the character is wearing now. Exactly one per character; move it when the character changes role. |
+| Worn radio `(o)` | Marks the selected worn loadout. Exactly one per character; equipping a linked set selects its loadout, and the radio also permits manual selection (spec 9.2, L64). |
 | Loadout name | Click it to rename the loadout (unique per character, case ignored). The default name is the spec's name and has no special meaning. |
-| Spec, Linked set | The loadout's spec, and an imported Outfitter or Equipment Manager set linked to it, or none. |
+| Spec, Linked sets | The loadout's spec, and a picker for zero or more imported Outfitter or Equipment Manager sets. A set already linked to another loadout is unavailable until it is unlinked there. |
 | Armour | Use the setting (Settings tab), best armour only, or any armour, for this loadout. A druid can set Resto to any armour (cloth counts) and leave Bear on best only. |
 | `[-]`, `[+ loadout]` | Remove this loadout, add another. |
 | Receives gear upgrades | Off means no gear upgrades are routed to the character (Gear shows OFF); its wants still apply. For bank alts. On by default. |
@@ -253,7 +260,7 @@ Mockups show proportions, not pixels. `Dr`, `Pa`, `Wl`, `Sh` stand for class ico
 | State | What shows |
 |---|---|
 | Empty (only the current character) | One row (you). Content text: "Only Chamoomile so far. Log in on each of your other characters once with LootLogic enabled; they appear here. Nothing can be sent to a character LootLogic has not seen." |
-| Loading | The linked-set dropdown reads "reading Outfitter..." until the import finishes. Rows never wait on it. |
+| Loading | The linked-sets picker reads "reading Outfitter..." until the import finishes. Rows never wait on it. |
 | Stale | The Seen cell as above. Hover: "Zugar's gear, bags and level as of 16 d ago on this PC. Wants are not affected." |
 | Error | A row whose snapshot will not load shows "data error: log in on Zugar to refresh" in place of level and spec, and is not a destination. Detail in Status. |
 | Ineligible | Greyed, no order buttons, the reason on a second line (faction or region). |
@@ -428,7 +435,7 @@ Behaviour is in section 4.
 | "4 of 6 done" | Checklist lines 1 to 6 that are done, out of 6. Line 7 (bank) is advice and never counts. Lines 2 and 6 count although their not-done tag is info, and line 4's "receives no gear" line counts as done. |
 | Prices rows | One per price provider found. "newest 0 d" is the age in days of its newest price (for Auctionator, the newest of the prices LootLogic has read this session; "no price seen yet" before the first, and "Auctionator: price over 21 d old" when every price read has no age because it is older than 21 days). "1,204 items" is how many items it has prices for (AHDB only; Auctionator's public API gives no count, so its row omits it). When `requireLastScan` is on and Auctionator is the only provider, its row adds "latest-scan setting ignored (needs AHDB)". "last scan 14:02, house Horde" is when the AH was last scanned and for which faction's auction house. |
 | Bags rows | One per bag display. **active** means it is drawing categories now. **idle** means it is installed but another addon draws the bags. "last refresh 2 s ago" is the last time LootLogic updated it. |
-| Sets rows | One per set source found (Equipment Manager, Outfitter). **active** means its sets can be read for the linked-set dropdown and for protection; **found** means it is installed but no set has been read yet; **failed** shows the error, as for a bag addon. |
+| Sets rows | One per set source found (Equipment Manager, Outfitter). **active** means its sets can be read for the linked-sets picker and for protection; **found** means it is installed but no set has been read yet; **failed** shows the error, as for a bag addon. |
 | Roster | How long ago each character was last seen. |
 | Build | LootLogic version, the saved-data format version (schema), and the game client build. |
 | Errors, `[Copy]`, `[Clear]` | Errors this session. Copy opens a box to select from. Clear empties the list. |
@@ -707,7 +714,7 @@ A template is a set of type flags (and, rarely, item includes), applied by **mer
 | Search | `/ll`, Wants, Zugar, type "cloth", tick | 4 plus typing |
 | Template | `/ll`, Wants, Zugar, Template, Tailoring, Apply | 6, and sets recipes too |
 | From the item | Hover Linen Cloth, press "add hovered item to wants", pick Zugar, pick "all Cloth" or "only Linen Cloth" | 3 |
-| Slash (spec) | `/ll want Zugar [Linen Cloth]` | 1 command; an item include, not the type |
+| Slash (spec) | `/ll want [Linen Cloth] --character Zugar` | 1 command; an item include, not the type |
 
 Target: **at most 5 actions** from a closed window to a working want, **3 from the item**. The item path needs the "add hovered item to wants" keybinding and a small popup. The window remembers tab and character, so later edits are 2 or 3 clicks.
 
@@ -759,6 +766,8 @@ An item-link popup that matches an item ID and random suffix in the player's bag
 | Price | 2 | A price was read, including on demand for detail: the price and its net after the cut; then the gain per unit and for the whole holding, and the thresholds. A rejected stale quote and its calculations are marked stale. The lookup does not change the verdict |
 
 When additional comparisons needed only for detail are still loading, the verdict and available detail remain visible and the detail indicates that comparisons are loading. When the parts come to more than 8 lines, the gear lines with the smallest gains are cut and the last one kept ends "(and N more)".
+
+A positive score compared with an owned zero-score piece shows "+inf% <loadout>" rather than calling the slot empty; detail names the comparison piece (spec 7.6).
 
 When `/ll why` cannot find the item, it replies "Couldn't find that item. Use /ll why followed by an item link." With no argument and nothing hovered, it replies "Hover an item or give a link."
 
