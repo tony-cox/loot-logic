@@ -396,7 +396,20 @@ local function ResolveName(tokens)
         end
         if #found > 0 then best, matches = count, found end
     end
-    if not best then return nil, 0 end
+    if not best then
+        local firstKeys = {}
+        for _, key in ipairs(Roster.Keys()) do
+            local entry = Roster.Entry(key)
+            if tokens[1] and entry
+                and string.lower(entry.first or "") == string.lower(tokens[1])
+            then
+                firstKeys[#firstKeys + 1] = key
+            end
+        end
+        if #firstKeys == 0 then return nil, 0 end
+        table.sort(firstKeys)
+        return #firstKeys == 1 and firstKeys[1] or nil, 1, firstKeys
+    end
     local display = {}
     for _, row in ipairs(matches) do
         if row.display then display[#display + 1] = row end
@@ -569,10 +582,9 @@ local function LoadoutLines(key, targeted)
     return lines
 end
 
-local function WantTypeName(key)
+local function WantTypeName(key, classes, types)
     local classID = string.match(key, "^(%d+):%d+$")
     local classAll = string.match(key, "^(%d+):%*$")
-    local classes, types = TypeCatalogue()
     if not classes then return key end
     local className
     for _, row in ipairs(classes) do
@@ -588,7 +600,7 @@ local function WantTypeName(key)
     return key
 end
 
-local function WantLines(key)
+local function WantLines(key, classes, types)
     local entry = Roster.Entry(key)
     local asks = entry and entry.asks or {}
     local lines = { string.format(L.wantListHeader, Roster.DisplayName(key)) }
@@ -619,7 +631,7 @@ local function WantLines(key)
         local qualityName = quality and tostring(quality) or L.wantListAnyQuality
         lines[#lines + 1] = string.format(
             L.wantListType,
-            WantTypeName(item.key),
+            WantTypeName(item.key, classes, types),
             qualityName
         )
     end
@@ -737,7 +749,10 @@ local function RunWant(rest)
     local keys, targetMode = CharacterTarget(args, quoted, L.wantUsage)
     if not keys then return end
     if targetMode == "all" or #args == 0 then
-        PrintCharacterListings(keys, WantLines)
+        local classes, types = TypeCatalogue()
+        PrintCharacterListings(keys, function(key)
+            return WantLines(key, classes, types)
+        end)
         return
     end
     local key = keys[1]

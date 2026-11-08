@@ -916,6 +916,17 @@ return {
         )
     end,
 
+    ["Slash: a unique first name resolves when the display name differs"] = function()
+        WhyBoot()
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        entry.displayName = "Local Hero"
+        ns.Slash.Run("gear Local off")
+        h.Equal(entry.receivesGear, false, "first name fallback")
+        Stub.ClearChat()
+        ns.Slash.Run("want --character Local")
+        h.True(HasLine(string.format(L.wantListHeader, "Local Hero")), "character option fallback")
+    end,
+
     ["Slash: loadout argument and spec errors differ"] = function()
         WhyBoot()
         local entry = LootLogicDB.characters["Local Test-Realm"]
