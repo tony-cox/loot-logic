@@ -917,7 +917,7 @@ BetterBags is first because it has a real category API and an open (MIT) reposit
 
 | Command | Action |
 |---|---|
-| `/ll` | Toggle the window. In M1, which has no window, print the setup commands below and the checklist (as `/ll status`) |
+| `/ll` | Toggle the window. In M1, which has no window, print the setup commands below, then the setup checklist only (not the status block) |
 | `/ll why [link, item ID or itemID:suffixID]` | Explain the hovered or given item in chat |
 | `/ll protect [link, item ID or itemID:suffixID]` | Toggle protect for here (`/ll protect global [...]` for the global list). A link or an `itemID:suffixID` protects that roll; a plain item ID protects every roll |
 | `/ll loadout [<loadout> <spec> [worn]] [--character <name>\|--all]` | With no loadout, list loadouts and their details. Otherwise add or edit a loadout; `worn` makes it the worn one and clears the flag on the others. `/ll loadout <loadout> remove [--character <name>]` deletes it (never the worn one). `/ll loadout <loadout> armor best\|any\|default [--character <name>]` sets its armour rule (`default` follows the global setting). Setting a loadout's spec clears its assumed flag, including when it already has that spec: `/ll loadout Affliction Affliction` confirms the assumed spec on the Affliction loadout. Only a picked spec set again answers "Zugar Affliction already uses Affliction." |
@@ -928,7 +928,7 @@ BetterBags is first because it has a real category API and an open (MIT) reposit
 | `/ll help` | Print the command list |
 | `/ll contents` (M2) | Open the window on the Contents tab |
 | `/ll wants [<display name>]` (M2) | Open the window on the Wants tab, on that character when a name is given |
-| `/ll status` | Print the setup checklist and the providers, adapters and snapshot ages in chat in M1; from M2 it opens the window on the Status tab. It also prints the session's last 5 errors |
+| `/ll status` | Print the setup checklist and then the status block in chat in M1: the price providers, a "Tooltip: active" row (M1 has no bag adapter), the roster's snapshot ages and the session's error count; from M2 it opens the window on the Status tab. It also prints the session's last 5 errors, newest first. The Build and Sets rows come with the Status tab (M2) |
 | `/ll refresh` | Rebuild caches and refresh adapters |
 | `/ll probe` | Run the automatic live-client checks (technical findings 18) and print PASS, FAIL or SKIP (with the reason) for each; then list the manual ones in 42 lines, one for each of the 41 manual checks through L63 and one for L5's above-level part, each with its number and the assumption it tests, with the 24 lines M1 needs marked (section 19: 23 manual checks and L5's above-level part). L28 and L63 wait for the client (up to 10 seconds and about 1.5 seconds) and print after the rest, then "probe done"; a second `/ll probe` before "probe done" is refused. Words after `probe` are ignored. Each run is kept in `debug.probe` (section 6); in a read-only session it runs and prints but saves nothing |
 | `/ll perf` | Scope, item count and elapsed time of the latest completed full classification; reports when none has completed |

@@ -36,6 +36,7 @@ Engine\Scoring.lua
 Engine\Classify.lua
 Engine\Detail.lua
 API.lua
+Checklist.lua
 Display\Tooltip.lua
 Probe.lua
 Slash.lua

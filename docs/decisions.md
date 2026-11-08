@@ -53,6 +53,22 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 |---|---|---|---|---|
 | D206 | spec 6; ux 1 | How should an incompatible loadout on a same-name replacement be handled? | Check the character's class and keep loadouts appropriate to it. Remove known incompatible specs, create a default when none remain, and retain other saved data. A same-name replacement with the same class is not detected by this check. Applied to spec 6 and ux 1. | 2026-11-06 |
 
+### M1 Stage 6 checklist and status
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D212 | spec 13; ux 2.1; technical findings 14 | What does bare `/ll` print in M1? | The help list, then the setup checklist only. `/ll status` prints the checklist and the status block. Applied to spec 13. | 2026-11-09 |
+| D213 | ux 2.2, 3.5 | Does the M1 chat checklist show a count or collapse? | No. M1 prints all seven lines every time, with no "N of 6 done" header and no "Setup complete" collapse; both arrive with the window in M2. Applied to ux 2.2. | 2026-11-09 |
+| D214 | spec 13; ux 3.5 | What does the M1 status block print for bags, which has no adapter? | A "Tooltip: active" row, supplied by `Slash.lua` because `Display/Tooltip.lua` exposes no hook state. Applied to spec 13 and ux 3.5. | 2026-11-09 |
+| D215 | ux 2.2 | How do done checklist lines read in chat, and what does line 5 say for Auctionator with a price older than today? | A done line prints its tag and a short text: line 3 "Specs: all picked", line 4 "Wants: every character has wants", line 7 "Bank: seen", line 5 "Prices: Auctionator today" at age 0 and "Prices: Auctionator 3 d" at age 3. Applied to ux 2.2. | 2026-11-09 |
+| D216 | ux 2.2 | Which characters does checklist line 2 count, and how does it read? | Every roster character, here included; done at two or more. It reads "Roster: 5 characters. Missing one? Log in on it once." in both states, with the singular "Roster: 1 character. Missing one? Log in on it once." Applied to ux 2.2. | 2026-11-09 |
+| D217 | ux 2.2 | How does checklist line 3 read in chat, and how does its no-advice text read? | One line: "Zugar is using an assumed spec (Affliction); type /ll loadout Affliction Affliction --character Zugar to keep it." (no character option for the current character). A loadout with no spec shows "<loadout>: no gear advice in this build." (for example "Mage: ...", the loadout being named after the class); a loadout whose saved spec has no table in this build shows "<loadout>: spec <spec> has no gear advice in this build." (for example "Destruction: spec Destruction has no gear advice in this build."), and gets no keep command. Applied to ux 2.2. | 2026-11-09 |
+| D218 | ux 2.2 | Which characters does checklist line 4 cover, and how are entries ordered? | Eligible destination characters only (not here). Lines 3 and 4 print one entry per affected character (per loadout for line 3), in roster order. Applied to ux 2.2. | 2026-11-09 |
+| D219 | ux 3.5 | What does the Auctionator status row say after an error? | "Auctionator: error (<text>); no prices until it works" while `Prices.Status().error` is set by a failing `IsAvailable` or `GetPrice`; an `OnUpdate` error is recorded in the Errors list only. Applied to ux 3.5. | 2026-11-09 |
+| D220 | ux 3.5 | What does the M1 Roster row show? | Characters sorted by age, each as "now" (the current character), "today" (under a day), or "N d", with "(old)" at `staleDays` days or more (the login line's "14 days or more"), and "<name> unknown" last for a character with no `lastSeen`. Applied to ux 3.5. | 2026-11-09 |
+| D221 | spec 13; ux 3.5 | How are the last 5 errors shown? | Newest first, one line each: "<hh:mm:ss> <area>: <message>" (with " (xN)" added when the count is above 1) from `Log.Errors()`, under "Errors: N this session" ("none this session" when empty). Applied to spec 13 and ux 3.5. | 2026-11-09 |
+| D222 | spec 13; ux 3.5 | Which status rows wait for M2? | The Build row (version, schema, client build) and the Sets rows wait for the Status tab. Applied to ux 3.5. | 2026-11-09 |
+
 ### M1 stage 5 commands
 
 | # | Where | Question | Answer | Date |

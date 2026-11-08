@@ -371,7 +371,8 @@ function Prices.LastScanIgnored()
 end
 
 --- One entry per registered provider in providerOrder.
--- @treturn table list of { id, label, available, seen, newestAgeDays, error }
+-- @treturn table list of { id, label, available, seen, newestAgeDays, error,
+--   errorMethod }
 function Prices.Status()
     local list = {}
     local ordered = EnterLists()
@@ -384,6 +385,7 @@ function Prices.Status()
             seen = state.seen,
             newestAgeDays = state.newestAgeDays,
             error = state.error,
+            errorMethod = state.errorMethod,
         }
     end
     LeaveLists()
