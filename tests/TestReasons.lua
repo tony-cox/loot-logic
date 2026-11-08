@@ -98,6 +98,31 @@ return {
         h.Equal(result.reasonText, expected, "stale price")
     end,
 
+    ["AH reason names a price read today as today, not 0 d"] = function()
+        local result = Bag({}, function()
+            ns.Prices.Register({
+                id = "fake",
+                label = "Market",
+                IsAvailable = function()
+                    return true
+                end,
+                GetPrice = function()
+                    return { unit = 1000, ageDays = 0 }
+                end,
+                OnUpdate = function() end,
+            })
+        end)
+        local expected = string.format(
+            ns.L.reasonAh,
+            ns.Util.FormatMoney(1000),
+            ns.Util.FormatMoney(940),
+            5,
+            "Market",
+            ns.L.reasonAgeToday
+        )
+        h.Equal(result.reasonText, expected, "AH text")
+    end,
+
     ["AH reason displays per-unit gain, cut, provider and age"] = function()
         local result = Bag({}, function()
             ns.Prices.Register({

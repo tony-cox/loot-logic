@@ -130,6 +130,8 @@ end
 local function PriceAge(days)
     if days == nil then
         return L.reasonAgeOver
+    elseif days == 0 then
+        return L.reasonAgeToday
     end
     return string.format(L.reasonAgeDays, days)
 end
@@ -965,12 +967,16 @@ end
 --- Returns nil when the slot is empty or the item is still pending: its data
 --- is not loaded, a value is hidden in combat, a tooltip fact could not be
 --- read, or an owned piece its comparison needs is still loading (spec 7.2
---- step 0 and 3; nothing is cached).
+--- step 0 and 3; nothing is cached). Also nil for a bank slot while the bank
+--- is closed, even when the client still returns its item data (spec 12.4).
 -- @param bag number
 -- @param slot number
 -- @param holdings table|nil from ItemFacts.Holdings(bag), shared by a pass
 -- @treturn table|nil result
 function Classify.BagSlot(bag, slot, holdings)
+    if bag >= Slots.bankTabs.first and bag <= Slots.bankTabs.last and not Snapshot.IsBankOpen() then
+        return nil
+    end
     local read = Log.Guard("engine", Read, bag, slot, holdings)
     if not read then
         -- The facts could not be read: the error result, with no key to cache.

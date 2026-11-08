@@ -33,8 +33,10 @@ local STATUS_TEXT = {
 }
 
 -- The L4 and L21 items of technical findings 18 are from the data dump of build
--- 1.60.1.70532: source-read, not yet seen on the live client. 2589 and 2880 are
--- the items the Exact tests of L5, L8, L9 and L31 name.
+-- 1.60.1.70532 (source-read). Session S2 read the L4 spell power and expertise
+-- items and the L21 item on the live client; the healing and spell piercing
+-- items have not loaded there yet. 2589 and 2880 are the items the Exact tests
+-- of L5, L8, L9 and L31 name.
 local LINEN_CLOTH = 2589
 local WEAK_FLUX = 2880
 local STEP_ITEMS = {

@@ -73,7 +73,7 @@ description: "LootLogic: specification for a shared, standalone WoW Forever addo
 4. **Upgrade for alts.** A BoE ring beats Zugar's weaker ring by 18% and Boneset's by 6%. It goes to **Zugar** (biggest gain), and the tooltip names both.
 5. **Bag set.** My druid has loadouts Bear (worn), Cat and Resto. The best Cat piece for each slot shows no category ("LootLogic: stays (best Cat chest owned)") and is never put in Vendor or AH. When a better Cat chest drops, it becomes the one that stays and the old one is judged like any other item. Items in my Equipment Manager set "Cat" stay too.
 6. **Known recipe.** I loot a Blacksmithing plan my paladin already knows while on the paladin. It is not kept for the paladin, so it falls through to AH, Vendor or Vendor/AH.
-7. **No price.** A BoE blue never seen on the AH shows **Vendor/AH** ("LootLogic: Vendor/AH (never seen on the AH)"). The same happens for every tradable unwanted item when no price addon is installed.
+7. **No price.** A BoE blue never seen on the AH shows **Vendor/AH** ("LootLogic: Vendor/AH (never seen on the AH)"). The same happens for every tradable item that no earlier rule claims (wants, gear, greys, bound items, protected items) when no price addon is installed.
 8. **Wants editor.** `/ll`, Wants tab, pick Zugar, tick Trade Goods: Cloth, add an exclude for Felcloth. Categories update immediately.
 9. **Explain.** I shift-hover an item (or `/ll why`) and see why it got its category: matched wants, scores per loadout, prices and thresholds.
 10. **First run and checklist.** On the first login a small welcome dialog explains the addon once; a checklist (Status tab, or `/ll status` in M1) shows what is left to set up. Design: `docs/ux.md` sections 2.1 and 2.2.
