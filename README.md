@@ -15,7 +15,7 @@ A character can have several loadouts (a name plus a spec, such as Bear and Cat 
 
 ## High level scope
 
-LootLogic is read-only: it never sells, mails, lists on the AH, deletes or moves items. Characters can mark specific items as wants: a want says that an item should go to that character. A character's wants are set by item class and subclass (for example all cloth), with per-item include and exclude. Gear ranking is built in and works per loadout. Sellable, tradable items nobody wants and the gear rules leave alone, with no usable price, always go to Vendor/AH (greys and bound items go to Vendor, or stay when they have no vendor value; any other item with no vendor value is still Vendor/AH), since the vendor-or-auction call is the player's. Price data comes from optional providers; bag integration starts with BetterBags, with tooltip and overlay fallbacks.
+LootLogic is read-only: it never sells, mails, lists on the AH, deletes or moves items. Characters can mark specific items as wants: a want says that an item should go to that character. A character's wants are set by item class and subclass (for example all cloth), with per-item include and exclude. Gear ranking is built in and works per loadout. A sellable, tradable item that no earlier rule claims (wants, gear, protection, greys, bound items, class dispositions) goes to Vendor/AH when it has no usable price, since the vendor-or-auction call is the player's. Price data comes from optional providers; bag integration starts with BetterBags, with tooltip and overlay fallbacks.
 
 ## Design
 
