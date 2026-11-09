@@ -32,7 +32,7 @@ The checklist has seven lines, each tagged `[done]`, `[TIP]` or `[info]`: this c
 
 ## Reading the tooltip
 
-Hover a bag item and LootLogic adds one line to the game tooltip: its answer and the reason, for example `LootLogic: Vendor (AH gain below threshold; sells for 13c each)`. The answer is one of Equip, AH, Vendor, Vendor/AH, or a character's name (mail it to them); some items get no category and the line says why (a quest item, gear kept for another loadout, and so on). Hold Shift over the item to add the detail lines (who wants it, the gear comparison for each loadout, the price and the gain). `/ll why` prints the same detail in chat. There is no bag section or badge in this build: the tooltip line is the only display.
+Hover a bag item and LootLogic adds one line to the game tooltip: its answer and the reason, for example `LootLogic: Vendor (AH gain below threshold; sells for 13c each)`. The answer is one of Equip, AH, Vendor, Vendor/AH, stays, or a character's name (mail it to them). `stays` means to keep the item; the reason explains why (a quest item, gear kept for another loadout, and so on). Hold Shift over the item to add the detail lines (who wants it, the gear comparison for each loadout, the price and the gain). `/ll why` prints the same detail in chat. There is no bag section or badge in this build: the tooltip line is the only display.
 
 ## Debug log and saved data
 
