@@ -1,6 +1,6 @@
 # Commands in the current build
 
-This guide describes the commands implemented through **M1 stage 5**, the current development build. It is not the complete v1 command reference: M1's `/ll status` and checklist, and later window and setup commands such as `/ll types`, `/ll contents` and `/ll wants`, are not implemented yet. The planned v1 syntax is in [spec section 13](spec.md#13-in-game-ui). Update this guide as commands are added or changed.
+This guide describes the commands implemented through **M1 stage 6**, the current development build. It is not the complete v1 command reference: later window and setup commands such as `/ll types`, `/ll contents` and `/ll wants` are not implemented yet. The planned v1 syntax is in [spec section 13](spec.md#13-in-game-ui). Update this guide as commands are added or changed.
 
 The commands below have offline test coverage. Live-client checks are still under way (see [technical findings section 18](technical-findings.md#18-live-client-checks-first-sessions-after-2026-11-05)); in particular, using a hovered item after typing is unverified (L46). If hover is unavailable, supply an item link or ID.
 
@@ -14,7 +14,9 @@ Character names may contain spaces. LootLogic takes the longest matching roster 
 
 | Syntax | Action |
 |---|---|
-| `/ll` or `/ll help` | Print the current command list and the local-computer reminder. |
+| `/ll help` | Print the current command list and the local-computer reminder. |
+| `/ll` | Print the command list, then the setup checklist (the same lines as the first part of `/ll status`). |
+| `/ll status` | Print the setup checklist, then the status block: the price providers, a `Tooltip: active` row, how long ago each character was last seen (newest first, `(old)` at `staleDays` days or more) and the session's error count with the last 5 errors, newest first. It changes nothing and also works in a read-only session. |
 | `/ll why` | Explain the hovered item, if available. |
 | `/ll why <item link>` | Explain the linked item. Shift-click an item into chat to insert a link. |
 | `/ll why <item ID>` | Explain the first matching bag stack, or evaluate a link built from the ID if none is in the bags. |
@@ -23,6 +25,8 @@ Character names may contain spaces. LootLogic takes the longest matching roster 
 | `/ll debug on` or `/ll debug off` | Enable or disable debug logging. |
 | `/ll refresh` | Clear classification caches, start a bags pass and, when the bank is open, a bank pass; refresh an eligible shown tooltip. |
 | `/ll perf` | Show the latest completed full classification's scope, item count and elapsed time, or say that none has completed. |
+
+The checklist has seven lines, each tagged `[done]`, `[TIP]` or `[info]`: this character, the roster, specs, wants, prices, bags and the bank. A `[TIP]` on specs names the command that keeps the assumed spec. Wants are checked for characters this one can send to. There is no count and no "Setup complete" line in this build.
 
 ## Character order and gear
 

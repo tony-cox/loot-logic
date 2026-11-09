@@ -25,6 +25,7 @@ local Loadouts = ns.Loadouts
 local Asks = ns.Asks
 local Sets = ns.Sets
 local Specs = ns.Specs
+local Checklist = ns.Checklist
 
 local debugEventsRegistered = false
 
@@ -239,20 +240,55 @@ local function RunWhy(rest)
     end
 end
 
+-- The command list, one routine so the Welcome dialog's [Show commands] can
+-- print it without the checklist (UX 2.1; stage 7).
+local function PrintHelp()
+    Log.Chat(L.helpHeader)
+    for _, key in ipairs({
+        "helpWhy",
+        "helpProtect",
+        "helpLoadout",
+        "helpOrder",
+        "helpWant",
+        "helpGear",
+        "helpStatus",
+        "helpRefresh",
+        "helpProbe",
+        "helpPerf",
+        "helpDebug",
+        "helpReset",
+        "helpHelp",
+    }) do
+        Log.Chat(L[key])
+    end
+    Log.Chat(L.helpMultiPC)
+end
+
 local function RunHelp(rest)
     if strtrim(rest) ~= "" then
         Log.Chat(L.helpUsage)
         return
     end
-    Log.Chat(L.helpHeader)
-    for _, key in ipairs({
-        "helpWhy", "helpProtect", "helpLoadout", "helpOrder", "helpWant",
-        "helpGear", "helpRefresh", "helpProbe", "helpPerf", "helpDebug",
-        "helpReset", "helpHelp",
-    }) do
-        Log.Chat(L[key])
+    PrintHelp()
+end
+
+local function PrintChecklist()
+    for _, row in ipairs(Checklist.Rows()) do
+        Log.Chat(Checklist.Format(row))
     end
-    Log.Chat(L.helpMultiPC)
+end
+
+-- Display/Tooltip.lua loads after Checklist.lua and keeps no hook state, so the
+-- tooltip row is supplied here (D214). M1 has no bag adapter.
+local function RunStatus(rest)
+    if strtrim(rest) ~= "" then
+        Log.Chat(L.statusUsage)
+        return
+    end
+    PrintChecklist()
+    for _, row in ipairs(Checklist.StatusRows({ L.statusTooltip })) do
+        Log.Chat(row.text)
+    end
 end
 
 local function RunPerf(rest)
@@ -312,13 +348,17 @@ local function Tokens(text)
                 end
             elseif string.sub(text, position, position) == '"' then
                 local ending = string.find(text, '"', position + 1, true)
-                if not ending then return nil end
+                if not ending then
+                    return nil
+                end
                 result[#result + 1] = string.sub(text, position + 1, ending - 1)
                 quoted[#result] = true
                 position = ending + 1
             else
                 local _, ending = string.find(string.sub(text, position), "^%S+")
-                if not ending then return nil end
+                if not ending then
+                    return nil
+                end
                 result[#result + 1] = string.sub(text, position, position + ending - 1)
                 position = position + ending
             end
@@ -330,7 +370,9 @@ end
 local function OneEditAway(first, second)
     first, second = string.lower(first), string.lower(second)
     local left, right = #first, #second
-    if math.abs(left - right) > 1 or first == second then return false end
+    if math.abs(left - right) > 1 or first == second then
+        return false
+    end
     if left == right then
         local differences = {}
         for index = 1, left do
@@ -339,18 +381,26 @@ local function OneEditAway(first, second)
             end
         end
         return #differences == 1
-            or (#differences == 2
+            or (
+                #differences == 2
                 and differences[2] == differences[1] + 1
-                and string.sub(first, differences[1], differences[1])
-                    == string.sub(second, differences[2], differences[2])
+                and string.sub(first, differences[1], differences[1]) == string.sub(
+                    second,
+                    differences[2],
+                    differences[2]
+                )
                 and string.sub(first, differences[2], differences[2])
-                    == string.sub(second, differences[1], differences[1]))
+                    == string.sub(second, differences[1], differences[1])
+            )
     end
     local shorter, longer = first, second
-    if left > right then shorter, longer = second, first end
+    if left > right then
+        shorter, longer = second, first
+    end
     local shortIndex, longIndex, skipped = 1, 1, false
     while shortIndex <= #shorter and longIndex <= #longer do
-        if string.sub(shorter, shortIndex, shortIndex)
+        if
+            string.sub(shorter, shortIndex, shortIndex)
             == string.sub(longer, longIndex, longIndex)
         then
             shortIndex = shortIndex + 1
@@ -371,7 +421,9 @@ local function UniqueNearMatch(input, candidates)
     for _, candidate in ipairs(candidates) do
         local key = string.lower(candidate)
         if not seen[key] and OneEditAway(input, candidate) then
-            if found then return nil end
+            if found then
+                return nil
+            end
             found = candidate
             seen[key] = true
         end
@@ -394,31 +446,45 @@ local function ResolveName(tokens)
                 found[#found + 1] = row
             end
         end
-        if #found > 0 then best, matches = count, found end
+        if #found > 0 then
+            best, matches = count, found
+        end
     end
     if not best then
         local firstKeys = {}
         for _, key in ipairs(Roster.Keys()) do
             local entry = Roster.Entry(key)
-            if tokens[1] and entry
+            if
+                tokens[1]
+                and entry
                 and string.lower(entry.first or "") == string.lower(tokens[1])
             then
                 firstKeys[#firstKeys + 1] = key
             end
         end
-        if #firstKeys == 0 then return nil, 0 end
+        if #firstKeys == 0 then
+            return nil, 0
+        end
         table.sort(firstKeys)
         return #firstKeys == 1 and firstKeys[1] or nil, 1, firstKeys
     end
     local display = {}
     for _, row in ipairs(matches) do
-        if row.display then display[#display + 1] = row end
+        if row.display then
+            display[#display + 1] = row
+        end
     end
-    if #display > 0 then matches = display end
+    if #display > 0 then
+        matches = display
+    end
     local byKey = {}
-    for _, row in ipairs(matches) do byKey[row.key] = true end
+    for _, row in ipairs(matches) do
+        byKey[row.key] = true
+    end
     local keys = {}
-    for key in pairs(byKey) do keys[#keys + 1] = key end
+    for key in pairs(byKey) do
+        keys[#keys + 1] = key
+    end
     table.sort(keys)
     return #keys == 1 and keys[1] or nil, best, keys
 end
@@ -428,14 +494,22 @@ local function NameError(tokens, count, matches)
     if matches and #matches > 1 then
         local names = Roster.DisplayNames()
         local choices = {}
-        for _, key in ipairs(matches) do choices[#choices + 1] = names[key] or key end
+        for _, key in ipairs(matches) do
+            choices[#choices + 1] = names[key] or key
+        end
         return string.format(L.ambiguousCharacter, input, table.concat(choices, " or "))
     end
     local candidates = {}
-    for _, name in pairs(Roster.DisplayNames()) do candidates[#candidates + 1] = name end
-    for _, key in ipairs(Roster.Keys()) do candidates[#candidates + 1] = Roster.FullName(key) end
+    for _, name in pairs(Roster.DisplayNames()) do
+        candidates[#candidates + 1] = name
+    end
+    for _, key in ipairs(Roster.Keys()) do
+        candidates[#candidates + 1] = Roster.FullName(key)
+    end
     local near = UniqueNearMatch(input, candidates)
-    if near then return string.format(L.unknownCharacterSuggested, input, near, input) end
+    if near then
+        return string.format(L.unknownCharacterSuggested, input, near, input)
+    end
     if count == 0 and #tokens > 0 then
         local firstMatches = {}
         for _, key in ipairs(Roster.Keys()) do
@@ -447,7 +521,9 @@ local function NameError(tokens, count, matches)
         if #firstMatches > 1 then
             local names = Roster.DisplayNames()
             local choices = {}
-            for _, key in ipairs(firstMatches) do choices[#choices + 1] = names[key] or key end
+            for _, key in ipairs(firstMatches) do
+                choices[#choices + 1] = names[key] or key
+            end
             return string.format(L.ambiguousCharacter, tokens[1], table.concat(choices, " or "))
         end
     end
@@ -458,7 +534,8 @@ local function CharacterTarget(args, quoted, usage)
     local count = #args
     local option
     for index, token in ipairs(args) do
-        if not quoted[index]
+        if
+            not quoted[index]
             and (string.lower(token) == "--character" or string.lower(token) == "--all")
         then
             if option then
@@ -507,12 +584,16 @@ local function TypeCatalogue()
     local classes, types = {}, {}
     for class = 0, 20 do
         local classOk, name = pcall(C_Item.GetItemClassInfo, class)
-        if not classOk then return nil end
+        if not classOk then
+            return nil
+        end
         if name then
             classes[#classes + 1] = { id = class, name = name }
             for sub = 0, 20 do
                 local subclassOk, subName = pcall(C_Item.GetItemSubClassInfo, class, sub)
-                if not subclassOk then return nil end
+                if not subclassOk then
+                    return nil
+                end
                 if subName then
                     types[#types + 1] = {
                         key = class .. ":" .. sub,
@@ -530,7 +611,9 @@ end
 
 local function ItemLabel(itemID)
     local name = C_Item.GetItemInfo(itemID)
-    if name then return " [" .. name .. "]" end
+    if name then
+        return " [" .. name .. "]"
+    end
     return ""
 end
 
@@ -551,8 +634,7 @@ local function LoadoutLines(key, targeted)
         end
         local armor
         if loadout.armor then
-            armor = loadout.armor == "best" and L.loadoutListBestArmor
-                or L.loadoutListAnyArmor
+            armor = loadout.armor == "best" and L.loadoutListBestArmor or L.loadoutListAnyArmor
         else
             armor = string.format(
                 L.loadoutListDefaultArmor,
@@ -560,23 +642,13 @@ local function LoadoutLines(key, targeted)
                     or L.loadoutListAnyArmor
             )
         end
-        lines[#lines + 1] = string.format(
-            L.loadoutListEntry,
-            loadout.name,
-            specName,
-            status,
-            armor
-        )
+        lines[#lines + 1] = string.format(L.loadoutListEntry, loadout.name, specName, status, armor)
         if loadout.assumed and spec then
             local characterOption = targeted
-                and string.format(L.loadoutListCharacterOption, display)
+                    and string.format(L.loadoutListCharacterOption, display)
                 or ""
-            lines[#lines + 1] = string.format(
-                L.loadoutListKeep,
-                loadout.name,
-                spec.label,
-                characterOption
-            )
+            lines[#lines + 1] =
+                string.format(L.loadoutListKeep, loadout.name, spec.label, characterOption)
         end
     end
     return lines
@@ -585,7 +657,9 @@ end
 local function WantTypeName(key, classes, types)
     local classID = string.match(key, "^(%d+):%d+$")
     local classAll = string.match(key, "^(%d+):%*$")
-    if not classes then return key end
+    if not classes then
+        return key
+    end
     local className
     for _, row in ipairs(classes) do
         if tostring(row.id) == (classID or classAll) then
@@ -593,9 +667,13 @@ local function WantTypeName(key, classes, types)
             break
         end
     end
-    if classAll then return className or key end
+    if classAll then
+        return className or key
+    end
     for _, row in ipairs(types) do
-        if row.key == key then return row.name end
+        if row.key == key then
+            return row.name
+        end
     end
     return key
 end
@@ -619,21 +697,20 @@ local function WantLines(key, classes, types)
         local firstClass, firstSub = string.match(first.key, "^(%d+):(%d+)$")
         local secondClass, secondSub = string.match(second.key, "^(%d+):(%d+)$")
         firstClass = tonumber(firstClass) or tonumber(string.match(first.key, "^(%d+):%*$")) or 0
-        secondClass = tonumber(secondClass)
-            or tonumber(string.match(second.key, "^(%d+):%*$"))
-            or 0
-        if firstClass ~= secondClass then return firstClass < secondClass end
+        secondClass = tonumber(secondClass) or tonumber(string.match(second.key, "^(%d+):%*$")) or 0
+        if firstClass ~= secondClass then
+            return firstClass < secondClass
+        end
         return (tonumber(firstSub) or -1) < (tonumber(secondSub) or -1)
     end)
-    table.sort(itemEntries, function(first, second) return first.id < second.id end)
+    table.sort(itemEntries, function(first, second)
+        return first.id < second.id
+    end)
     for _, item in ipairs(typeEntries) do
         local quality = type(item.flag) == "table" and item.flag.minQuality or nil
         local qualityName = quality and tostring(quality) or L.wantListAnyQuality
-        lines[#lines + 1] = string.format(
-            L.wantListType,
-            WantTypeName(item.key, classes, types),
-            qualityName
-        )
+        lines[#lines + 1] =
+            string.format(L.wantListType, WantTypeName(item.key, classes, types), qualityName)
     end
     for _, item in ipairs(itemEntries) do
         lines[#lines + 1] = string.format(
@@ -642,29 +719,39 @@ local function WantLines(key, classes, types)
             ItemLabel(item.id)
         )
     end
-    if #typeEntries == 0 and #itemEntries == 0 then lines[#lines + 1] = L.wantListNone end
+    if #typeEntries == 0 and #itemEntries == 0 then
+        lines[#lines + 1] = L.wantListNone
+    end
     return lines
 end
 
 local function PrintCharacterListings(keys, build)
     for _, key in ipairs(keys) do
         local lines = build(key, key ~= Roster.HereKey())
-        for _, line in ipairs(lines) do Log.Chat(line) end
+        for _, line in ipairs(lines) do
+            Log.Chat(line)
+        end
     end
 end
 
 local function ValidateItem(id)
     if type(C_Item.DoesItemExistByID) == "function" then
         local ok, exists = pcall(C_Item.DoesItemExistByID, id)
-        if ok and exists == false then return false end
+        if ok and exists == false then
+            return false
+        end
     end
     return true
 end
 
 local function IneligibleReason(key)
-    if key == Roster.HereKey() or Roster.IsEligible(key) then return nil end
+    if key == Roster.HereKey() or Roster.IsEligible(key) then
+        return nil
+    end
     local entry = Roster.Entry(key)
-    if entry.faction ~= UnitFactionGroup("player") then return L.ineligibleFaction end
+    if entry.faction ~= UnitFactionGroup("player") then
+        return L.ineligibleFaction
+    end
     return L.ineligibleRegion
 end
 
@@ -682,7 +769,9 @@ local function ParseItemOrType(value, allowInstance)
         end
         local wanted = id .. ":" .. suffix
         local _, catalog = TypeCatalogue()
-        if not catalog then return nil, {}, nil, nil, "catalogue" end
+        if not catalog then
+            return nil, {}, nil, nil, "catalogue"
+        end
         for _, row in ipairs(catalog) do
             if row.key == wanted then
                 return "type", wanted, nil, nil, nil, nil, row.name
@@ -691,11 +780,15 @@ local function ParseItemOrType(value, allowInstance)
         return nil, {}, nil, nil, wanted
     end
     id = string.match(value, "^(%-?%d+)$")
-    if id then return "item", tonumber(id) end
+    if id then
+        return "item", tonumber(id)
+    end
     local whole = string.match(value, "^(%d+):%*$")
     if whole then
         local classes = TypeCatalogue()
-        if not classes then return nil, {}, nil, nil, "catalogue" end
+        if not classes then
+            return nil, {}, nil, nil, "catalogue"
+        end
         for _, row in ipairs(classes) do
             if tostring(row.id) == whole then
                 return "type", whole .. ":*", nil, nil, nil, nil, row.name
@@ -704,7 +797,9 @@ local function ParseItemOrType(value, allowInstance)
         return nil, {}, nil, nil, whole .. ":*"
     end
     local classes, types = TypeCatalogue()
-    if not classes then return nil, {}, nil, nil, "catalogue" end
+    if not classes then
+        return nil, {}, nil, nil, "catalogue"
+    end
     local lower = string.lower(value)
     for _, row in ipairs(classes) do
         if string.lower(row.name) == lower then
@@ -718,7 +813,9 @@ local function ParseItemOrType(value, allowInstance)
     end
     local found = {}
     for _, row in ipairs(types) do
-        if string.lower(row.short) == lower then found[#found + 1] = row end
+        if string.lower(row.short) == lower then
+            found[#found + 1] = row
+        end
     end
     if #found == 1 then
         return "type", found[1].key, nil, nil, nil, nil, found[1].name
@@ -733,10 +830,15 @@ local function ParseItemOrType(value, allowInstance)
             end
         end
         if classRow then
-            return nil, found, classes, types, nil, {
-                class = classRow,
-                subclassText = subclassText,
-            }
+            return nil,
+                found,
+                classes,
+                types,
+                nil,
+                {
+                    class = classRow,
+                    subclassText = subclassText,
+                }
         end
         return nil, found, classes, types, nil, { classText = classText }
     end
@@ -745,9 +847,14 @@ end
 
 local function RunWant(rest)
     local args, quoted = Tokens(rest)
-    if not args then Log.Chat(L.wantUsage); return end
+    if not args then
+        Log.Chat(L.wantUsage)
+        return
+    end
     local keys, targetMode = CharacterTarget(args, quoted, L.wantUsage)
-    if not keys then return end
+    if not keys then
+        return
+    end
     if targetMode == "all" or #args == 0 then
         local classes, types = TypeCatalogue()
         PrintCharacterListings(keys, function(key)
@@ -796,29 +903,32 @@ local function RunWant(rest)
                 end
                 local near = UniqueNearMatch(typeError.subclassText, names)
                 local suffix = near and string.format(L.typeSuggestion, near) or ""
-                Log.Chat(string.format(
-                    L.noSubclass,
-                    typeError.class.name,
-                    typeError.subclassText,
-                    typeError.class.name,
-                    table.concat(names, ", "),
-                    suffix
-                ))
+                Log.Chat(
+                    string.format(
+                        L.noSubclass,
+                        typeError.class.name,
+                        typeError.subclassText,
+                        typeError.class.name,
+                        table.concat(names, ", "),
+                        suffix
+                    )
+                )
             else
-                for _, row in ipairs(classes) do names[#names + 1] = row.name end
+                for _, row in ipairs(classes) do
+                    names[#names + 1] = row.name
+                end
                 local near = UniqueNearMatch(typeError.classText, names)
                 local suffix = near and string.format(L.typeSuggestion, near) or ""
-                Log.Chat(string.format(
-                    L.noClass,
-                    typeError.classText,
-                    table.concat(names, ", "),
-                    suffix
-                ))
+                Log.Chat(
+                    string.format(L.noClass, typeError.classText, table.concat(names, ", "), suffix)
+                )
             end
             return
         end
         local candidates = {}
-        for _, row in ipairs(classes or {}) do candidates[#candidates + 1] = row.name end
+        for _, row in ipairs(classes or {}) do
+            candidates[#candidates + 1] = row.name
+        end
         for _, row in ipairs(types or {}) do
             candidates[#candidates + 1] = row.name
             candidates[#candidates + 1] = row.short
@@ -832,7 +942,10 @@ local function RunWant(rest)
         return
     end
     if kind == "type" then
-        if DB.IsReadOnly() then Log.Chat(L.debugReadOnly); return end
+        if DB.IsReadOnly() then
+            Log.Chat(L.debugReadOnly)
+            return
+        end
         local status = Asks.SetType(key, parsed, setting)
         local name = Roster.DisplayName(key)
         local ineligible = IneligibleReason(key)
@@ -840,21 +953,26 @@ local function RunWant(rest)
             Log.Chat(string.format(L.wantIneligible, name, ineligible))
         else
             local reply = L.wantTypeAbsent
-            if status == "changed" and setting == "on" then reply = L.wantTypeChanged end
-            if status == "unchanged" and setting == "on" then reply = L.wantTypeUnchanged end
-            if status == "changed" and setting ~= "on" then reply = L.wantTypeRemoved end
-            Log.Chat(string.format(
-                reply,
-                name,
-                typeName
-            ))
+            if status == "changed" and setting == "on" then
+                reply = L.wantTypeChanged
+            end
+            if status == "unchanged" and setting == "on" then
+                reply = L.wantTypeUnchanged
+            end
+            if status == "changed" and setting ~= "on" then
+                reply = L.wantTypeRemoved
+            end
+            Log.Chat(string.format(reply, name, typeName))
         end
     else
         if not ValidateItem(parsed) then
             Log.Chat(string.format(L.itemNotExist, parsed))
             return
         end
-        if DB.IsReadOnly() then Log.Chat(L.debugReadOnly); return end
+        if DB.IsReadOnly() then
+            Log.Chat(L.debugReadOnly)
+            return
+        end
         local mode = setting == "on" and "include" or setting == "off" and "exclude" or "clear"
         local status = Asks.SetItem(key, parsed, mode)
         local name = Roster.DisplayName(key)
@@ -863,26 +981,32 @@ local function RunWant(rest)
         if ineligible then
             Log.Chat(string.format(L.wantIneligible, name, ineligible))
         elseif mode == "include" then
-            Log.Chat(string.format(
-                status == "changed" and L.wantItemChanged or L.wantItemUnchanged,
-                name,
-                parsed,
-                label
-            ))
+            Log.Chat(
+                string.format(
+                    status == "changed" and L.wantItemChanged or L.wantItemUnchanged,
+                    name,
+                    parsed,
+                    label
+                )
+            )
         elseif mode == "exclude" then
-            Log.Chat(string.format(
-                status == "changed" and L.wantItemExcluded or L.wantItemExcludeUnchanged,
-                name,
-                parsed,
-                label
-            ))
+            Log.Chat(
+                string.format(
+                    status == "changed" and L.wantItemExcluded or L.wantItemExcludeUnchanged,
+                    name,
+                    parsed,
+                    label
+                )
+            )
         else
-            Log.Chat(string.format(
-                status == "changed" and L.wantItemCleared or L.wantItemClearUnchanged,
-                status == "changed" and parsed or name,
-                status == "changed" and label or parsed,
-                status == "changed" and name or label
-            ))
+            Log.Chat(
+                string.format(
+                    status == "changed" and L.wantItemCleared or L.wantItemClearUnchanged,
+                    status == "changed" and parsed or name,
+                    status == "changed" and label or parsed,
+                    status == "changed" and name or label
+                )
+            )
         end
     end
 end
@@ -896,7 +1020,9 @@ local function RunOrder(rest)
     if #args == 0 then
         local names = Roster.DisplayNames()
         local ordered = {}
-        for _, key in ipairs(Roster.Keys()) do ordered[#ordered + 1] = names[key] or key end
+        for _, key in ipairs(Roster.Keys()) do
+            ordered[#ordered + 1] = names[key] or key
+        end
         Log.Chat(string.format(L.orderList, table.concat(ordered, ", ")))
         return
     end
@@ -911,18 +1037,30 @@ local function RunOrder(rest)
         keys[#keys + 1] = key
         at = at + count
     end
-    if DB.IsReadOnly() then Log.Chat(L.debugReadOnly); return end
+    if DB.IsReadOnly() then
+        Log.Chat(L.debugReadOnly)
+        return
+    end
     local status = Roster.SetOrder(keys)
     local names = Roster.DisplayNames()
     local ordered = {}
-    for _, key in ipairs(Roster.Keys()) do ordered[#ordered + 1] = names[key] or key end
-    Log.Chat(string.format(status == "changed" and L.orderChanged or L.orderUnchanged,
-        table.concat(ordered, ", ")))
+    for _, key in ipairs(Roster.Keys()) do
+        ordered[#ordered + 1] = names[key] or key
+    end
+    Log.Chat(
+        string.format(
+            status == "changed" and L.orderChanged or L.orderUnchanged,
+            table.concat(ordered, ", ")
+        )
+    )
 end
 
 local function RunGear(rest)
     local args = Tokens(rest)
-    if not args or #args < 2 then Log.Chat(L.gearUsage); return end
+    if not args or #args < 2 then
+        Log.Chat(L.gearUsage)
+        return
+    end
     local key, count, matches = ResolveName(args)
     if not key then
         Log.Chat(NameError(args, count, matches))
@@ -933,7 +1071,10 @@ local function RunGear(rest)
         Log.Chat(L.gearUsage)
         return
     end
-    if DB.IsReadOnly() then Log.Chat(L.debugReadOnly); return end
+    if DB.IsReadOnly() then
+        Log.Chat(L.debugReadOnly)
+        return
+    end
     local status = Roster.SetReceivesGear(key, setting == "on")
     local name = Roster.DisplayName(key)
     if status == "changed" then
@@ -946,7 +1087,9 @@ end
 local function LoadoutChoices(key)
     local choices = {}
     for _, loadout in ipairs(Loadouts.List(key)) do
-        if type(loadout.name) == "string" then choices[#choices + 1] = loadout.name end
+        if type(loadout.name) == "string" then
+            choices[#choices + 1] = loadout.name
+        end
     end
     table.sort(choices)
     return #choices > 0 and table.concat(choices, ", ") or L.loadoutChoiceNone
@@ -956,7 +1099,9 @@ local function LoadoutMissing(key, name)
     local choices = Loadouts.List(key)
     local candidates = {}
     for _, loadout in ipairs(choices) do
-        if type(loadout.name) == "string" then candidates[#candidates + 1] = loadout.name end
+        if type(loadout.name) == "string" then
+            candidates[#candidates + 1] = loadout.name
+        end
     end
     local near = UniqueNearMatch(name, candidates)
     local suggestion = near and string.format(L.argumentSuggestion, near) or ""
@@ -972,17 +1117,17 @@ end
 
 local function RunLoadout(rest)
     local args, quoted = Tokens(rest)
-    if not args then Log.Chat(string.format(L.loadoutUsage, L.helpLoadoutExample)); return end
-    local keys, targetMode = CharacterTarget(args, quoted, string.format(
-        L.loadoutUsage,
-        L.helpLoadoutExample
-    ))
-    if not keys then return end
+    if not args then
+        Log.Chat(string.format(L.loadoutUsage, L.helpLoadoutExample))
+        return
+    end
+    local keys, targetMode =
+        CharacterTarget(args, quoted, string.format(L.loadoutUsage, L.helpLoadoutExample))
+    if not keys then
+        return
+    end
     if targetMode == "all" or #args == 0 then
-        PrintCharacterListings(
-            keys,
-            LoadoutLines
-        )
+        PrintCharacterListings(keys, LoadoutLines)
         return
     end
     local key = keys[1]
@@ -1043,7 +1188,10 @@ local function RunLoadout(rest)
             Log.Chat(LoadoutMissing(key, loadoutName))
             return
         end
-        if DB.IsReadOnly() then Log.Chat(L.debugReadOnly); return end
+        if DB.IsReadOnly() then
+            Log.Chat(L.debugReadOnly)
+            return
+        end
         status, reason = Loadouts.SetArmor(key, loadoutName, armor)
     else
         operation = "set"
@@ -1073,17 +1221,20 @@ local function RunLoadout(rest)
         for index = 2, #tail do
             local candidate = string.lower(table.concat(tail, " ", index))
             for _, spec in ipairs(choices) do
-                if string.lower(spec.label) == candidate or string.lower(spec.id) == candidate
-                then
+                if string.lower(spec.label) == candidate or string.lower(spec.id) == candidate then
                     foundSpec, specStart = spec.id, index
                     break
                 end
             end
-            if foundSpec then break end
+            if foundSpec then
+                break
+            end
         end
         if not foundSpec or not specStart or specStart == 1 then
             local labels = {}
-            for _, spec in ipairs(choices) do labels[#labels + 1] = spec.label end
+            for _, spec in ipairs(choices) do
+                labels[#labels + 1] = spec.label
+            end
             local candidates = {}
             for _, spec in ipairs(choices) do
                 candidates[#candidates + 1] = spec.label
@@ -1091,12 +1242,14 @@ local function RunLoadout(rest)
             end
             local near = UniqueNearMatch(tail[#tail], candidates)
             local suggestion = near and string.format(L.argumentSuggestion, near) or ""
-            Log.Chat(string.format(
-                L.loadoutSpecs,
-                tostring(tail[#tail]),
-                ClassName(entry.class),
-                table.concat(labels, ", ")
-            ) .. suggestion)
+            Log.Chat(
+                string.format(
+                    L.loadoutSpecs,
+                    tostring(tail[#tail]),
+                    ClassName(entry.class),
+                    table.concat(labels, ", ")
+                ) .. suggestion
+            )
             return
         end
         local name = table.concat(tail, " ", 1, specStart - 1)
@@ -1108,7 +1261,10 @@ local function RunLoadout(rest)
         specLabel = Specs[foundSpec].label
         local existing = Loadouts.Find(key, name)
         wasAssumed = existing and existing.assumed == true or false
-        if DB.IsReadOnly() then Log.Chat(L.debugReadOnly); return end
+        if DB.IsReadOnly() then
+            Log.Chat(L.debugReadOnly)
+            return
+        end
         status, reason = Loadouts.Set(key, name, foundSpec, makeWorn)
     end
     if operation == "remove" then
@@ -1116,47 +1272,49 @@ local function RunLoadout(rest)
             Log.Chat(LoadoutMissing(key, loadoutName))
             return
         end
-        if DB.IsReadOnly() then Log.Chat(L.debugReadOnly); return end
+        if DB.IsReadOnly() then
+            Log.Chat(L.debugReadOnly)
+            return
+        end
         status, reason = Loadouts.Remove(key, loadoutName)
     end
-    if reason == "readonly" or status == "readonly" then Log.Chat(L.debugReadOnly)
+    if reason == "readonly" or status == "readonly" then
+        Log.Chat(L.debugReadOnly)
     elseif reason == "worn" then
         Log.Chat(string.format(L.loadoutWornNamed, Roster.DisplayName(key), loadoutName))
     elseif reason == "noloadout" then
         Log.Chat(LoadoutMissing(key, loadoutName))
     elseif status == "unchanged" then
         if specLabel then
-            Log.Chat(string.format(
-                L.loadoutUnchanged,
-                Roster.DisplayName(key),
-                loadoutName,
-                specLabel
-            ))
+            Log.Chat(
+                string.format(L.loadoutUnchanged, Roster.DisplayName(key), loadoutName, specLabel)
+            )
         else
-            Log.Chat(string.format(
-                L.loadoutArmorUnchanged,
-                Roster.DisplayName(key),
-                loadoutName,
-                armorAction
-            ))
+            Log.Chat(
+                string.format(
+                    L.loadoutArmorUnchanged,
+                    Roster.DisplayName(key),
+                    loadoutName,
+                    armorAction
+                )
+            )
         end
     elseif status == "removed" then
         Log.Chat(string.format(L.loadoutRemoved, Roster.DisplayName(key), loadoutName))
     elseif status == "changed" and armorAction then
-        Log.Chat(string.format(
-            L.loadoutArmorChanged,
-            Roster.DisplayName(key),
-            loadoutName,
-            armorAction
-        ))
+        Log.Chat(
+            string.format(L.loadoutArmorChanged, Roster.DisplayName(key), loadoutName, armorAction)
+        )
     elseif status then
-        Log.Chat(string.format(
-            L.loadoutChanged,
-            Roster.DisplayName(key),
-            loadoutName,
-            specLabel,
-            makeWorn and L.wantWornSuffix or wasAssumed and L.loadoutPickedSuffix or ""
-        ))
+        Log.Chat(
+            string.format(
+                L.loadoutChanged,
+                Roster.DisplayName(key),
+                loadoutName,
+                specLabel,
+                makeWorn and L.wantWornSuffix or wasAssumed and L.loadoutPickedSuffix or ""
+            )
+        )
     else
         Log.Chat(L.loadoutFailed)
     end
@@ -1169,7 +1327,9 @@ local function RunProtect(rest)
         return
     end
     local global = string.lower(args[1] or "") == "global"
-    if global then table.remove(args, 1) end
+    if global then
+        table.remove(args, 1)
+    end
     local itemText = table.concat(args, " ")
     local context, kind, id, suffix
     if itemText == "" then
@@ -1180,7 +1340,9 @@ local function RunProtect(rest)
                 if context.bag then
                     link = C_Container.GetContainerItemLink(context.bag, context.slot)
                 end
-                if link then id, suffix = Util.ParseLink(link) end
+                if link then
+                    id, suffix = Util.ParseLink(link)
+                end
             end
         else
             Log.Chat(L.protectUsage)
@@ -1188,21 +1350,34 @@ local function RunProtect(rest)
         end
     else
         kind, id, suffix = ParseItemOrType(itemText, true)
-        if kind ~= "item" then id = nil end
+        if kind ~= "item" then
+            id = nil
+        end
     end
     if not id then
-        if itemText ~= "" and #args > 0 then Log.Chat(L.protectUsage)
-        else Log.Chat(L.detailNoHover) end
+        if itemText ~= "" and #args > 0 then
+            Log.Chat(L.protectUsage)
+        else
+            Log.Chat(L.detailNoHover)
+        end
         return
     end
-    if not ValidateItem(id) then Log.Chat(string.format(L.itemNotExist, id)); return end
-    if DB.IsReadOnly() then Log.Chat(L.debugReadOnly); return end
+    if not ValidateItem(id) then
+        Log.Chat(string.format(L.itemNotExist, id))
+        return
+    end
+    if DB.IsReadOnly() then
+        Log.Chat(L.debugReadOnly)
+        return
+    end
     local result, reason
-    if global then result, reason = Sets.ToggleProtectGlobal(id, suffix)
-    else result, reason = Sets.ToggleProtect(Roster.HereKey(), id, suffix) end
+    if global then
+        result, reason = Sets.ToggleProtectGlobal(id, suffix)
+    else
+        result, reason = Sets.ToggleProtect(Roster.HereKey(), id, suffix)
+    end
     if reason == "everyroll" then
-        Log.Chat(string.format(L.everyRoll,
-            id, global and L.globalArgumentPrefix or "", id))
+        Log.Chat(string.format(L.everyRoll, id, global and L.globalArgumentPrefix or "", id))
     else
         local subject = global and L.protectGlobalName or Roster.DisplayName(Roster.HereKey())
         local instance = suffix and suffix ~= 0 and (id .. ":" .. suffix) or tostring(id)
@@ -1219,8 +1394,12 @@ end
 local pendingReset
 
 local function ReplaceTable(target, source)
-    for key in pairs(target) do target[key] = nil end
-    for key, value in pairs(source) do target[key] = value end
+    for key in pairs(target) do
+        target[key] = nil
+    end
+    for key, value in pairs(source) do
+        target[key] = value
+    end
 end
 
 local function ResetApply(target)
@@ -1262,25 +1441,40 @@ local function ResetApply(target)
             entry.loadouts = { Loadouts.NewDefault(entry.class, className) }
         end
         Log.Guard("events", Snapshot.TakeAll)
-        if Snapshot.IsBankOpen() then Log.Guard("events", Snapshot.TakeBank) end
+        if Snapshot.IsBankOpen() then
+            Log.Guard("events", Snapshot.TakeBank)
+        end
         Log.Guard("events", Sets.RefreshEquipmentSets, true)
         Log.Guard("events", Sets.RefreshOutfitter)
         for _, generation in ipairs({
-            "asks", "gearHere", "gearOthers", "loadouts", "prices", "settings",
+            "asks",
+            "gearHere",
+            "gearOthers",
+            "loadouts",
+            "prices",
+            "settings",
         }) do
             ns.Generations.Bump(generation)
         end
     end
     Cache.Clear()
     Classify.Pass("bags")
-    if Snapshot.IsBankOpen() then Classify.Pass("bank") end
+    if Snapshot.IsBankOpen() then
+        Classify.Pass("bank")
+    end
     Tooltip.RefreshShown()
 end
 
 local function RunReset(rest)
     local args, quoted = Tokens(rest)
-    if not args then Log.Chat(L.resetUsage); return end
-    if DB.IsReadOnly() then Log.Chat(L.debugReadOnly); return end
+    if not args then
+        Log.Chat(L.resetUsage)
+        return
+    end
+    if DB.IsReadOnly() then
+        Log.Chat(L.debugReadOnly)
+        return
+    end
     if #args == 1 and string.lower(args[1]) == "confirm" and not quoted[1] then
         if not pendingReset or GetTime() - pendingReset.at > 30 then
             pendingReset = nil
@@ -1313,7 +1507,8 @@ local function RunReset(rest)
         if not Loadouts.AssumedSpec(entry.class) and not Roster.IsHere(key) then
             local maleNames = _G.LOCALIZED_CLASS_NAMES_MALE
             local femaleNames = _G.LOCALIZED_CLASS_NAMES_FEMALE
-            if not (maleNames and maleNames[entry.class])
+            if
+                not (maleNames and maleNames[entry.class])
                 and not (femaleNames and femaleNames[entry.class])
             then
                 Log.Chat(L.resetClassNameMissing)
@@ -1349,8 +1544,17 @@ function Slash.Run(message)
         RunWhy(rest)
         return
     end
-    if word == "help" or not word then
-        RunHelp(rest or "")
+    if not word then
+        PrintHelp()
+        PrintChecklist()
+        return
+    end
+    if word == "help" then
+        RunHelp(rest)
+        return
+    end
+    if word == "status" then
+        RunStatus(rest)
         return
     end
     if word == "perf" then
@@ -1361,15 +1565,44 @@ function Slash.Run(message)
         RunRefresh(rest)
         return
     end
-    if word == "want" then RunWant(rest); return end
-    if word == "order" then RunOrder(rest); return end
-    if word == "gear" then RunGear(rest); return end
-    if word == "loadout" then RunLoadout(rest); return end
-    if word == "protect" then RunProtect(rest); return end
-    if word == "reset" then RunReset(rest); return end
+    if word == "want" then
+        RunWant(rest)
+        return
+    end
+    if word == "order" then
+        RunOrder(rest)
+        return
+    end
+    if word == "gear" then
+        RunGear(rest)
+        return
+    end
+    if word == "loadout" then
+        RunLoadout(rest)
+        return
+    end
+    if word == "protect" then
+        RunProtect(rest)
+        return
+    end
+    if word == "reset" then
+        RunReset(rest)
+        return
+    end
     local near = UniqueNearMatch(word, {
-        "why", "protect", "loadout", "order", "want", "gear", "help", "refresh",
-        "probe", "perf", "debug", "reset",
+        "why",
+        "protect",
+        "loadout",
+        "order",
+        "want",
+        "gear",
+        "help",
+        "status",
+        "refresh",
+        "probe",
+        "perf",
+        "debug",
+        "reset",
     })
     if near then
         Log.Chat(string.format(L.slashUnknownSuggested, word, near))

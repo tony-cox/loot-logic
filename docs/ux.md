@@ -79,7 +79,7 @@ The chat line goes out 5 seconds after `PLAYER_LOGIN`, together with the other l
 >
 > [Open setup]  [Not now]
 
-- **In M1 there is no window.** The first button reads [Show commands] and prints the setup commands in chat (`/ll loadout`, `/ll want`, `/ll order`, `/ll gear`, `/ll protect`, `/ll status`); from M2 it is [Open setup]. `/ll` prints the same list in M1, then the checklist (as `/ll status`). The first button also closes the dialog, which sets `ui.firstRunDone` like [Not now].
+- **In M1 there is no window.** The first button reads [Show commands] and prints the setup commands in chat (`/ll loadout`, `/ll want`, `/ll order`, `/ll gear`, `/ll protect`, `/ll status`); from M2 it is [Open setup]. `/ll` prints the same list in M1, then the checklist only (`/ll status` adds the status block). The first button also closes the dialog, which sets `ui.firstRunDone` like [Not now].
 - **[Open setup]** (M2) opens the main window on the Characters tab with the current character's row expanded, so the player can pick its spec straight away. That is the one setup step that changes results most. The Status tab (the checklist of everything else) is one click away. (This is the page where the player sets up their character, not the Settings tab, which holds the AH rule and display options.)
 - **[Not now]**, the close button and Escape all close it. None of them opens the window.
 - It appears **once per account** (`ui.firstRunDone`, set when the dialog closes, by any button, the close button or Escape). It is never shown again, including on later characters. `/ll` opens the window at any time.
@@ -115,15 +115,15 @@ Computed live from the DB and the detected addons. Nothing is stored except "hid
 | # | Line | Tag and text when not done | Done when | Button |
 |---|---|---|---|---|
 | 1 | This character registered | always done | automatic | |
-| 2 | Roster | info: "5 characters. Missing one? Log in on it once." | at least two eligible characters | |
-| 3 | Spec on every loadout of every character | TIP: "Zugar is using an assumed spec (Affliction)." | every spec is picked or kept; in M1 a loadout with no spec (a class with no weight table) shows info "Mage: no gear advice in this build." and counts as done | [Keep Affliction] accepts the assumed spec and clears the flag; [Pick spec] jumps to the row, expanded |
+| 2 | Roster | info: "Roster: 5 characters. Missing one? Log in on it once." | at least two characters (every roster character counts, here included) | |
+| 3 | Spec on every loadout of every character | TIP: "Zugar is using an assumed spec (Affliction)." | every spec is picked or kept; in M1 a loadout with no spec (a class with no weight table) shows info "Mage: no gear advice in this build." (a loadout whose saved spec has no table in this build shows "Destruction: spec Destruction has no gear advice in this build.") and counts as done | [Keep Affliction] accepts the assumed spec and clears the flag; [Pick spec] jumps to the row, expanded |
 | 4 | Wants per character | TIP: "Jujuniper wants nothing: only gear upgrades go there." | any want or include, or "gear only" acknowledged; or Receives gear is off | [Wants] opens that character; [Gear only] accepts that the character wants nothing (it still gets gear upgrades) |
 | 4 | Wants, character with Receives gear off | info: "Bankalt wants nothing and receives no gear: nothing goes there." | counts as done | none |
 | 5 | Prices | TIP: "No price addon" / "Auctionator found, no price seen yet" / "Auctionator: price over 21 d old" / "Newest price seen 9 d old" | a usable provider price exists (at most `maxPriceAgeDays` old); for Auctionator, a price LootLogic has read this session, because its public API cannot list its prices (technical findings 11.2). A price with no age (over 21 days) does not make it done | |
 | 6 | Bag display | info: "Baganator: tooltip line only; the Contents tab is your list" ([done] reads "BetterBags sections active"). **NEED** when an adapter failed. | an adapter active, or tooltip-only acknowledged | [Retry] on failure; [Tooltip only] accepts the tooltip line as the bag display |
 | 7 | Bank seen on the current character | info: "Open your bank once so gear upgrades count it." | `bank.updatedAt` set | |
 
-NEED means results are misleading without it; TIP and info are advice. A complete checklist collapses to one line ("Setup complete") above the Status block. **In M1** (no window) the checklist prints in chat. Lines 4 and 6 print as info only. Line 3's tip names the command to keep the assumed spec, for example "type /ll loadout Affliction Affliction --character Zugar to keep it"; omit the character option for the current character. Setting the same spec clears the assumed flag. Line 6 reads "Bags: tooltip line only in this build."
+NEED means results are misleading without it; TIP and info are advice. A complete checklist collapses to one line ("Setup complete") above the Status block. **In M1** (no window) the checklist prints in chat. Lines 4 and 6 print as info only. Line 3's tip names the command to keep the assumed spec, for example "type /ll loadout Affliction Affliction --character Zugar to keep it"; omit the character option for the current character. Setting the same spec clears the assumed flag. Line 6 reads "Bags: tooltip line only in this build." M1 prints all seven lines every time, with no count and no collapse. A done line prints its tag and a short text: "Specs: all picked" (3), "Wants: every character has wants" (4), "Prices: Auctionator today" or "Prices: Auctionator 3 d" (5), "Bank: seen" (7). Line 2 reads "Roster: 5 characters. Missing one? Log in on it once." in both states, counts every roster character with here included ("Roster: 1 character. ..." for one), and is done at two or more. Line 3 is one line: "Zugar is using an assumed spec (Affliction); type /ll loadout Affliction Affliction --character Zugar to keep it."; the name before "no gear advice" is the loadout's (named after its spec, or after the class when it has none): a loadout with no spec reads "Mage: no gear advice in this build.", and one whose saved spec has no table in this build reads "Destruction: spec Destruction has no gear advice in this build.", with no keep command. A line 3 or 4 whose loadouts or characters all print info entries has no separate done row. Line 4 covers eligible destination characters only. Lines 3 and 4 print one entry per affected character (per loadout for line 3), in roster order.
 
 ### 2.3 Unseen alts
 
@@ -134,7 +134,7 @@ A character joins the roster only by logging in with LootLogic enabled. Before t
 | Characters tab footer | "Not listed? Log in on that character once with LootLogic enabled. Nothing can be sent to a character LootLogic has not seen." |
 | Wants tab when only the current character is registered | "You are the only character LootLogic knows. Wants for your other characters can be set once they have logged in." The editor still works for the current character. |
 | `/ll want <link> --character Bob` | "LootLogic does not know Bob yet. Log in on Bob once with LootLogic enabled." |
-| Checklist line 2 | "5 characters. Missing one? Log in on it once." |
+| Checklist line 2 | "Roster: 5 characters. Missing one? Log in on it once." |
 
 **More than one PC:** `LootLogicDB` lives in the local WTF folder. A character played only on another computer is unseen on this computer; one played on both is as fresh as its last login on this one. The help text says so. LootLogic cannot detect it.
 
@@ -227,7 +227,7 @@ Mockups show proportions, not pixels. `Dr`, `Pa`, `Wl`, `Sh` stand for class ico
 - **Gear:** on, or OFF (switched off, for example for a bank alt). Clickable.
 - **Wants:** a count; click opens the Wants tab on that character.
 - **Mail:** items recorded as mailed to that character and not yet seen in its inbox (depends on L13, untested).
-- **Seen:** snapshot age. Past `staleDays` it reads "16 d (old)": text plus colour.
+- **Seen:** snapshot age. At `staleDays` days or more it reads "16 d (old)": text plus colour.
 - **Contested:** every want type claimed by two or more eligible characters, with the winner. Hidden when there are none.
 
 **Specs and loadouts.** A character's spec is set on a **loadout**, not on the character. A loadout is a name plus a spec, for example "Cat" with the Cat spec.
@@ -426,6 +426,8 @@ Behaviour is in section 4.
 | Errors | "3 this session", the last 20 in a scroll list |
 
 [Copy] fills a selectable edit box; an addon cannot write to the clipboard.
+
+**In M1** `/ll status` prints this block in chat after the checklist: a Prices row per provider found (each starting "Prices: ") (an Auctionator lookup error, from `IsAvailable` or `GetPrice`, reads "Auctionator: error (<text>); no prices until it works"; an `OnUpdate` error appears only in the Errors list; the latest-scan note is its own row); "Tooltip: active" for Bags; a Roster row sorted by age ("now" for the current character, "today" under a day, "N d", with "(old)" at `staleDays` days or more, and "<name> unknown" last for a character with no `lastSeen`); and "Errors: none this session" or "Errors: N this session" followed by the last 5, newest first, each indented two spaces, as "<hh:mm:ss> <area>: <message>", with " (xN)" added when the count is above 1. The Sets and Build rows and the Copy and Clear buttons come with the window.
 
 **Reading the screen:**
 
