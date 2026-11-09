@@ -20,7 +20,7 @@ One checklist per milestone, run on a live Forever client after installing that 
 4. On each test character, do three town trips. Before selling, listing or mailing, hover the items in the bags: each tooltip line should show the category and reason the rules give. Log each disagreement as a bug or a rule change.
 5. Check that the trips together showed at least one item in Equip, one in another character's category, one in AH, one in Vendor and one in Vendor/AH. Until each has shown, the trips are not enough.
 6. On the Druid, create Bear and Restoration loadouts; on the Paladin, create Protection and Retribution loadouts. Switch the worn loadout and check that gear best for the other loadout stays protected, and that the tooltip names the loadout and comparison that explain the result.
-7. On a fresh `WTF` folder, log in a character. Five seconds later the added, first-run and no-price lines print together, and the Welcome dialog shows once nothing else is on screen. Press [Show commands]: the command list prints and the dialog closes. Log in again: the first-run line and the dialog do not return. (The dialog's own checks are in L43.)
+7. On a fresh `WTF` folder with every price addon disabled, log in a character. Five seconds later the added, first-run and no-price lines print together, and the Welcome dialog shows once nothing else is on screen. Press [Show commands]: the command list prints and the dialog closes. Log in again: the first-run line and the dialog do not return. (The dialog's own checks are in L43.)
 8. Before moving to M2, choose each test character's spec with `/ll loadout` (L54).
 
 ## M2: linked-set selection check

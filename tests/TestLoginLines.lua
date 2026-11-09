@@ -179,7 +179,7 @@ return {
     ["LoginLines: requireLastScan with Auctionator alone prints no last-scan line"] = function()
         Installed()
         Boot("WARLOCK", "Warlock")
-        LootLogicDB.settings.requireLastScan = true
+        LootLogicDB.settings.ah.requireLastScan = true
         Stub.Advance(5)
         h.DeepEqual(Lines(), { Added("Warlock", "Affliction"), FIRST_RUN }, "no M2 line")
     end,
