@@ -53,6 +53,19 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 |---|---|---|---|---|
 | D206 | spec 6; ux 1 | How should an incompatible loadout on a same-name replacement be handled? | Check the character's class and keep loadouts appropriate to it. Remove known incompatible specs, create a default when none remain, and retain other saved data. A same-name replacement with the same class is not detected by this check. Applied to spec 6 and ux 1. | 2026-11-06 |
 
+### M1 Stage 7 login lines and Welcome dialog
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D223 | ux 2.1; spec 6 | Do the login lines and the Welcome dialog appear when the saved data is read-only? | Yes. They behave normally from the read-only copy; closing the dialog sets `ui.firstRunDone` in the copy only, as `/ll probe` writes to the copy. Applied to ux 2.1. | 2026-11-09 |
+| D224 | ux 2.1 | Where do the dialog's 60 seconds start? | At `PLAYER_LOGIN`: the last check is at 59 seconds. Applied to ux 2.1. | 2026-11-09 |
+| D225 | style 3; technical findings 14; ux 2.1, 3.1 | How does Escape close the Welcome dialog, and may a frame have a global name? | Name the frame `LootLogicWelcome` and add it to `UISpecialFrames`. Style 3 allows a global frame name when the client must find the frame by name (`UISpecialFrames`); the frame is created in its own UI file, not in `Globals.lua`, its name contains `LootLogic`, and `.luacheckrc` lists it. M2's window and minimap button use the same rule. Applied to style 3 and ux 2.1; technical findings 14 and `.luacheckrc` follow with the code. | 2026-11-09 |
+| D226 | technical findings 14; spec 2 | Where does `Art/Icon.tga` come from? | M1 ships an original placeholder made for the project, replaced before the addon is published. It stays the team's own work, so the licensing rule (spec 2) holds. | 2026-11-09 |
+| D227 | ux 3.1 | What does the addon compartment click do in M1? | The same as `/ll`: it prints the help list then the checklist. From M2 it toggles the window. Applied to ux 3.1. | 2026-11-09 |
+| D228 | ux 2.1 | What are the Welcome dialog's size, position and paragraph breaks? | The implementer picks them and reports the numbers; ux 2.1 records them as tunable in game (L43). Applied to ux 2.1. | 2026-11-09 |
+| D229 | technical findings 18 (L43) | Which live check covers the dialog's basics? | L43 is extended to cover the close button, dragging, Escape, `DIALOG` strata, no keyboard focus, the combat wait, the button templates, and that hiding the parent does not count as a close. Applied to technical findings 18. | 2026-11-09 |
+| D230 | spec 19; technical findings 18 | Which milestone signs off L43? | M1, as D147 says; D101 is superseded on this point. L43 leaves the M2 range (the M2 row lists L41, L42, L44 and L45). Applied to spec 19. | 2026-11-09 |
+
 ### M1 Stage 6 checklist and status
 
 | # | Where | Question | Answer | Date |

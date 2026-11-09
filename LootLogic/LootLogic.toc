@@ -6,6 +6,8 @@
 ## Version: @project-version@
 ## SavedVariables: LootLogicDB
 ## OptionalDeps: Auctionator, AuctionDB, BetterBags, BagBrother, Bagnon, Bagnonium, ArkInventory, EllesmereUI, EllesmereUIBags, OutfitterForever
+## AddonCompartmentFunc: LootLogicOnCompartmentClick
+## IconTexture: Interface\AddOns\LootLogic\Art\Icon
 
 Locale\enUS.lua
 Core\Init.lua
@@ -38,6 +40,9 @@ Engine\Detail.lua
 API.lua
 Checklist.lua
 Display\Tooltip.lua
+Display\LoginLines.lua
+UI\Widgets.lua
+UI\Welcome.lua
 Probe.lua
 Slash.lua
 Globals.lua

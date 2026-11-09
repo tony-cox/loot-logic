@@ -1,6 +1,6 @@
 # Commands in the current build
 
-This guide describes the commands implemented through **M1 stage 6**, the current development build. It is not the complete v1 command reference: later window and setup commands such as `/ll types`, `/ll contents` and `/ll wants` are not implemented yet. The planned v1 syntax is in [spec section 13](spec.md#13-in-game-ui). Update this guide as commands are added or changed.
+This guide describes the commands implemented through **M1 stage 7**, the current development build. It is not the complete v1 command reference: later window and setup commands such as `/ll types`, `/ll contents` and `/ll wants` are not implemented yet. The planned v1 syntax is in [spec section 13](spec.md#13-in-game-ui). Update this guide as commands are added or changed.
 
 The commands below have offline test coverage. Live-client checks are still under way (see [technical findings section 18](technical-findings.md#18-live-client-checks-first-sessions-after-2026-11-05)); in particular, using a hovered item after typing is unverified (L46). If hover is unavailable, supply an item link or ID.
 
@@ -9,6 +9,8 @@ The commands below have offline test coverage. Live-client checks are still unde
 Enter commands in game chat. `/lootlogic` is an alias for `/ll`. Square brackets below mean optional; angle brackets mark values to replace. Command words, character names, loadout names, specs and types are case-insensitive.
 
 Character names may contain spaces. LootLogic takes the longest matching roster name; quotes are also accepted, for example `"Boneset H"`. LootLogic's roster is local to each computer: log in on each character with LootLogic enabled on that computer before configuring it there.
+
+The addon compartment entry (the minimap tray menu) does the same as bare `/ll` in this build: it prints the command list and then the checklist. At the first login on an account, a Welcome dialog offers [Show commands], which prints the same command list.
 
 ## Help and diagnostics
 
