@@ -490,3 +490,28 @@ L.debugAlreadyOn = "debug is already on."
 L.debugAlreadyOff = "debug is already off."
 L.debugUsage = "/ll debug on|off. Example: /ll debug on"
 L.debugReadOnly = "saved data is left unchanged, so debug cannot be changed."
+
+-- The login chat lines, without the prefix (docs/ux.md 2.1, "Chat lines at
+-- login"). The added line takes the name, class, level, faction and spec label.
+L.loginAdded = "%s added (%s %d, %s). Assuming %s until you pick a spec. "
+    .. "/ll to set up spec and wants."
+L.loginAddedNoTable = "%s added (%s %d, %s). No gear advice for %s in this build."
+L.loginFirstRun = "log in once on each of your other characters so they appear. /ll to set up."
+L.loginNoPrice = "no price addon found; tradable items nobody wants, and no other rule claims, "
+    .. "show as Vendor/AH."
+
+-- The Welcome dialog (docs/ux.md 2.1). The first paragraph joins the first two
+-- lines of the mock; the second is "Setup is optional".
+L.welcomeTitle = "LootLogic"
+L.welcomeAbout = table.concat({
+    "LootLogic shows where each item in your bags should go: to another character, "
+        .. "to equip, to list on the AH, to vendor, or to Vendor/AH for you to decide.",
+    "It never moves items: you still sell, list and mail.",
+    "LootLogic only knows characters that have logged in once with it enabled.",
+    "You will not get its full value until you have logged in on each of your "
+        .. "characters, so it can sort gear and items for them.",
+}, " ")
+L.welcomeOptional = "Setup is optional but makes it more useful. It takes a few minutes and you "
+    .. "can do it later with /ll."
+L.welcomeShowCommands = "Show commands"
+L.welcomeNotNow = "Not now"

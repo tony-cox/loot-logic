@@ -82,6 +82,9 @@ The chat line goes out 5 seconds after `PLAYER_LOGIN`, together with the other l
 - **In M1 there is no window.** The first button reads [Show commands] and prints the setup commands in chat (`/ll loadout`, `/ll want`, `/ll order`, `/ll gear`, `/ll protect`, `/ll status`); from M2 it is [Open setup]. `/ll` prints the same list in M1, then the checklist only (`/ll status` adds the status block). The first button also closes the dialog, which sets `ui.firstRunDone` like [Not now].
 - **[Open setup]** (M2) opens the main window on the Characters tab with the current character's row expanded, so the player can pick its spec straight away. That is the one setup step that changes results most. The Status tab (the checklist of everything else) is one click away. (This is the page where the player sets up their character, not the Settings tab, which holds the AH rule and display options.)
 - **[Not now]**, the close button and Escape all close it. None of them opens the window.
+- **Read-only data:** when the saved data is read-only the lines and the dialog still appear from the read-only copy, and closing the dialog sets the flag in the copy only.
+- **Escape:** the frame is named `LootLogicWelcome` and listed in `UISpecialFrames` (from memory, L43).
+- **Size and position** are chosen in code and tunable in game (L43). The first build uses a 440 by 270 dialog, its top edge 120 pixels below the top of the screen and centred, with a 24 pixel margin, 392 pixel wide text and two paragraphs: the "LootLogic shows where each item ..." and "LootLogic only knows ..." lines together, then the "Setup is optional" line.
 - It appears **once per account** (`ui.firstRunDone`, set when the dialog closes, by any button, the close button or Escape). It is never shown again, including on later characters. `/ll` opens the window at any time.
 - It is a small dialog in the upper middle of the screen, not a full-screen blocker: it can be dragged, it does not take keyboard focus, and the player can keep playing with it open.
 
@@ -89,7 +92,7 @@ The chat line goes out 5 seconds after `PLAYER_LOGIN`, together with the other l
 
 - It waits until 5 seconds after `PLAYER_LOGIN` (the moment the login chat lines print), the player is not in combat, and no client dialog (any of `StaticPopup1` to `StaticPopup4`) is shown. It checks again every 2 seconds.
 - Its frame strata is `DIALOG`, below the client's own dialogs and below any addon that uses a higher strata, so it never covers another addon's dialog and never blocks one.
-- If it cannot show within 60 seconds, it gives up for that session, relying on the chat line above, and does not set `ui.firstRunDone`. It tries again at the next login.
+- If it cannot show within 60 seconds of `PLAYER_LOGIN` (the last check is at 59 seconds), it gives up for that session, relying on the chat line above, and does not set `ui.firstRunDone`. It tries again at the next login.
 - Closing another addon's dialog does not trigger ours early; the checks above decide.
 - Behaviour with two or three other addons doing the same is **untested** (L43).
 
@@ -161,7 +164,7 @@ Everything in this section is one window, LootLogic's main window. Apart from th
 | `/ll` or `/lootlogic` | Toggles the window. Opens on the last tab used (none used yet: Contents). |
 | `/ll contents`, `/ll wants`, `/ll status` | Opens the window on that tab (`/ll wants Zugar` opens the Wants tab on that character). |
 | Minimap button | Left-click toggles the window; drag to move it round the minimap; hide it from the Settings tab (M2). Minimap-button groupers such as EllesmereUI's may collect it (L45). |
-| Addon compartment | Same as `/ll` (spec section 13; untested on Forever). |
+| Addon compartment | Same as `/ll` (spec section 13; untested on Forever). In M1, which has no window, it prints the help list then the checklist, as bare `/ll` does. |
 | Blizzard Settings panel, LootLogic category | A button opens the window (spec section 13). |
 | First login on the account | A welcome dialog appears once; its [Open setup] button opens the window on the Characters tab (2.1). |
 | Buttons inside the window | The checklist and the Characters tab jump between tabs (listed under each view). |

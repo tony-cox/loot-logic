@@ -5,11 +5,14 @@ max_line_length = 100
 max_comment_line_length = 80
 
 -- The saved variable named in the TOC and the addon's own globals, which
--- Globals.lua creates (style guide 3). The compartment
--- function and the BINDING_ labels join in the stages that add them.
+-- Globals.lua creates (style guide 3), and the name of the one frame the client
+-- must find by name (UI/Welcome.lua creates it). The BINDING_ labels join in the
+-- stage that adds them.
 globals = {
     "LootLogicDB",
     "LootLogic",
+    "LootLogicOnCompartmentClick",
+    "LootLogicWelcome",
     "SLASH_LOOTLOGIC1",
     "SLASH_LOOTLOGIC2",
 }
@@ -83,6 +86,8 @@ read_globals = {
     "TOOLTIP_ITEM_STAT_HIT_PERCENT_INCREASE",
     "TOOLTIP_ITEM_STAT_SPELL_POWER_INCREASE",
     "TooltipDataProcessor",
+    "UIParent",
+    "UISpecialFrames",
     "UnitClass",
     "UnitFactionGroup",
     "UnitLevel",
@@ -185,6 +190,8 @@ files["tests/stubs/Wow.lua"] = {
         "TOOLTIP_ITEM_STAT_HIT_PERCENT_INCREASE",
         "TOOLTIP_ITEM_STAT_SPELL_POWER_INCREASE",
         "TooltipDataProcessor",
+        "UIParent",
+        "UISpecialFrames",
         "UnitClass",
         "UnitFactionGroup",
         "UnitLevel",

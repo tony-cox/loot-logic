@@ -26,6 +26,7 @@ local Asks = ns.Asks
 local Sets = ns.Sets
 local Specs = ns.Specs
 local Checklist = ns.Checklist
+local Welcome = ns.Welcome
 
 local debugEventsRegistered = false
 
@@ -240,8 +241,9 @@ local function RunWhy(rest)
     end
 end
 
--- The command list, one routine so the Welcome dialog's [Show commands] can
--- print it without the checklist (UX 2.1; stage 7).
+-- The command list, one routine for /ll, /ll help and the Welcome dialog's
+-- [Show commands], which prints it without the checklist (UX 2.1; set on
+-- Welcome at the end of this file).
 local function PrintHelp()
     Log.Chat(L.helpHeader)
     for _, key in ipairs({
@@ -1620,3 +1622,7 @@ Events.Register("ADDON_LOADED", function(_, name)
         RegisterDebugEvents()
     end
 end)
+
+-- The Welcome dialog's [Show commands] button prints the same command list
+-- (technical findings 14, Help and Welcome).
+Welcome.onShowCommands = PrintHelp

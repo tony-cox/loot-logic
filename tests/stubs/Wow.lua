@@ -19,6 +19,11 @@ Setters of h.Stub (keep this list in step with the code below):
                           client does not know; API guess)
   MakeSecret()            a new token that issecretvalue reports as true
   FireEvent(event, ...)   fire an event on every frame registered for it
+  Frames()                the frames CreateFrame has made so far (the live
+                          list); a named frame is also a global
+  SetPopupShown(index, shown)
+                          show or hide StaticPopup1 to StaticPopup4
+  PressEscape()           hide each shown frame named in UISpecialFrames
   ChatLines()             list of the chat lines printed so far
   ClearChat()             forget the captured chat lines
   SetEquipmentSets(list)  the Equipment Manager sets of the current character;
@@ -328,31 +333,239 @@ function Stub.SetUnknownEvents(names)
     end
 end
 
--- A frame that can take events and an OnEvent script, which is all the addon
--- needs of one. Confidence: from memory; the names RegisterEvent and
--- SetScript("OnEvent", fn) are an API guess, checked in game.
-function CreateFrame(frameType, name)
-    local frame = { frameType = frameType, name = name, events = {}, scripts = {} }
-    function frame:RegisterEvent(event)
-        if unknownEvents[event] then
-            error("Frame:RegisterEvent(): Unknown event: " .. event)
+-- Frames. An event frame needs RegisterEvent and SetScript("OnEvent", fn); the
+-- Welcome dialog needs the rest of the methods below. Every method here is an
+-- API guess checked in game (live check L43 for the dialog's calls). A client
+-- method the code uses but the stub lacks fails the test with a nil call, so
+-- the stub grows only with the code. A named frame also becomes a global, as
+-- the client does (API guess).
+local Methods = {}
+Methods.__index = Methods
+
+local function RunScript(frame, scriptName, ...)
+    local fn = frame.scripts[scriptName]
+    if fn then
+        fn(frame, ...)
+    end
+end
+
+-- A parent that hides runs OnHide on its children that are still shown, and
+-- they keep their own shown state (API guess; L43).
+local function ParentHidden(frame)
+    if not frame.shown then
+        return
+    end
+    RunScript(frame, "OnHide")
+    for _, child in ipairs(frame.children) do
+        ParentHidden(child)
+    end
+end
+
+function Methods:RegisterEvent(event)
+    if unknownEvents[event] then
+        error("Frame:RegisterEvent(): Unknown event: " .. event)
+    end
+    self.events[event] = true
+end
+
+function Methods:UnregisterEvent(event)
+    self.events[event] = nil
+end
+
+function Methods:IsEventRegistered(event)
+    return self.events[event] or false
+end
+
+function Methods:SetScript(scriptName, fn)
+    self.scripts[scriptName] = fn
+end
+
+function Methods:GetScript(scriptName)
+    return self.scripts[scriptName]
+end
+
+function Methods:Show()
+    if not self.shown then
+        self.shown = true
+        RunScript(self, "OnShow")
+    end
+end
+
+function Methods:Hide()
+    if self.shown then
+        self.shown = false
+        RunScript(self, "OnHide")
+        for _, child in ipairs(self.children) do
+            ParentHidden(child)
         end
-        self.events[event] = true
     end
-    function frame:UnregisterEvent(event)
-        self.events[event] = nil
+end
+
+function Methods:IsShown()
+    return self.shown
+end
+
+function Methods:GetParent()
+    return self.parent
+end
+
+function Methods:Click()
+    RunScript(self, "OnClick", "LeftButton", false)
+end
+
+function Methods:SetSize(width, height)
+    self.width, self.height = width, height
+end
+
+function Methods:SetWidth(width)
+    self.width = width
+end
+
+function Methods:SetPoint(...)
+    table.insert(self.points, { ... })
+end
+
+function Methods:SetFrameStrata(strata)
+    self.strata = strata
+end
+
+function Methods:GetFrameStrata()
+    return self.strata
+end
+
+function Methods:SetMovable(on)
+    self.movable = on
+end
+
+function Methods:IsMovable()
+    return self.movable
+end
+
+function Methods:EnableMouse(on)
+    self.mouse = on
+end
+
+function Methods:EnableKeyboard(on)
+    self.keyboard = on
+end
+
+function Methods:IsKeyboardEnabled()
+    return self.keyboard
+end
+
+function Methods:RegisterForDrag(...)
+    self.dragButtons = { ... }
+end
+
+function Methods:StartMoving()
+    self.moving = true
+end
+
+function Methods:StopMovingOrSizing()
+    self.moving = false
+end
+
+function Methods:SetClampedToScreen(on)
+    self.clamped = on
+end
+
+function Methods:SetBackdrop(backdrop)
+    self.backdrop = backdrop
+end
+
+function Methods:SetUserPlaced(on)
+    self.userPlaced = on
+end
+
+function Methods:SetText(text)
+    self.text = text
+end
+
+function Methods:GetText()
+    return self.text
+end
+
+function Methods:SetJustifyH(justify)
+    self.justifyH = justify
+end
+
+function Methods:SetWordWrap(on)
+    self.wordWrap = on
+end
+
+function Methods:CreateFontString(_, layer, font)
+    local region = setmetatable({
+        regionType = "FontString",
+        layer = layer,
+        font = font,
+        parent = self,
+        points = {},
+        scripts = {},
+        children = {},
+    }, Methods)
+    table.insert(self.regions, region)
+    return region
+end
+
+function CreateFrame(frameType, name, parent, template)
+    local frame = setmetatable({
+        frameType = frameType,
+        name = name,
+        parent = parent,
+        template = template,
+        events = {},
+        scripts = {},
+        children = {},
+        regions = {},
+        points = {},
+        shown = true,
+        keyboard = false,
+    }, Methods)
+    if parent then
+        table.insert(parent.children, frame)
     end
-    function frame:IsEventRegistered(event)
-        return self.events[event] or false
-    end
-    function frame:SetScript(scriptName, fn)
-        self.scripts[scriptName] = fn
-    end
-    function frame:GetScript(scriptName)
-        return self.scripts[scriptName]
+    if name then
+        _G[name] = frame
     end
     frames[#frames + 1] = frame
     return frame
+end
+
+--- The frames created so far, the event frames included (the live list).
+-- @treturn table list of frames
+function Stub.Frames()
+    return frames
+end
+
+UIParent = CreateFrame("Frame", "UIParent")
+UISpecialFrames = {}
+
+-- The client's own dialogs, hidden until a test shows one (from memory; L43).
+for index = 1, 4 do
+    CreateFrame("Frame", "StaticPopup" .. index, UIParent):Hide()
+end
+
+--- Shows or hides one of the client's dialogs StaticPopup1 to StaticPopup4.
+-- @param index number 1 to 4
+-- @param shown boolean
+function Stub.SetPopupShown(index, shown)
+    local popup = _G["StaticPopup" .. index]
+    if shown then
+        popup:Show()
+    else
+        popup:Hide()
+    end
+end
+
+--- Presses Escape: hides each shown frame named in UISpecialFrames, as the
+--- client is assumed to do (API guess; L43).
+function Stub.PressEscape()
+    for _, name in ipairs(UISpecialFrames) do
+        local frame = _G[name]
+        if frame and frame:IsShown() then
+            frame:Hide()
+        end
+    end
 end
 
 local function CharacterClass(set)
