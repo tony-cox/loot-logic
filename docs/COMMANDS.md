@@ -1,8 +1,8 @@
 # Commands in the current build
 
-This guide describes the commands implemented through **M1 stage 7**, the current development build. It is not the complete v1 command reference: later window and setup commands such as `/ll types`, `/ll contents` and `/ll wants` are not implemented yet. The planned v1 syntax is in [spec section 13](spec.md#13-in-game-ui). Update this guide as commands are added or changed.
+This guide describes the commands in the current development build. It is not the complete v1 command reference: later window and setup commands such as `/ll types`, `/ll contents` and `/ll wants` are not implemented yet. The planned v1 syntax is in [spec section 13](spec.md#13-in-game-ui). Update this guide as commands are added or changed.
 
-The commands below have offline test coverage. Live-client checks are still under way (see [technical findings section 18](technical-findings.md#18-live-client-checks-first-sessions-after-2026-11-05)); in particular, using a hovered item after typing is unverified (L46). If hover is unavailable, supply an item link or ID.
+Commands that act on the hovered item read what is under the mouse when you press Enter. If no item can be read, supply an item link or ID.
 
 ## Getting started
 
@@ -29,6 +29,16 @@ The addon compartment entry (the minimap tray menu) does the same as bare `/ll` 
 | `/ll perf` | Show the latest completed full classification's scope, item count and elapsed time, or say that none has completed. |
 
 The checklist has seven lines, each tagged `[done]`, `[TIP]` or `[info]`: this character, the roster, specs, wants, prices, bags and the bank. A `[TIP]` on specs names the command that keeps the assumed spec. Wants are checked for characters this one can send to. There is no count and no "Setup complete" line in this build.
+
+## Reading the tooltip
+
+Hover a bag item and LootLogic adds one line to the game tooltip: its answer and the reason, for example `LootLogic: Vendor (AH gain below threshold; sells for 13c each)`. The answer is one of Equip, AH, Vendor, Vendor/AH, stays, or a character's name (mail it to them). `stays` means to keep the item; the reason explains why (a quest item, gear kept for another loadout, and so on). Hold Shift over the item to add the detail lines (who wants it, the gear comparison for each loadout, the price and the gain). `/ll why` prints the same detail in chat. There is no bag section or badge in this build: the tooltip line is the only display.
+
+## Debug log and saved data
+
+`/ll debug on` starts the debug log: each line reads `[hh:mm:ss] <area>: text` in the computer's local time, is echoed to chat with the prefix `LootLogic debug:` and is kept in the saved data. It keeps the newest 300 lines and drops older ones, so read it soon after the event you care about. The setting persists across reloads and logouts until `/ll debug off`. Game events that LootLogic watches (bank, mail, merchant, auction house, logout and so on) are logged with their arguments.
+
+The saved data is the file `WTF/Account/<account>/SavedVariables/LootLogic.lua` (the global `LootLogicDB`). The client writes it on logout or `/reload`, not while playing, so reload before reading it. It holds `debug.log` (the debug lines) and `debug.probe` (one entry per `/ll probe` run, keyed by the run's time in epoch seconds as text, each with the `status` and `value` of every check). `/ll probe` runs the automatic client checks and prints each as a PASS, FAIL or SKIP line, then lists the checks that need doing by hand.
 
 ## Character order and gear
 
