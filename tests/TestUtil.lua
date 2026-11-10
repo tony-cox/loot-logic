@@ -29,6 +29,35 @@ return {
         h.Equal(Util.InstanceKey(SUFFIX), "12345:123", "hex form")
     end,
 
+    ["parse link: the roll is the first bonus ID on Forever links"] = function()
+        local bear = "|Hitem:14091::::::::13:1489:::1:12722::::::|h[Beaded Robe of the Bear]|h"
+        local falcon = "|Hitem:14091::::::::13:1489:::1:12724::::::|h[Beaded Robe of the Falcon]|h"
+        local axe = "|Hitem:15268::::::::12:1489::1:1:12723:1:28:5256:::::|h[Twin-bladed Axe]|h"
+        local itemID, suffix = Util.ParseLink(bear)
+        h.Equal(itemID, 14091, "robe item ID")
+        h.Equal(suffix, 12722, "Bear roll")
+        h.Equal(Util.InstanceKey(falcon), "14091:12724", "Falcon roll")
+        h.Equal(Util.InstanceKey(axe), "15268:12723", "axe with a context field")
+    end,
+
+    ["parse link: the seventh field wins and a bonus ID needs a count"] = function()
+        h.Equal(Util.InstanceKey("item:12345::::::55::60::::1:999"), "12345:55", "classic first")
+        h.Equal(Util.InstanceKey("item:14091::::::::13:1489:::0:12722"), "14091:0", "count 0")
+        h.Equal(Util.InstanceKey("item:14091::::::::13:1489"), "14091:0", "no bonus fields")
+        h.Equal(Util.InstanceKey("item:14091::::::::13::::1:"), "14091:0", "empty bonus ID")
+        h.Equal(
+            Util.InstanceKey("item:14091::::::::13:1489:::1"),
+            "14091:0",
+            "count 1, no field 14"
+        )
+        h.Equal(Util.InstanceKey("item:1::::::-17"), "1:-17", "negative classic suffix")
+        h.Equal(
+            Util.InstanceKey("|Hitem:14091::::::::13:1489:::1:12722::::::|h[Robe]|h"),
+            "14091:12722",
+            "text after the item string"
+        )
+    end,
+
     ["instance key: text with no item gives nil"] = function()
         h.Nil(Util.InstanceKey("not a link"), "no item")
         h.Nil(Util.InstanceKey("item:"), "no ID")

@@ -143,8 +143,25 @@ local function Hovered()
     end
 end
 
+-- The item string for a roll number with no matching bag stack. On Forever the
+-- roll is a bonus ID, not the seventh field, so a positive roll goes in the
+-- first bonus slot (field 14, with field 13 = 1) of the shape
+-- item:<id>::::::::<level>::::1:<bonus>. The field positions are confirmed by
+-- live links (2026-11-10); the stats of a string with only the bonus ID are
+-- unverified (check L57; fallback: copy a full link from a character that
+-- holds the item). A negative roll can only come from the classic seventh
+-- field, so it builds the classic form item:<id>:0:0:0:0:0:<roll>. A roll of 0
+-- or nil builds the plain item string.
 local function ItemLink(itemID, suffix)
-    local itemString = string.format("item:%d:0:0:0:0:0:%d", itemID, suffix or 0)
+    local itemString
+    if suffix == nil or suffix == 0 then
+        itemString = string.format("item:%d", itemID)
+    elseif suffix < 0 then
+        itemString = string.format("item:%d:0:0:0:0:0:%d", itemID, suffix)
+    else
+        itemString =
+            string.format("item:%d::::::::%d::::1:%d", itemID, UnitLevel("player") or 0, suffix)
+    end
     local ok, _, link = pcall(C_Item.GetItemInfo, itemString)
     if ok and type(link) == "string" then
         return link

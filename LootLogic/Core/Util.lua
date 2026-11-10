@@ -69,14 +69,19 @@ function Util.FormatMoney(copper)
     return table.concat(parts, " ")
 end
 
---- Reads the item ID and the suffix ID from an item link or item string. The
---- suffix is the seventh field of the item string, 0 when it is empty or absent
---- (technical findings 7.1). The colour part of the link is not read, so the
+--- Reads the item ID and the roll ID from an item link or item string. The
+--- roll ID (called the suffix everywhere else) is the seventh field of the item
+--- string when it is non-zero (the classic form); otherwise the first bonus ID
+--- (field 14, read only when field 13, the bonus ID count, is at least 1);
+--- otherwise 0. On Forever the random-suffix roll of an item travels as a bonus
+--- ID and the seventh field is empty (technical findings 7.1; confirmed (live,
+--- 2026-11-10), check L57). The colour part of the link is not read, so the
 --- "|cnIQ4:...|Hitem:..." form and the classic hex form both work (from
 --- memory; live check L52; fallback: fix the pattern).
 -- @param link string
 -- @treturn number|nil itemID, nil when the text holds no item
--- @treturn number|nil suffixID
+-- @treturn number|nil suffixID the seventh field or the first bonus ID, 0 when
+-- neither
 function Util.ParseLink(link)
     local fields = string.match(link, "item:([%-%d:]*)")
     if not fields then
@@ -86,16 +91,27 @@ function Util.ParseLink(link)
     if not itemID then
         return nil, nil
     end
-    local suffix = 0
+    local classic = 0
+    local bonusCount = 0
+    local firstBonus = 0
     local index = 1
     for field in string.gmatch(fields .. ":", "([^:]*):") do
         if index == 7 then
-            suffix = tonumber(field) or 0
+            classic = tonumber(field) or 0
+        elseif index == 13 then
+            bonusCount = tonumber(field) or 0
+        elseif index == 14 then
+            if bonusCount >= 1 then
+                firstBonus = tonumber(field) or 0
+            end
             break
         end
         index = index + 1
     end
-    return itemID, suffix
+    if classic ~= 0 then
+        return itemID, classic
+    end
+    return itemID, firstBonus
 end
 
 --- The instance key "itemID:suffixID" of a link (spec 6, Notes).
