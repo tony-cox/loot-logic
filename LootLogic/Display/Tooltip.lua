@@ -127,6 +127,9 @@ end
 -- A worn item gets no verdict line (spec 13), only the Shift detail lines.
 local function AddWornDetail(tooltip, info)
     local link = info and info.hyperlink
+    if not IsUsableLink(link) and info and info.getterArgs then
+        link = info.getterArgs[1]
+    end
     if not IsUsableLink(link) then
         link = ItemLink(tooltip)
     end

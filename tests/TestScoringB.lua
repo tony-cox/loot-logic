@@ -302,6 +302,36 @@ return {
         local weaponResult = ns.Scoring.InUse(oldWeapon, "druid")
         h.Equal(weaponResult.better.item.link, weapon.link, "winning weapon")
     end,
+    ["a one-hand weapon reports its own score apart from its partner's"] = function()
+        local entry = Boot()
+        entry.class = "ROGUE"
+        entry.proficiency.spells[674] = true
+        entry.loadouts = { entry.loadouts[2] }
+        LootLogicDB.settings.gear.lookAheadLevels = 0
+        local main = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONMAINHAND",
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 15 },
+        })
+        local off = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONOFFHAND",
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 5 },
+        })
+        local two = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_2HWEAPON",
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 30 },
+        })
+        entry.bags = { gear = { off.link, two.link } }
+        local result = ns.Scoring.Compare(main, "druid", { loadout = entry.loadouts[1] })
+        local alone = ns.Scoring.Score(main, entry.loadouts[1].spec, "mainHand")
+        h.Equal(result.itemScore, alone, "item-only score")
+        h.Equal(result.candidate > result.itemScore, true, "candidate includes the partner")
+    end,
     ["a unique ring with a worn twin compares against that twin"] = function()
         local entry = Boot()
         local here = "Zugar Soulsour-Region"

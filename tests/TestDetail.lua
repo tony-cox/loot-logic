@@ -349,6 +349,7 @@ return {
                 gainPct = math.huge,
                 upgrade = true,
                 candidate = candidate,
+                itemScore = candidate,
                 candidateLevel = 23,
                 baselineItem = {},
                 baselineWhere = {},

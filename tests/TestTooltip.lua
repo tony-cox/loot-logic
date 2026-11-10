@@ -789,6 +789,11 @@ return {
         local owner = h.Stub.MakeTooltip("PaperDollItemsFrameHeadSlot")
         local pane = Tooltip("GameTooltip", nil, owner, item.link)
         h.Equal(#pane.lines > 0, true, "character pane shows detail with Shift")
+        local argLink = Tooltip("GameTooltip", {
+            getterName = "GetHyperlink",
+            getterArgs = { item.link },
+        }, owner)
+        h.Equal(#argLink.lines > 0, true, "link only in the getter arguments")
         LootLogicDB.settings.display.tooltip = false
         local hidden = Tooltip("GameTooltip", nil, owner, item.link)
         h.Equal(#hidden.lines, 0, "disabled tooltip shows nothing")

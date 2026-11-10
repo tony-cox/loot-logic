@@ -96,6 +96,7 @@ local function Gear(result, facts, context)
                 assumed = loadout.assumed == true,
                 itemLevel = comparison.itemLevel == true,
                 candidate = comparison.candidate,
+                itemScore = comparison.itemScore,
                 candidateLevel = facts.itemLevel,
                 baseline = comparison.baseline,
                 baselineItem = baselineItem,
@@ -261,8 +262,8 @@ local function GearLine(entry)
     end
     if entry.itemLevel then
         text = text .. L.reasonIlvl
-    elseif entry.candidate then
-        local score = Score(entry.candidate)
+    elseif entry.itemScore then
+        local score = Score(entry.itemScore)
         if score == "0" or score == "-0" then
             text = text .. string.format(L.detailScoreZero, entry.candidateLevel or "?")
         else
