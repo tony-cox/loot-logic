@@ -124,15 +124,53 @@ local function HasLine(tooltip, text)
     return false
 end
 
+-- A worn item gets no verdict line (spec 13), only the Shift detail lines.
+local function AddWornDetail(tooltip, info)
+    local link = info and info.hyperlink
+    if not IsUsableLink(link) then
+        link = ItemLink(tooltip)
+    end
+    if not IsUsableLink(link) then
+        return
+    end
+    TrackLifecycle(tooltip)
+    -- The character pane may give no getter info: keep the link to rebuild.
+    tracked[tooltip] = {
+        info = info,
+        context = {
+            getterName = info and info.getterName,
+            getterArgs = info and info.getterArgs,
+            link = link,
+        },
+    }
+    if not ShiftDown() then
+        return
+    end
+    local result = API.ClassifyLink(link)
+    if not result then
+        return
+    end
+    local detailLines = Detail.Lines(result)
+    if #detailLines < 2 or HasLine(tooltip, detailLines[2]) then
+        return
+    end
+    local color = result.color
+    for index = 2, #detailLines do
+        tooltip:AddLine(detailLines[index], color.r, color.g, color.b)
+    end
+    tooltip:Show()
+end
+
 local function AddLine(tooltip, info, bagResult, matchesBag, savedContext)
     if IsComparison(tooltip) then
         return
     end
-    if IsCharacterEquipment(tooltip, info) then
-        return
-    end
     local display = DB.Data().settings.display
     if not display.tooltip then
+        return
+    end
+    if IsCharacterEquipment(tooltip, info) then
+        AddWornDetail(tooltip, info)
         return
     end
     local result, hasInput, classificationLink = bagResult, matchesBag, nil
@@ -273,6 +311,16 @@ local function RefreshShownTooltips(_, key)
             then
                 rebuild = function()
                     tooltip:SetHyperlink(context.link)
+                end
+            elseif
+                context
+                and context.getterName == "GetInventoryItem"
+                and type(args[1]) == "string"
+                and type(args[2]) == "number"
+                and type(tooltip.SetInventoryItem) == "function"
+            then
+                rebuild = function()
+                    tooltip:SetInventoryItem(args[1], args[2])
                 end
             elseif context and context.bag and type(tooltip.SetBagItem) == "function" then
                 rebuild = function()

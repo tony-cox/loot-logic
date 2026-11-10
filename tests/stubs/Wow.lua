@@ -1538,6 +1538,14 @@ function Stub.MakeTooltip(name, info, owner, itemLink)
             self.itemLink = item and item.hyperlink
             Stub.FireTooltip(self)
         end,
+        SetInventoryItem = function(self, unit, slot)
+            self.info = {
+                getterName = "GetInventoryItem",
+                getterArgs = { unit, slot },
+                hyperlink = self.itemLink,
+            }
+            Stub.FireTooltip(self)
+        end,
         SetInboxItem = function(self, mail, attachment)
             self.info = { getterName = "GetInboxItem", getterArgs = { mail, attachment } }
             self.itemLink = GetInboxItemLink(mail, attachment)

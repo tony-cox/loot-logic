@@ -96,6 +96,7 @@ local function Gear(result, facts, context)
                 assumed = loadout.assumed == true,
                 itemLevel = comparison.itemLevel == true,
                 candidate = comparison.candidate,
+                candidateLevel = facts.itemLevel,
                 baseline = comparison.baseline,
                 baselineItem = baselineItem,
                 baselineWhere = baselineWhere,
@@ -218,6 +219,12 @@ local function Percent(value)
     return tostring(rounded)
 end
 
+-- A computed score to two decimals, without trailing zeros.
+local function Score(value)
+    local text = string.format("%.2f", value)
+    return (string.gsub(string.gsub(text, "(%.%d-)0+$", "%1"), "%.$", ""))
+end
+
 local function SignedMoney(value)
     if value < 0 then
         return "-" .. Util.FormatMoney(-value)
@@ -254,6 +261,13 @@ local function GearLine(entry)
     end
     if entry.itemLevel then
         text = text .. L.reasonIlvl
+    elseif entry.candidate then
+        local score = Score(entry.candidate)
+        if score == "0" or score == "-0" then
+            text = text .. string.format(L.detailScoreZero, entry.candidateLevel or "?")
+        else
+            text = text .. string.format(L.detailScore, score)
+        end
     end
     local hasBankBaseline = false
     for _, where in ipairs(entry.baselineWhere or {}) do
