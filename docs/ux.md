@@ -760,13 +760,13 @@ A docked "trip strip" (a slim panel beside the merchant, mail or AH frame with t
 
 ### 5.4 Shift detail and `/ll why`
 
-An item-link popup that matches an item ID and random suffix in the player's bags shows the first matching bag item's verdict, followed by " (matches an item in your bags)". Without a match it shows the link-only verdict. Holding Shift over an item adds the detail under the tooltip line; `/ll why` prints the same lines in chat, the first starting "LootLogic:". Pressing or releasing Shift while the tooltip is shown adds or removes the detail without a new hover: LootLogic reads `IsShiftKeyDown()` and, on the `MODIFIER_STATE_CHANGED` event, sets the tooltip again from its owner (from memory; live check L59, technical findings 12.2). If L59 fails, the detail is shown only by `/ll why`. At most 8 lines, in the order below, each part only when it applies (spec section 13). A long line wraps in the tooltip and still counts as one.
+An item-link popup that matches an item ID and random suffix in the player's bags shows the first matching bag item's verdict, followed by " (matches an item in your bags)". Without a match it shows the link-only verdict. Holding Shift over an item adds the detail under the tooltip line (on one of the player's own equipped items there is no tooltip line, so Shift adds the detail lines alone, without the verdict, and they treat the item as a link-only item); `/ll why` prints the same lines in chat, the first starting "LootLogic:". Pressing or releasing Shift while the tooltip is shown adds or removes the detail without a new hover: LootLogic reads `IsShiftKeyDown()` and, on the `MODIFIER_STATE_CHANGED` event, sets the tooltip again from its owner (from memory; live check L59, technical findings 12.2). If L59 fails, the detail is shown only by `/ll why`. At most 8 lines, in the order below, each part only when it applies (spec section 13). A long line wraps in the tooltip and still counts as one.
 
 | Part | Lines | Shown when |
 |---|---|---|
 | Category line | 1 | Always: the tooltip line itself |
 | Wants | 1 | Someone's wants match: the winner first ("you" for the current character), then the others in the player's character order |
-| Gear | 1 per loadout comparison | The item is gear: the winner's loadouts for a result that goes to another character as an upgrade, the current character's for any other, largest gain first, each with its baseline piece and where it is |
+| Gear | 1 per loadout comparison | The item is gear: the winner's loadouts for a result that goes to another character as an upgrade, the current character's for any other, largest gain first, each with its baseline piece, where it is and the item's computed score under that loadout ("; score 12.5", or "; score 0 (ilvl 23)" when it is 0; none when the comparison used item level), so items that all read "infinite%" can still be told apart |
 | Runners-up | 1 | Other characters were compared as gear destinations: up to two after the winner |
 | Price | 2 | A price was read, including on demand for detail: the price and its net after the cut; then the gain per unit and for the whole holding, and the thresholds. A rejected stale quote and its calculations are marked stale. The lookup does not change the verdict |
 
@@ -780,7 +780,7 @@ Examples, hovered on Chamoomile (proportions, not final wording):
 
 ```
 LootLogic: Zugar (+18% Affliction over Band of Thorns; Boneset +6%)
-  Zugar, Affliction: +18% vs Band of Thorns (worn)
+  Zugar, Affliction: +18% vs Band of Thorns (worn); score 41.2
   Runners-up: Boneset +6% Protection vs Seal Ring (bank seen 4 d ago); Jujuniper +2% Enhancement vs Copper Ring (worn)
 
 LootLogic: AH (12s 30c each, +8s over vendor after the 5% cut; Auctionator, today)

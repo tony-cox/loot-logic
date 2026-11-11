@@ -336,8 +336,64 @@ return {
         h.Equal(result.detail.gear[1].assumed, true, "assumed spec flag")
         h.Equal(result.detail.gear[3].itemLevel, true, "item-level fallback flag")
         local lines = ns.Detail.Lines(result)
+        h.True(string.find(lines[2], "; score 20", 1, true) ~= nil, "score rendered")
         h.True(string.find(lines[2], "(assumed)", 1, true) ~= nil, "assumed label rendered")
         h.True(string.find(lines[4], "(ilvl)", 1, true) ~= nil, "item-level label rendered")
+    end,
+    ["gear lines show the computed score, or zero with the item level"] = function()
+        Boot()
+        local function Entry(candidate)
+            return {
+                key = HERE,
+                loadout = "Test",
+                gainPct = math.huge,
+                upgrade = true,
+                candidate = candidate,
+                itemScore = candidate,
+                candidateLevel = 23,
+                baselineItem = {},
+                baselineWhere = {},
+            }
+        end
+        local function Gear(entry)
+            return ns.Detail.Lines({ line = "LootLogic: Equip", detail = { gear = { entry } } })[2]
+        end
+        h.True(string.find(Gear(Entry(20)), "; score 20", 1, true) ~= nil, "whole score")
+        h.True(string.find(Gear(Entry(12.3456)), "; score 12.35", 1, true) ~= nil, "two places")
+        h.True(string.find(Gear(Entry(12.5)), "; score 12.5", 1, true) ~= nil, "no trailing zero")
+        h.True(
+            string.find(Gear(Entry(0.004)), "; score 0 (ilvl 23)", 1, true) ~= nil,
+            "a score that rounds to zero names the item level"
+        )
+        local assumed = Entry(7)
+        assumed.assumed = true
+        local assumedText = Gear(assumed)
+        h.True(
+            string.find(assumedText, "; score 7", 1, true) ~= nil,
+            "score follows the assumed label"
+        )
+        local banked = Entry(7)
+        banked.baselineWhere = { "bank" }
+        banked.bankAge = 4
+        local bankedText = Gear(banked)
+        local scoreAt = string.find(bankedText, "; score 7", 1, true)
+        local bankAt = string.find(bankedText, "bank", 1, true)
+        h.True(
+            scoreAt ~= nil and bankAt ~= nil and scoreAt < bankAt,
+            "score precedes the bank suffix"
+        )
+        h.True(
+            string.find(Gear(Entry(0)), "; score 0 (ilvl 23)", 1, true) ~= nil,
+            "zero score names the item level"
+        )
+        local fallback = Entry(23)
+        fallback.itemLevel = true
+        h.True(
+            string.find(Gear(fallback), "score", 1, true) == nil,
+            "item-level entry has no score"
+        )
+        local bare = Entry(nil)
+        h.True(string.find(Gear(bare), "score", 1, true) == nil, "no score no segment")
     end,
     ["gearfor detail compares the recipient's loadouts"] = function()
         local here = Boot()

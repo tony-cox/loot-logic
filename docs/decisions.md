@@ -340,6 +340,12 @@ The answers to the six questions of the M1 stage 2 plan (`/ll debug on|off`, `.w
 |---|---|---|---|---|
 | D195 | spec 4, 7.2, 7.5; D26; L60 live check | Can a link-only item whose item data proves it is bind-on-pickup or quest-bound be routed to another character? | **No.** Bind-on-pickup (`bindType` 1) and quest-bound (`bindType` 4) links may still be evaluated as upgrades for the current character and may match this character's own wants, but they never route to another character. This narrows D26's general link-only assumption that a link is treated as tradable. Owner decision from the live check: a BoP quest reward cannot be mailed to another character, so naming other characters as destinations is not useful. Applied to spec 4 and 7.5 and `Engine/Classify.lua`. | 2026-11-06 |
 
+### Gear detail score
+
+| # | Raised in | Question | Answer | Date |
+|---|---|---|---|---|
+| D232 | spec 13; ux 5.4 | Should the detail show the computed score, so items that all read "infinite%" can be compared? | Yes, raised and accepted by the owner on 2026-11-11 during the M1 live checks. Each gear line in Shift detail and `/ll why` carries "; score N" (the item's score under that loadout, two decimals, no trailing zero), or "; score 0 (ilvl N)" when the score is 0, naming the item's item level. A comparison that used item level shows no score (its "(ilvl)" mark says so). The owner also accepted, the same day, that Shift on one of the player's own equipped items (character screen) shows the same detail lines, without the verdict line, so scores can be checked there; with Shift up the tooltip stays unchanged. Applied to spec 13 and ux 5.4. | 2026-11-11 |
+
 ### Spec questions
 
 Answered 2026-10-28; the spec reflects them.

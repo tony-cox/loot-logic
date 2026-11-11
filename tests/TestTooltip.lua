@@ -448,13 +448,16 @@ return {
         h.Stub.FireTooltip(tooltip)
         h.Stub.SetShiftDown(true)
         h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "RSHIFT", 1)
-        h.Equal(#tooltip.lines, 0, "equipped transition does not restore prior item")
+        for _, line in ipairs(tooltip.lines) do
+            h.Equal(string.find(line.text, "LootLogic:", 1, true), nil, "no verdict on worn item")
+        end
         tooltip.info = {
             getterName = "GetHyperlink",
             getterArgs = { second.link },
             hyperlink = second.link,
         }
         h.Stub.SetItemPending(second.itemID, second)
+        tooltip:ClearLines()
         h.Stub.FireTooltip(tooltip)
         h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
         h.Equal(#tooltip.lines, 0, "pending transition remains empty")
@@ -718,6 +721,82 @@ return {
         h.Equal(#characterSlot.lines, 0, "character pane owner")
         h.Equal(#infoMissingOnCharacterPane.lines, 0, "character pane with missing info")
         h.Equal(#comparison.lines, 0, "comparison")
+    end,
+
+    ["worn items show only the Shift detail, never the verdict line"] = function()
+        Boot()
+        local item = Define()
+        Include(item)
+        h.Stub.SetShiftDown(false)
+        local info = {
+            getterName = "GetInventoryItem",
+            getterArgs = { "player", 1 },
+            hyperlink = item.link,
+        }
+        local worn = Tooltip("GameTooltip", info, nil, item.link)
+        h.Equal(#worn.lines, 0, "nothing without Shift")
+        worn.shown = true
+        h.Stub.SetShiftDown(true)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+        local expected = Detail.Lines(API.ClassifyLink(item.link))
+        h.Equal(#worn.lines, #expected - 1, "detail lines without the verdict")
+        h.Equal(worn.lines[1].text, expected[2], "first detail line")
+        h.Stub.SetShiftDown(false)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+        h.Equal(#worn.lines, 0, "release removes the detail")
+    end,
+
+    ["worn item Shift rebuild uses the slot, or the link without info"] = function()
+        Boot()
+        local item = Define()
+        Include(item)
+        h.Stub.SetShiftDown(false)
+        local calls = {}
+        local worn = Tooltip("GameTooltip", {
+            getterName = "GetInventoryItem",
+            getterArgs = { "player", 3 },
+            hyperlink = item.link,
+        }, nil, item.link)
+        worn.shown = true
+        local setInventory = worn.SetInventoryItem
+        worn.SetInventoryItem = function(self, unit, slot)
+            calls[#calls + 1] = { unit, slot }
+            return setInventory(self, unit, slot)
+        end
+        h.Stub.SetShiftDown(true)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+        h.Equal(#calls, 1, "one rebuild")
+        h.Equal(calls[1][1], "player", "unit")
+        h.Equal(calls[1][2], 3, "slot")
+
+        h.Stub.SetShiftDown(false)
+        local owner = h.Stub.MakeTooltip("PaperDollItemsFrameHeadSlot")
+        local pane = Tooltip("GameTooltip", nil, owner, item.link)
+        pane.shown = true
+        pane.SetInventoryItem = function()
+            error("no slot is known for an info-less tooltip")
+        end
+        h.Stub.SetShiftDown(true)
+        h.Stub.FireEvent("MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+        h.Equal(#pane.lines > 0, true, "rebuilt from the link with Shift")
+    end,
+
+    ["worn item detail respects the tooltip setting and character pane owners"] = function()
+        Boot()
+        local item = Define()
+        Include(item)
+        h.Stub.SetShiftDown(true)
+        local owner = h.Stub.MakeTooltip("PaperDollItemsFrameHeadSlot")
+        local pane = Tooltip("GameTooltip", nil, owner, item.link)
+        h.Equal(#pane.lines > 0, true, "character pane shows detail with Shift")
+        local argLink = Tooltip("GameTooltip", {
+            getterName = "GetHyperlink",
+            getterArgs = { item.link },
+        }, owner)
+        h.Equal(#argLink.lines > 0, true, "link only in the getter arguments")
+        LootLogicDB.settings.display.tooltip = false
+        local hidden = Tooltip("GameTooltip", nil, owner, item.link)
+        h.Equal(#hidden.lines, 0, "disabled tooltip shows nothing")
     end,
 
     ["other unit inventory is classified while unknown inventory owner is excluded"] = function()
