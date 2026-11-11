@@ -725,7 +725,7 @@ Pass rules: each automatic check has a pass rule (its Expected column read as a 
 | L28 | Item cache events | Watch for `ITEM_DATA_LOAD_RESULT`, then request an uncached item as part of L58. Pick `<id>` from the candidate list below | nil, then the event within 10 s | `Item:ContinueOnItemLoad` only | auto |
 | L29 | Outfitter global copy | `/dump gOutfitter_GlobalSettings.Characters` after saving an outfit on two characters | Keys "First-Realm" (or the first and last name, if Outfitter changed) with Outfits; each outfit has `Name` and `Items` | Current character only | manual |
 | L30 | ItemRack Universal data (v1.1) | `/dump ItemRackUser.Sets` after saving a set | `equip[slot]` strings | Adjust or skip | manual |
-| L31 | Stack sizes | `/run print(select(8, C_Item.GetItemInfo(2589)), select(8, C_Item.GetItemInfo(2880)))` | 20 and 10 **Part confirmed (team, beta play): Linen Cloth stacks to 20; Weak Flux is not known.** | v2 split rules only | auto |
+| L31 | Stack sizes | `/run print(select(8, C_Item.GetItemInfo(2589)), select(8, C_Item.GetItemInfo(2880)))` | 20 and 10 **Part confirmed (team, beta play): Linen Cloth stacks to 20; Weak Flux is not known.** | v1.2 split rules only | auto |
 | L32 | Data is gone at logout | Known from beta client data; reconfirm with `/ll debug` at logout | Gear empty at `PLAYER_LOGOUT` | n/a | manual |
 | L33 | No warband bank | At a banker: `/run print(C_Bank and C_Bank.CanUseBank and Enum.BankType and C_Bank.CanUseBank(Enum.BankType.Account))` | false or nil (BetterBags says none) | **If true:** add an "account bank" destination, which may beat mailing | auto |
 | L34 | Baganator gets the tooltip line | With Baganator as the bag addon, hover items | The LootLogic line shows | Check tooltip hooks | manual |
