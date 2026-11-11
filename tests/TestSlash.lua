@@ -2132,6 +2132,66 @@ return {
         )
     end,
 
+    ["Slash: why builds the item string by sign of the roll and prints the result"] = function()
+        WhyBoot()
+        for _, id in ipairs({ 199020, 199021, 199022, 199023 }) do
+            WhyItem(id)
+        end
+        local seen = {}
+        local original = C_Item.GetItemInfo
+        rawset(C_Item, "GetItemInfo", function(item, ...)
+            seen[item] = true
+            return original(item, ...)
+        end)
+        ns.Slash.Run("why 199020:12722")
+        h.Equal(#Stub.ChatLines(), 1, "positive roll prints")
+        h.True(
+            string.find(Stub.ChatLines()[1], "nobody wants this", 1, true) ~= nil,
+            "positive roll result"
+        )
+        ns.Slash.Run("why 199021:-17")
+        ns.Slash.Run("why 199022:0")
+        Stub.SetPlayer({
+            first = "Local",
+            last = "Test",
+            realm = "Realm",
+            faction = "Alliance",
+            class = "WARRIOR",
+            level = false,
+        })
+        ns.Slash.Run("why 199023:5")
+        rawset(C_Item, "GetItemInfo", original)
+        h.True(seen["item:199020::::::::60::::1:12722"], "bonus form, level 60")
+        h.True(seen["item:199021:0:0:0:0:0:-17"], "classic form for a negative roll")
+        h.True(seen["item:199022"], "roll 0 is plain")
+        h.True(seen["item:199023::::::::0::::1:5"], "nil level builds 0")
+        h.Equal(
+            ns.Util.InstanceKey("item:199020::::::::60::::1:12722"),
+            "199020:12722",
+            "reads back"
+        )
+    end,
+
+    ["Slash: protect separates two bonus ID rolls of one item from their links"] = function()
+        WhyBoot()
+        WhyItem(14091)
+        local bear = "|Hitem:14091::::::::13:1489:::1:12722::::::|h[Beaded Robe of the Bear]|h"
+        local falcon = "|Hitem:14091::::::::13:1489:::1:12724::::::|h[Beaded Robe of the Falcon]|h"
+        local entry = LootLogicDB.characters["Local Test-Realm"]
+        ns.Slash.Run("protect " .. bear)
+        h.Equal(entry.protect["14091:12722"], true, "Bear stored")
+        h.Nil(entry.protect["14091:12724"], "Falcon not stored")
+        ns.Slash.Run("protect " .. falcon)
+        h.Equal(entry.protect["14091:12724"], true, "Falcon stored")
+        ns.Slash.Run("protect " .. bear)
+        h.Nil(entry.protect["14091:12722"], "Bear removed")
+        h.Equal(entry.protect["14091:12724"], true, "Falcon kept")
+        ns.Slash.Run("protect 14091")
+        h.Equal(entry.protect["14091"], true, "plain ID covers every roll")
+        ns.Slash.Run("protect " .. bear)
+        h.Nil(entry.protect["14091:12722"], "a roll toggle leaves the plain ID alone")
+    end,
+
     ["Slash: why rejects extra text and reports missing IDs and hover"] = function()
         WhyBoot()
         WhyItem(199003)
