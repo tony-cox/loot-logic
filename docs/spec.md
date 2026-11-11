@@ -13,7 +13,7 @@ description: "LootLogic: specification for a shared, standalone WoW Forever addo
 - `docs/technical-findings.md`: the Forever API findings, other addons, file layout, events, tests and live checks behind this spec. Its section numbers match this spec, and each finding carries its confidence label.
 - `docs/decisions.md`: the decision log.
 
-**This spec describes version 1 as the product.** It says what LootLogic needs and what it does with it. Where the game or another addon supplies a fact, and the call that reads it, is never in this spec: it is in technical findings, under the same section number. Changes planned for versions 1.1 and 2 are in sections 22 and 23, each pointing back to the sections it changes.
+**This spec describes version 1 as the product.** It says what LootLogic needs and what it does with it. Where the game or another addon supplies a fact, and the call that reads it, is never in this spec: it is in technical findings, under the same section number. Changes planned for versions 1.1 and 1.2 are in sections 22 and 23, each pointing back to the sections it changes.
 
 **Confidence labels used throughout:**
 - **confirmed:** seen working on a Forever client, either by a team member or in beta saved data the client wrote.
@@ -40,6 +40,7 @@ description: "LootLogic: specification for a shared, standalone WoW Forever addo
 | AH rule | AH cut %, minimum copper gain and minimum % gain are all settings (defaults 5%, 1s, 10%), combined with AND. The copper floor applies to the whole holding; the % floor applies per unit. |
 | Bags | **BetterBags first** (real category API, Forever build). Then Bagnon/Bagnonium rules, the ArkInventory rule function, the EllesmereUI overlay, and the default-bag overlay with the tooltip fallback. **Baganator is deferred** until it has a writable category API (an upstream request); meanwhile it gets the tooltip line only. |
 | Recipes | A live "Already known" check for the current character. Without stored knowledge of the other characters, unknown counts as wanted. |
+| Versioning | Semantic versioning, tagged `vMAJOR.MINOR.PATCH`. Before the first public release: `0.x.0`, one minor per milestone (M1 is `0.1.0`); Publish is `1.0.0`. The later-version sections (22, 23) are minors: 1.1 and 1.2. A major bump is only for a break in the saved data or in what the addon does. Details in section 19. |
 
 ---
 
@@ -1030,7 +1031,15 @@ The checks to run in the first sessions after 2026-11-05 are in `docs/technical-
 | **M4: Weights complete** | Weights for every spec in `Data/Specs.lua` (section 8.2), each with its source (the sim commit and inputs of a computed table, or team judgement) and a confidence label; the tables reviewed by the team | Before publish | L48 confirms the tree names. Every spec has its own table; no spec borrows another spec's table; the team has reviewed each table's source |
 | **Publish** | README, CurseForge project (name clear as of 2026-10-28) | When the team decides | |
 
-Later versions are in sections 22 (version 1.1) and 23 (version 2).
+### Versioning
+
+- **Scheme:** `MAJOR.MINOR.PATCH`. The git tag is `v` plus the version (`v0.1.0`), and the packager writes it into the TOC `## Version` line (`@project-version@`).
+- **Before release:** `0.x.0`. M1 is `0.1.0`; each later milestone takes the next minor; M0 is never tagged. Publish is `1.0.0`.
+- **After release:** a minor version adds features and needs no breaking change (version 1.1 is `1.1.0`, version 1.2 is `1.2.0`). A patch is a bug fix, a data refresh (for example a re-run of the sim weights) or a new `## Interface` number, with no change in behaviour. A major version is reserved for a change that breaks the saved data or what the addon does; nothing planned needs one.
+- **Schema:** `LootLogicDB.schema` is its own integer, not tied to the version. Several releases can share one schema.
+- **Tags:** a tag is made only for a build that is published or handed to a tester. Untagged commits are never released. Pre-release tags use `-alpha` and `-beta` suffixes (`v0.2.0-beta1`).
+
+Later versions are in sections 22 (version 1.1) and 23 (version 1.2).
 
 **Rough size:**
 - Engine and data: about 1,600 lines.
@@ -1115,9 +1124,9 @@ Version 1.1 follows once version 1 is trusted. Every item below changes a sectio
 
 ---
 
-## 23. Version 2 and further possible additions
+## 23. Version 1.2 and further possible additions
 
-Version 2 follows version 1.1. The first two items change the data model: `asks` gains `caps = { ["7:8"] = 200 }` and `priority = { ["7:8"] = { key, key } }` beside `types` and `items`, and no migration is needed. The rest are possible additions, in no fixed order and not scheduled.
+Version 1.2 follows version 1.1. The first two items change the data model: `asks` gains `caps = { ["7:8"] = 200 }` and `priority = { ["7:8"] = { key, key } }` beside `types` and `items`, and no migration is needed. The rest are possible additions, in no fixed order and not scheduled.
 
 - **Quantity caps** (sections 6, 7.5, 20): whole stacks, amounts that leave a character rounded to whole stacks, with an in-session ledger that subtracts what has already been mailed or sold so the next stack is not mislabelled.
 - **Per-want (per item type) priority** (sections 6, 7.3), so that two wanters can share once caps exist.

@@ -22,6 +22,12 @@ The reviews that produced D16 to D29, D39 to D55, D56 to D75, D89 and D90 are th
 
 ## Answered decisions
 
+### Versioning policy
+
+| # | Where | Question | Answer | Date |
+|---|---|---|---|---|
+| D233 | spec 1, 19, 23 | What versioning scheme should the addon use, and what do the later-version sections become? | **Semantic versioning (`MAJOR.MINOR.PATCH`), not CalVer.** Releases are driven by features and the game build, not the calendar. Before the first public release the version is `0.x.0`: M1 is `0.1.0`, each later milestone takes the next minor, and Publish is `1.0.0`. After that, "version 1.1" is `1.1.0` and "version 2" is renamed "version 1.2" (`1.2.0`), because nothing in it needs a breaking change; a major bump is reserved for a break in the saved data or in what the addon does. A patch is a fix or a data refresh with no behaviour change; a new Interface number is a patch. The schema number in `LootLogicDB` stays a separate integer. A tag is made only for a build that is published or handed to a tester, never per commit. Applied to spec 1, 19 and 23. | 2026-11-11 |
+
 ### Command listings
 
 | # | Where | Question | Answer | Date |

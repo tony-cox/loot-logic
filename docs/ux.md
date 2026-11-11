@@ -751,7 +751,7 @@ Two side effects to expect:
 | Can | Cannot |
 |---|---|
 | Sort every item and show it in sections, badges, tooltips and the Contents tab | Sell, list, mail, attach, split, delete or move any item |
-| Total vendor value and estimated AH value per category | Choose quantities (flags only until v2) |
+| Total vendor value and estimated AH value per category | Choose quantities (flags only until v1.2) |
 | List each character's items | Confirm a mail arrived until the recipient opens its mailbox |
 | Record wants and Protect entries | Fill the mail recipient or open any frame |
 | Record mail sent to roster characters as inbound | Know about play on another PC or with LootLogic off |
