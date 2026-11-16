@@ -538,9 +538,9 @@ return {
         local candidate = Item({ itemLevel = 20 })
         entry.bags = { gear = { best.link, higher.link } }
         local result = Compare(candidate)
-        h.Equal(result.baseline, 10, "same score baseline piece")
-        h.Equal(result.gainPct, 100, "item level percentage")
-        h.Equal(result.itemLevel, true, "label item level")
+        h.Equal(result.itemLevel, false, "a scored owned piece blocks item level")
+        h.Equal(result.upgrade, false, "unweighted is no upgrade over a scored piece")
+        h.Equal(result.baselineItem.link, best.link, "the scored piece is the baseline")
         entry.bags.gear = { higher.link }
         ns.Generations.Bump("gearOthers")
         result = Compare(candidate)
@@ -564,13 +564,13 @@ return {
             entry.bags = { gear = { order[1].link, order[2].link } }
             ns.Generations.Bump("gearOthers")
             local result = Compare(candidate)
-            h.Equal(result.baseline, 40, "higher level wins the tie")
-            h.Equal(result.upgrade, false, "level 20 is no upgrade over level 40")
+            h.Equal(result.baselineItem.link, high.link, "higher level wins the tie")
+            h.Equal(result.upgrade, false, "unweighted is no upgrade over a scored tie")
         end
         local same = Item({ itemLevel = 40, stats = stats })
         entry.bags = { gear = { low.link, high.link, same.link } }
         ns.Generations.Bump("gearOthers")
-        h.Equal(Compare(candidate).baseline, 40, "runner-up keeps the higher level")
+        h.Equal(Compare(candidate).upgrade, false, "runner-up keeps the score baseline")
         LootLogicDB.settings.gear.itemLevelFallback = false
         ns.Generations.Bump("settings")
         entry.bags = { gear = { low.link, high.link } }

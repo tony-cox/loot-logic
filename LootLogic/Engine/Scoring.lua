@@ -558,7 +558,8 @@ end
 -- @param loadout table scored loadout
 -- @param options table group, optional excludeLink and evaluatedLevel;
 --   evaluatedLevel defaults to current level for direct baseline callers
--- @treturn table score, item, where, itemLevel, highestItem, highestWhere;
+-- @treturn table score, topScore (best single piece's score above 0, else 0),
+--   item, where, itemLevel, highestItem, highestWhere;
 --   pending = true while an owned piece's usability is unreadable or its
 --     item data is still loading (within 10 s of its first request)
 function Scoring.Baseline(key, loadout, options)
@@ -581,7 +582,7 @@ function Scoring.Baseline(key, loadout, options)
         cached = { stamp = stamp, result = result }
         baselines[cacheKey] = cached
     end
-    local result = { score = 0, itemLevel = 0 }
+    local result = { score = 0, topScore = 0, itemLevel = 0 }
     local excludeLink
     if Roster.IsHere(key) then
         excludeLink = options.excludeLink
@@ -611,6 +612,9 @@ function Scoring.Baseline(key, loadout, options)
                 break
             end
         end
+    end
+    if top and top.score > 0 then
+        result.topScore = top.score
     end
     if best and best.score >= 0 and (best.score > 0 or (count == 2 and top and top.score > 0)) then
         result.score = best.score
@@ -1222,7 +1226,12 @@ local function CompareWeapon(item, options, hand, pool, train)
         baseline, reference = pool.offScore, pool.off
     end
     local settings = DB.Data().settings.gear
-    local itemLevel = not weighted and settings.itemLevelFallback
+    -- Item level replaces the score only when no owned piece in the
+    -- comparison scores above 0 (spec 8.4, D234).
+    local itemLevel = not weighted
+        and settings.itemLevelFallback
+        and pool.pairScore == 0
+        and pool.twoScore == 0
     if itemLevel then
         pair = nil
         if not reference then
@@ -1385,7 +1394,10 @@ function Scoring.Compare(item, key, options)
     local baselineWhere = baseline.where
     local itemLevel = false
     local settings = DB.Data().settings.gear
-    if not weighted and settings.itemLevelFallback then
+    -- Item level replaces the score only when no owned piece in the
+    -- comparison scores above 0 (spec 8.4, D234); a ring or trinket set
+    -- counts its better piece too.
+    if not weighted and settings.itemLevelFallback and value == 0 and baseline.topScore == 0 then
         itemLevel = true
         candidate = item.itemLevel
         if not baselineItem then
