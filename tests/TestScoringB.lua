@@ -272,17 +272,94 @@ return {
             h.Equal(result.upgrade, false, equipLoc .. " is not an upgrade")
         end
     end,
-    ["an unweighted ring is no upgrade over a scored pair with a zero-scoring member"] = function()
+    ["ring fallback uses the zero-scoring member of a positive-score pair"] = function()
         local entry = Boot()
         local positive = Item({ itemLevel = 10, stats = { ITEM_MOD_AGILITY_SHORT = 20 } })
         local zero = Item({ itemLevel = 50 })
-        local candidate = Item({ itemLevel = 90 })
+        local candidate = Item({ itemLevel = 40 })
         entry.bags = { gear = { positive.link, zero.link } }
         LootLogicDB.settings.gear.itemLevelFallback = true
         local result = ns.Scoring.Compare(candidate, "druid", { loadout = entry.loadouts[2] })
-        h.Equal(result.itemLevel, false, "scored ring blocks item level")
-        h.Equal(result.upgrade, false, "unweighted is not an upgrade")
-        h.Equal(result.baseline, 0, "zero-scoring ring is the weaker member")
+        h.Equal(result.itemLevel, true, "fallback")
+        h.Equal(result.baseline, 50, "zero-scoring ring is the weaker score member")
+        h.Equal(result.upgrade, false, "item level is lower")
+    end,
+    ["an unweighted ring with a scored ring and an empty slot is an upgrade"] = function()
+        local entry = Boot()
+        local scored = Item({ itemLevel = 10, stats = { ITEM_MOD_AGILITY_SHORT = 20 } })
+        entry.bags = { gear = { scored.link } }
+        LootLogicDB.settings.gear.itemLevelFallback = true
+        local result =
+            ns.Scoring.Compare(Item({ itemLevel = 40 }), "druid", { loadout = entry.loadouts[2] })
+        h.Equal(result.itemLevel, true, "item level")
+        h.Equal(result.upgrade, true, "empty second slot")
+        h.Equal(result.gainPct, math.huge, "infinite gain")
+    end,
+    ["an unweighted ring with two scored rings is no upgrade"] = function()
+        local entry = Boot()
+        local one = Item({ itemLevel = 10, stats = { ITEM_MOD_AGILITY_SHORT = 20 } })
+        local two = Item({ itemLevel = 10, stats = { ITEM_MOD_AGILITY_SHORT = 30 } })
+        entry.bags = { gear = { one.link, two.link } }
+        LootLogicDB.settings.gear.itemLevelFallback = true
+        local result =
+            ns.Scoring.Compare(Item({ itemLevel = 90 }), "druid", { loadout = entry.loadouts[2] })
+        h.Equal(result.itemLevel, false, "scored rings block item level")
+        h.Equal(result.upgrade, false, "not an upgrade")
+    end,
+    ["an unweighted off hand into an empty slot beside a scored main is an upgrade"] = function()
+        local entry = Boot()
+        entry.class = "ROGUE"
+        entry.proficiency.spells[674] = true
+        local main = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONMAINHAND",
+            itemLevel = 20,
+            stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10 },
+        })
+        local candidate = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONOFFHAND",
+            itemLevel = 30,
+        })
+        entry.bags = { gear = { main.link } }
+        LootLogicDB.settings.gear.itemLevelFallback = true
+        local result = ns.Scoring.Compare(candidate, "druid", { loadout = entry.loadouts[2] })
+        h.Equal(result.itemLevel, true, "item level")
+        h.Equal(result.upgrade, true, "empty off hand")
+        h.Equal(result.gainPct, math.huge, "infinite gain")
+    end,
+    ["an unweighted off hand is no upgrade over a scored owned off hand"] = function()
+        local entry = Boot()
+        entry.class = "ROGUE"
+        entry.proficiency.spells[674] = true
+        local stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 10 }
+        local main = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONMAINHAND",
+            itemLevel = 20,
+            stats = stats,
+        })
+        local off = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONOFFHAND",
+            itemLevel = 20,
+            stats = stats,
+        })
+        local candidate = Item({
+            classID = 2,
+            subclassID = 15,
+            equipLoc = "INVTYPE_WEAPONOFFHAND",
+            itemLevel = 90,
+        })
+        entry.bags = { gear = { main.link, off.link } }
+        LootLogicDB.settings.gear.itemLevelFallback = true
+        local result = ns.Scoring.Compare(candidate, "druid", { loadout = entry.loadouts[2] })
+        h.Equal(result.itemLevel, false, "scored off hand blocks item level")
+        h.Equal(result.upgrade, false, "not an upgrade")
     end,
     ["an unweighted wand is no upgrade over a scored wand"] = function()
         local entry = Boot()
