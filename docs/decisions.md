@@ -346,6 +346,12 @@ The answers to the six questions of the M1 stage 2 plan (`/ll debug on|off`, `.w
 |---|---|---|---|---|
 | D232 | spec 13; ux 5.4 | Should the detail show the computed score, so items that all read "infinite%" can be compared? | Yes, raised and accepted by the owner on 2026-11-11 during the M1 live checks. Each gear line in Shift detail and `/ll why` carries "; score N" (the item's score under that loadout, two decimals, no trailing zero), or "; score 0 (ilvl N)" when the score is 0, naming the item's item level. A comparison that used item level shows no score (its "(ilvl)" mark says so). The owner also accepted, the same day, that Shift on one of the player's own equipped items (character screen) shows the same detail lines, without the verdict line, so scores can be checked there; with Shift up the tooltip stays unchanged. Applied to spec 13 and ux 5.4. | 2026-11-11 |
 
+### Item level fallback
+
+| # | Raised in | Question | Answer | Date |
+|---|---|---|---|---|
+| D234 | spec 8.4 | Should the item level fallback apply to an item with none of the weighted stats when the owned piece it is compared with has a score above 0? Raised from a live bug report (Zugar's two wands, 2026-11-16): the unscored Blazing Wand (ilvl 17) showed "+13.3% ... (ilvl)" over the scored Lesser Magic Wand (ilvl 15), while Lesser Magic Wand showed "+inf" over Blazing Wand. | No. Item level replaces the score only when no piece the item would replace in the slot being filled scores above 0; a scored piece in another slot of the group (the other ring, trinket or hand) does not count, so an empty slot still gives an infinite gain. An item with none of the weighted stats scores 0, so against a scored piece it is not an upgrade, whatever the item levels. Two unscored pieces still compare by item level. Accepted by the owner on 2026-11-16. Applied to spec 8.4. | 2026-11-16 |
+
 ### Spec questions
 
 Answered 2026-10-28; the spec reflects them.

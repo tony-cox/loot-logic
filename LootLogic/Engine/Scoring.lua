@@ -1222,7 +1222,11 @@ local function CompareWeapon(item, options, hand, pool, train)
         baseline, reference = pool.offScore, pool.off
     end
     local settings = DB.Data().settings.gear
-    local itemLevel = not weighted and settings.itemLevelFallback
+    -- Item level replaces the score only when no piece this candidate would
+    -- replace scores above 0 (spec 8.4, D234); a scored piece in the other
+    -- hand does not block it. The baseline above is that replaced piece, or
+    -- the two-hand or pair it replaces.
+    local itemLevel = not weighted and settings.itemLevelFallback and baseline == 0
     if itemLevel then
         pair = nil
         if not reference then
@@ -1385,7 +1389,11 @@ function Scoring.Compare(item, key, options)
     local baselineWhere = baseline.where
     local itemLevel = false
     local settings = DB.Data().settings.gear
-    if not weighted and settings.itemLevelFallback then
+    -- Item level replaces the score only when no piece this candidate would
+    -- replace scores above 0 (spec 8.4, D234). For a ring or trinket that is
+    -- the weaker of the two, so a scored piece in the other slot does not
+    -- block it.
+    if not weighted and settings.itemLevelFallback and value == 0 then
         itemLevel = true
         candidate = item.itemLevel
         if not baselineItem then
