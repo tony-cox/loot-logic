@@ -31,9 +31,55 @@ local function JoinName(first, last)
     return first .. " " .. last
 end
 
--- The first name, the last name and the key of the current character, read
--- from the client. Confirmed (team, beta play, 2026-10-31): UnitName returns
--- two names (live check L2).
+-- The saved region of a character with these names, or nil.
+local function SavedRegion(first, last)
+    for _, key in ipairs(DB.Data().order) do
+        local entry = DB.Data().characters[key]
+        if
+            type(entry) == "table"
+            and entry.first == first
+            and entry.last == last
+            and type(entry.region) == "string"
+            and entry.region ~= ""
+        then
+            return entry.region
+        end
+    end
+    return nil
+end
+
+-- The region of the current character: GetRealmName, else the normalised
+-- realm name (no spaces or hyphens) mapped back to the saved region it
+-- abbreviates, so the key stays the one already saved (nil when no saved
+-- region fits), else the saved region of the character with these names; nil
+-- when none gives one. GetRealmName
+-- answered "" at login in a live session, which made a second entry with no
+-- region and left every other character ineligible. Unverified: the
+-- normalised form on Forever (live check L53).
+local function ReadRegion(first, last)
+    local realm = GetRealmName()
+    if type(realm) == "string" and realm ~= "" then
+        return realm
+    end
+    local normalized = GetNormalizedRealmName and GetNormalizedRealmName()
+    if type(normalized) == "string" and normalized ~= "" then
+        for _, entry in pairs(DB.Data().characters) do
+            local region = type(entry) == "table" and entry.region
+            if type(region) == "string" and (region:gsub("[%s%-]", "")) == normalized then
+                return region
+            end
+        end
+        -- The normalised form is not a region: using it would give the
+        -- character a second key once GetRealmName answers.
+        return nil
+    end
+    return SavedRegion(first, last)
+end
+
+-- The first name, the last name, the key and the region of the current
+-- character, read from the client; nil when the client gives no name or no
+-- region. Confirmed (team, beta play, 2026-10-31): UnitName returns two names
+-- (live check L2).
 local function ReadHere()
     local first, last = UnitName("player")
     if not first or not last then
@@ -41,7 +87,11 @@ local function ReadHere()
     end
     -- Unverified: GetRealmName returns the region on Forever (live check L3;
     -- fallback: rework eligibility).
-    return first, last, first .. " " .. last .. "-" .. GetRealmName()
+    local region = ReadRegion(first, last)
+    if not region then
+        return nil
+    end
+    return first, last, first .. " " .. last .. "-" .. region, region
 end
 
 -- True for a saved entry that has a first name, the minimum the roster needs.
@@ -168,12 +218,12 @@ end
 
 -- Creates or refreshes the current character's entry at PLAYER_LOGIN.
 local function Register()
-    local first, last, key = ReadHere()
+    local first, last, key, region = ReadHere()
     if not key then
         return
     end
     hereKey = key
-    hereRegion = GetRealmName()
+    hereRegion = region
     hereFaction = UnitFactionGroup("player")
     if DB.IsReadOnly() then
         return
@@ -287,7 +337,7 @@ function Roster.IsEligible(key)
     if not entry or key == Roster.HereKey() then
         return false
     end
-    local region = hereRegion or GetRealmName()
+    local region = hereRegion or ReadRegion(UnitName("player"))
     local faction = hereFaction or UnitFactionGroup("player")
     return entry.faction == faction and entry.region == region
 end
@@ -482,6 +532,13 @@ end
 -- The first Model handler of PLAYER_LOGIN (Loadouts.lua loads after this file,
 -- and both load before Prices.lua, whose handler may need the entry).
 Events.Register("PLAYER_LOGIN", Register)
+
+-- A retry when login found no realm name yet: nothing was registered then.
+Events.Register("PLAYER_ENTERING_WORLD", function()
+    if not hereKey then
+        Register()
+    end
+end)
 
 -- Only lastSeen is written here: the client has already cleared other data
 -- (confirmed in beta data; live check L32).
