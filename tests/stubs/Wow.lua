@@ -12,9 +12,9 @@ Setters of h.Stub (keep this list in step with the code below):
   SetAddOnMetadata(addon, field, value)
                           value C_AddOns.GetAddOnMetadata returns for an addon
   SetPlayer(fields)       change the current character; fields (all optional):
-                          first, last, realm, faction, factionName, class
-                          (token), className, race (name), raceToken, raceID,
-                          level, version, build
+                          first, last, realm, normalizedRealm, faction,
+                          factionName, class (token), className, race (name),
+                          raceToken, raceID, level, version, build
   SetUnknownEvents(names) event names RegisterEvent raises for (a name the
                           client does not know; API guess)
   MakeSecret()            a new token that issecretvalue reports as true
@@ -661,6 +661,11 @@ end
 
 function GetRealmName()
     return player.realm
+end
+
+-- The realm name without spaces or hyphens; from memory; live check L53.
+function GetNormalizedRealmName()
+    return player.normalizedRealm
 end
 
 function UnitFactionGroup(unit)

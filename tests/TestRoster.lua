@@ -35,6 +35,76 @@ return {
         h.Equal(Roster.HereKey(), HERE, "key")
     end,
 
+    ["Roster: an empty realm name with no saved region to map to registers nothing"] = function()
+        h.Stub.SetPlayer({ realm = "", normalizedRealm = "CampRealm" })
+        Boot()
+        Login()
+        h.Nil(Roster.HereKey(), "key")
+        h.DeepEqual(LootLogicDB.order, {}, "order")
+    end,
+
+    ["Roster: the normalised realm maps back to the saved region"] = function()
+        h.Stub.SetPlayer({ realm = "", normalizedRealm = "CampRealm1" })
+        Boot()
+        local other = AddCharacter("Aa", "One", "Horde", "Camp Realm 1")
+        local saved = AddCharacter("Zugar", "Soulsour", "Horde", "Camp Realm 1")
+        Login()
+        h.Equal(Roster.HereKey(), saved, "key keeps the saved region")
+        h.DeepEqual(LootLogicDB.order, { other, saved }, "no second entry")
+        h.DeepEqual(Roster.EligibleKeys(), { other }, "others stay eligible")
+    end,
+
+    ["Roster: with no realm name at all the saved region of the same names is used"] = function()
+        h.Stub.SetPlayer({ realm = "", normalizedRealm = false })
+        Boot()
+        local other = AddCharacter("Aa", "One", "Horde", "Camp Realm 1")
+        local saved = AddCharacter("Zugar", "Soulsour", "Horde", "Camp Realm 1")
+        Login()
+        h.Equal(Roster.HereKey(), saved, "key keeps the saved region")
+        h.DeepEqual(Roster.EligibleKeys(), { other }, "others stay eligible")
+    end,
+
+    ["Roster: no realm name at login registers at PLAYER_ENTERING_WORLD"] = function()
+        h.Stub.SetPlayer({ realm = "", normalizedRealm = false })
+        Boot()
+        Login()
+        h.Nil(Roster.HereKey(), "key at login")
+        h.DeepEqual(LootLogicDB.order, {}, "nothing registered")
+        h.Stub.SetPlayer({ realm = "Region" })
+        h.Stub.FireEvent("PLAYER_ENTERING_WORLD")
+        h.Equal(Roster.HereKey(), HERE, "key after entering the world")
+        h.DeepEqual(LootLogicDB.order, { HERE }, "registered once")
+    end,
+
+    ["Roster: the late registration at PLAYER_ENTERING_WORLD adds a default loadout"] = function()
+        h.Stub.SetPlayer({ realm = "", normalizedRealm = false })
+        Boot()
+        Login()
+        h.Stub.SetPlayer({ realm = "Region" })
+        h.Stub.FireEvent("PLAYER_ENTERING_WORLD")
+        h.Equal(#LootLogicDB.characters[HERE].loadouts, 1, "default loadout")
+    end,
+
+    ["Roster: a second PLAYER_ENTERING_WORLD registers nothing more"] = function()
+        h.Stub.SetPlayer({ realm = "", normalizedRealm = false })
+        Boot()
+        Login()
+        h.Stub.SetPlayer({ realm = "Region" })
+        h.Stub.FireEvent("PLAYER_ENTERING_WORLD")
+        h.Stub.SetPlayer({ realm = "Other" })
+        h.Stub.FireEvent("PLAYER_ENTERING_WORLD")
+        h.Equal(Roster.HereKey(), HERE, "key")
+        h.DeepEqual(LootLogicDB.order, { HERE }, "order")
+    end,
+
+    ["Roster: the retry while the region is still empty registers nothing"] = function()
+        h.Stub.SetPlayer({ realm = "", normalizedRealm = false })
+        Boot()
+        Login()
+        h.Stub.FireEvent("PLAYER_ENTERING_WORLD")
+        h.Nil(Roster.HereKey(), "key")
+    end,
+
     ["Roster: the key is nil when the game gives no name"] = function()
         h.Stub.SetPlayer({ first = false, last = false })
         Boot()
