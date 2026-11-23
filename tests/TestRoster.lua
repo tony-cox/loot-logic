@@ -105,6 +105,47 @@ return {
         h.Nil(Roster.HereKey(), "key")
     end,
 
+    ["Roster: an unmatched normalised realm uses the saved region of the same names"] = function()
+        h.Stub.SetPlayer({ realm = "", normalizedRealm = "Unmatched" })
+        Boot()
+        local saved = AddCharacter("Zugar", "Soulsour", "Horde", "Camp Realm 1")
+        Login()
+        h.Equal(Roster.HereKey(), saved, "key")
+    end,
+
+    ["Roster: the same names in two regions register nothing without a realm"] = function()
+        h.Stub.SetPlayer({ realm = "", normalizedRealm = false })
+        Boot()
+        AddCharacter("Zugar", "Soulsour", "Horde", "Camp Realm 1")
+        AddCharacter("Zugar", "Soulsour", "Horde", "Camp Realm 2")
+        Login()
+        h.Nil(Roster.HereKey(), "key")
+    end,
+
+    ["Roster: RegisterNow keeps the region from login when the realm name is empty"] = function()
+        Boot()
+        Login()
+        h.Stub.SetPlayer({ realm = "", normalizedRealm = false })
+        LootLogicDB.characters[HERE].region = nil
+        Roster.RegisterNow()
+        h.Equal(LootLogicDB.characters[HERE].region, "Region", "region")
+    end,
+
+    ["Roster: a late registration runs the handlers added with OnLateRegister once"] = function()
+        h.Stub.SetPlayer({ realm = "", normalizedRealm = false })
+        Boot()
+        local calls = 0
+        Roster.OnLateRegister(function()
+            calls = calls + 1
+        end)
+        Login()
+        h.Equal(calls, 0, "none at login")
+        h.Stub.SetPlayer({ realm = "Region" })
+        h.Stub.FireEvent("PLAYER_ENTERING_WORLD")
+        h.Stub.FireEvent("PLAYER_ENTERING_WORLD")
+        h.Equal(calls, 1, "once")
+    end,
+
     ["Roster: the key is nil when the game gives no name"] = function()
         h.Stub.SetPlayer({ first = false, last = false })
         Boot()

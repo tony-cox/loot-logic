@@ -14,6 +14,7 @@ local DB = ns.DB
 local Events = ns.Events
 local Generations = ns.Generations
 local Init = ns.Init
+local Log = ns.Log
 
 local addedThisSession = {}
 
@@ -31,8 +32,10 @@ local function JoinName(first, last)
     return first .. " " .. last
 end
 
--- The saved region of a character with these names, or nil.
+-- The saved region of the characters with these names, or nil when none has
+-- one or they disagree.
 local function SavedRegion(first, last)
+    local region
     for _, key in ipairs(DB.Data().order) do
         local entry = DB.Data().characters[key]
         if
@@ -42,20 +45,23 @@ local function SavedRegion(first, last)
             and type(entry.region) == "string"
             and entry.region ~= ""
         then
-            return entry.region
+            if region and region ~= entry.region then
+                return nil
+            end
+            region = entry.region
         end
     end
-    return nil
+    return region
 end
 
 -- The region of the current character: GetRealmName, else the normalised
 -- realm name (no spaces or hyphens) mapped back to the saved region it
--- abbreviates, so the key stays the one already saved (nil when no saved
--- region fits), else the saved region of the character with these names; nil
--- when none gives one. GetRealmName
--- answered "" at login in a live session, which made a second entry with no
--- region and left every other character ineligible. Unverified: the
--- normalised form on Forever (live check L53).
+-- abbreviates, so the key stays the one already saved, else the region kept
+-- from login, else the saved region of the characters with these names (when
+-- they agree); nil when none gives one. GetRealmName answered "" at login in
+-- a live session, which made a second entry with no region and left every
+-- other character ineligible. Unverified: the normalised form on Forever
+-- (live check L53).
 local function ReadRegion(first, last)
     local realm = GetRealmName()
     if type(realm) == "string" and realm ~= "" then
@@ -71,7 +77,10 @@ local function ReadRegion(first, last)
         end
         -- The normalised form is not a region: using it would give the
         -- character a second key once GetRealmName answers.
-        return nil
+    end
+    -- The region kept from login (a reset of all data clears the saved ones).
+    if hereRegion then
+        return hereRegion
     end
     return SavedRegion(first, last)
 end
@@ -533,10 +542,26 @@ end
 -- and both load before Prices.lua, whose handler may need the entry).
 Events.Register("PLAYER_LOGIN", Register)
 
+local lateHandlers = {}
+
+--- Adds a handler for the login work that needs the roster entry, run once
+--- when the entry is made after PLAYER_LOGIN because the client gave no region
+--- at login. Handlers run in the order added.
+-- @param handler function
+function Roster.OnLateRegister(handler)
+    lateHandlers[#lateHandlers + 1] = handler
+end
+
 -- A retry when login found no realm name yet: nothing was registered then.
 Events.Register("PLAYER_ENTERING_WORLD", function()
-    if not hereKey then
-        Register()
+    if hereKey then
+        return
+    end
+    Register()
+    if hereKey then
+        for _, handler in ipairs(lateHandlers) do
+            Log.Guard("events", handler)
+        end
     end
 end)
 

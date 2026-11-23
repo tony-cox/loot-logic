@@ -447,6 +447,9 @@ Events.Register("PLAYER_ENTERING_WORLD", function(_, isInitialLogin, isReloading
     end
 end)
 
+-- A roster entry made late missed the snapshot above (Roster.OnLateRegister).
+Roster.OnLateRegister(takeAllLater)
+
 Events.Register("PLAYER_EQUIPMENT_CHANGED", Snapshot.TakeGear)
 Events.Register("SPELLS_CHANGED", Snapshot.TakeGear)
 

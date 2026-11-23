@@ -1169,6 +1169,11 @@ Events.Register("PLAYER_ENTERING_WORLD", function(_, isInitialLogin, isReloading
     end
 end)
 
+-- A roster entry made late missed the classification above
+-- (Roster.OnLateRegister); registered after the snapshot's, so it runs
+-- after it.
+Roster.OnLateRegister(passLater)
+
 Events.Register("BANKFRAME_OPENED", function()
     Classify.Pass("bank")
 end)

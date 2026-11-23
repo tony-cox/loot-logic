@@ -246,8 +246,8 @@ end
 
 -- After the roster entry (Roster.lua loads first, so its handler runs first):
 -- a character with no loadout gets the default one. It runs again at
--- PLAYER_ENTERING_WORLD, for a roster entry made late (Roster.lua); a second
--- run changes nothing.
+-- a roster entry made late (Roster.OnLateRegister); a second run changes
+-- nothing.
 local function EnsureDefault()
     if DB.IsReadOnly() then
         return
@@ -284,4 +284,4 @@ local function EnsureDefault()
 end
 
 Events.Register("PLAYER_LOGIN", EnsureDefault)
-Events.Register("PLAYER_ENTERING_WORLD", EnsureDefault)
+Roster.OnLateRegister(EnsureDefault)

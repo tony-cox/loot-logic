@@ -512,6 +512,13 @@ end)
 
 -- EQUIPMENT_SETS_CHANGED is from memory (consistent with EUI and Baganator
 -- use; live check L1).
+-- The login work again for a roster entry made late (Roster.OnLateRegister).
+Roster.OnLateRegister(function()
+    Sets.RefreshEquipmentSets(true)
+    HookOutfitter()
+    Sets.RefreshOutfitter()
+end)
+
 Events.Register("EQUIPMENT_SETS_CHANGED", function()
     Sets.RefreshEquipmentSets()
 end)
